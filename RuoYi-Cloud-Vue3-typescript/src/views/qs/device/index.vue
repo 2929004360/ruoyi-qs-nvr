@@ -165,7 +165,7 @@
     <!-- 添加或修改视频监控设备对话框 -->
     <el-dialog :title="title" v-model="open" width="600px" append-to-body>
       <el-form ref="deviceRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="直播流接入类型" prop="type">
+        <el-form-item label="直播流接入类型" prop="type" @change="liveStreamChange">
           <el-select v-model="form.type" placeholder="请选择直播流接入类型">
             <el-option
                 v-for="dict in live_stream_type"
@@ -178,16 +178,12 @@
         <el-form-item label="设备名称" prop="deviceName">
           <el-input v-model="form.deviceName" placeholder="请输入设备名称"/>
         </el-form-item>
-        <!--        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type">-->
-        <!--          <el-input v-model="form.ipAddress" placeholder="请输入IP地址" />-->
-        <!--        </el-form-item>-->
         <el-form-item label="直播流地址"
                       prop="liveAddress"
                       v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4'"
         >
           <el-input v-model="form.liveAddress" placeholder="请输入直播流地址"/>
         </el-form-item>
-
         <el-form-item label="视频文件" prop="liveAddress"
                       v-if="form.type === '6'"
         >
@@ -199,16 +195,18 @@
           />
         </el-form-item>
 
-
-        <!--        <el-form-item label="端口号" prop="port">-->
-        <!--          <el-input v-model="form.port" placeholder="请输入端口号" />-->
-        <!--        </el-form-item>-->
-        <!--        <el-form-item label="用户名" prop="userName">-->
-        <!--          <el-input v-model="form.userName" placeholder="请输入用户名" />-->
-        <!--        </el-form-item>-->
-        <!--        <el-form-item label="密码" prop="password">-->
-        <!--          <el-input v-model="form.password" placeholder="请输入密码" />-->
-        <!--        </el-form-item>-->
+        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7'">
+          <el-input v-model="form.ipAddress" placeholder="请输入IP地址" />
+        </el-form-item>
+        <el-form-item label="端口号" prop="port" v-if="form.type === '7'">
+          <el-input v-model="form.port" placeholder="请输入端口号" disabled/>
+        </el-form-item>
+        <el-form-item label="用户名" prop="userName" v-if="form.type === '7'">
+          <el-input v-model="form.userName" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password" v-if="form.type === '7'">
+          <el-input v-model="form.password" placeholder="请输入密码" />
+        </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容"/>
         </el-form-item>
@@ -436,5 +434,15 @@ const handleCopy = async (text: string) => {
   }
 };
 
+/**
+ * 直播流接入类型
+ *
+ * @param text
+ */
+const liveStreamChange = (e: string) => {
+  if(e === '7'){
+    form.value.port = '8000';
+  }
+}
 getList()
 </script>
