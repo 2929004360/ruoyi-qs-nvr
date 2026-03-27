@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsDeviceMapper">
+
+    <resultMap type="QsDevice" id="QsDeviceResult">
+        <result property="id" column="id"/>
+        <result property="deviceCode" column="device_code"/>
+        <result property="deviceName" column="device_name"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="port" column="port"/>
+        <result property="userName" column="user_name"/>
+        <result property="password" column="password"/>
+        <result property="type" column="type"/>
+        <result property="deviceType" column="device_type"/>
+        <result property="deviceModel" column="device_model"/>
+        <result property="liveAddress" column="live_address"/>
+        <result property="channelCount" column="channel_count"/>
+        <result property="alarmChannelId" column="alarm_channel_id"/>
+        <result property="onlineType" column="online_type"/>
+        <result property="protocolVersion" column="protocol_version"/>
+        <result property="status" column="status"/>
+        <result property="lastOnlineTime" column="last_online_time"/>
+        <result property="lastOfflineTime" column="last_offline_time"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectQsDeviceVo">
+        select id,
+               device_code,
+               device_name,
+               ip_address,
+               port,
+               user_name,
+               password,
+               type,
+               device_type,
+               device_model,
+               live_address,
+               channel_count,
+               alarm_channel_id,
+               online_type,
+               protocol_version,
+               status,
+               last_online_time,
+               last_offline_time,
+               create_by,
+               create_time,
+               update_by,
+               update_time,
+               remark
+        from qs_device
+    </sql>
+
+    <select id="selectQsDeviceList" parameterType="QsDevice" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        <where>
+            <if test="deviceName != null  and deviceName != ''">and device_name like concat('%', #{deviceName}, '%')
+            </if>
+            <if test="ipAddress != null  and ipAddress != ''">and ip_address like concat('%', #{ipAddress}, '%')</if>
+            <if test="type != null  and type != ''">and type = #{type}</if>
+            <if test="status != null  and status != ''">and status = #{status}</if>
+            <if test="params.beginLastOnlineTime != null and params.beginLastOnlineTime != '' and params.endLastOnlineTime != null and params.endLastOnlineTime != ''">
+                and last_online_time between #{params.beginLastOnlineTime} and #{params.endLastOnlineTime}
+            </if>
+            <if test="params.beginLastOfflineTime != null and params.beginLastOfflineTime != '' and params.endLastOfflineTime != null and params.endLastOfflineTime != ''">
+                and last_offline_time between #{params.beginLastOfflineTime} and #{params.endLastOfflineTime}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectQsDeviceById" parameterType="Long" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertQsDevice" parameterType="QsDevice" useGeneratedKeys="true" keyProperty="id">
+        insert into qs_device
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="deviceCode != null and deviceCode != ''">device_code,</if>
+            <if test="deviceName != null">device_name,</if>
+            <if test="ipAddress != null and ipAddress != ''">ip_address,</if>
+            <if test="port != null">port,</if>
+            <if test="userName != null and userName != ''">user_name,</if>
+            <if test="password != null and password != ''">password,</if>
+            <if test="type != null">type,</if>
+            <if test="deviceType != null">device_type,</if>
+            <if test="deviceModel != null">device_model,</if>
+            <if test="liveAddress != null">live_address,</if>
+            <if test="channelCount != null">channel_count,</if>
+            <if test="alarmChannelId != null">alarm_channel_id,</if>
+            <if test="onlineType != null">online_type,</if>
+            <if test="protocolVersion != null">protocol_version,</if>
+            <if test="status != null">status,</if>
+            <if test="lastOnlineTime != null">last_online_time,</if>
+            <if test="lastOfflineTime != null">last_offline_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="deviceCode != null and deviceCode != ''">#{deviceCode},</if>
+            <if test="deviceName != null">#{deviceName},</if>
+            <if test="ipAddress != null and ipAddress != ''">#{ipAddress},</if>
+            <if test="port != null">#{port},</if>
+            <if test="userName != null and userName != ''">#{userName},</if>
+            <if test="password != null and password != ''">#{password},</if>
+            <if test="type != null">#{type},</if>
+            <if test="deviceType != null">#{deviceType},</if>
+            <if test="deviceModel != null">#{deviceModel},</if>
+            <if test="liveAddress != null">#{liveAddress},</if>
+            <if test="channelCount != null">#{channelCount},</if>
+            <if test="alarmChannelId != null">#{alarmChannelId},</if>
+            <if test="onlineType != null">#{onlineType},</if>
+            <if test="protocolVersion != null">#{protocolVersion},</if>
+            <if test="status != null">#{status},</if>
+            <if test="lastOnlineTime != null">#{lastOnlineTime},</if>
+            <if test="lastOfflineTime != null">#{lastOfflineTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateQsDevice" parameterType="QsDevice">
+        update qs_device
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="deviceCode != null and deviceCode != ''">device_code = #{deviceCode},</if>
+            <if test="deviceName != null">device_name = #{deviceName},</if>
+            <if test="ipAddress != null and ipAddress != ''">ip_address = #{ipAddress},</if>
+            <if test="port != null">port = #{port},</if>
+            <if test="userName != null and userName != ''">user_name = #{userName},</if>
+            <if test="password != null and password != ''">password = #{password},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="deviceType != null">device_type = #{deviceType},</if>
+            <if test="deviceModel != null">device_model = #{deviceModel},</if>
+            <if test="liveAddress != null">live_address = #{liveAddress},</if>
+            <if test="channelCount != null">channel_count = #{channelCount},</if>
+            <if test="alarmChannelId != null">alarm_channel_id = #{alarmChannelId},</if>
+            <if test="onlineType != null">online_type = #{onlineType},</if>
+            <if test="protocolVersion != null">protocol_version = #{protocolVersion},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="lastOnlineTime != null">last_online_time = #{lastOnlineTime},</if>
+            <if test="lastOfflineTime != null">last_offline_time = #{lastOfflineTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteQsDeviceById" parameterType="Long">
+        delete
+        from qs_device
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteQsDeviceByIds" parameterType="String">
+        delete from qs_device where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
