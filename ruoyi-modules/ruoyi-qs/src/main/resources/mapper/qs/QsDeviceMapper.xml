@@ -16,7 +16,7 @@
         <result property="deviceType" column="device_type"/>
         <result property="deviceModel" column="device_model"/>
         <result property="liveAddress" column="live_address"/>
-        <result property="channelCount" column="channel_count"/>
+        <result property="channel" column="channel"/>
         <result property="alarmChannelId" column="alarm_channel_id"/>
         <result property="onlineType" column="online_type"/>
         <result property="protocolVersion" column="protocol_version"/>
@@ -42,7 +42,7 @@
                device_type,
                device_model,
                live_address,
-               channel_count,
+               channel,
                alarm_channel_id,
                online_type,
                protocol_version,
@@ -92,7 +92,7 @@
             <if test="deviceType != null">device_type,</if>
             <if test="deviceModel != null">device_model,</if>
             <if test="liveAddress != null">live_address,</if>
-            <if test="channelCount != null">channel_count,</if>
+            <if test="channel != null">channel,</if>
             <if test="alarmChannelId != null">alarm_channel_id,</if>
             <if test="onlineType != null">online_type,</if>
             <if test="protocolVersion != null">protocol_version,</if>
@@ -116,7 +116,7 @@
             <if test="deviceType != null">#{deviceType},</if>
             <if test="deviceModel != null">#{deviceModel},</if>
             <if test="liveAddress != null">#{liveAddress},</if>
-            <if test="channelCount != null">#{channelCount},</if>
+            <if test="channel != null">#{channel},</if>
             <if test="alarmChannelId != null">#{alarmChannelId},</if>
             <if test="onlineType != null">#{onlineType},</if>
             <if test="protocolVersion != null">#{protocolVersion},</if>
@@ -144,7 +144,7 @@
             <if test="deviceType != null">device_type = #{deviceType},</if>
             <if test="deviceModel != null">device_model = #{deviceModel},</if>
             <if test="liveAddress != null">live_address = #{liveAddress},</if>
-            <if test="channelCount != null">channel_count = #{channelCount},</if>
+            <if test="channel != null">channel = #{channel},</if>
             <if test="alarmChannelId != null">alarm_channel_id = #{alarmChannelId},</if>
             <if test="onlineType != null">online_type = #{onlineType},</if>
             <if test="protocolVersion != null">protocol_version = #{protocolVersion},</if>
@@ -158,6 +158,10 @@
             <if test="remark != null">remark = #{remark},</if>
         </trim>
         where id = #{id}
+    </update>
+
+    <update id="updateQsDeviceStatus">
+        update qs_device set status = #{status}, update_time = sysdate() where id = #{id}
     </update>
 
     <delete id="deleteQsDeviceById" parameterType="Long">

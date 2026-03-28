@@ -1,4 +1,4 @@
-package com.ruoyi.qs.domain;
+package com.ruoyi.qs.api.domain;
 
 import java.util.Date;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -40,7 +40,7 @@ public class QsDevice extends BaseEntity
 
     /** 端口号 */
     @Excel(name = "端口号")
-    private Integer port;
+    private Short port;
 
     /** 用户名 */
     @Excel(name = "用户名")
@@ -66,9 +66,9 @@ public class QsDevice extends BaseEntity
     @Excel(name = "直播流地址")
     private String liveAddress;
 
-    /** 通道数量 */
-    @Excel(name = "通道数量")
-    private Integer channelCount;
+    /** 通道号 */
+    @Excel(name = "通道号")
+    private Integer channel;
 
     /** 报警通道号 */
     @Excel(name = "报警通道号")
@@ -82,8 +82,8 @@ public class QsDevice extends BaseEntity
     @Excel(name = "协议版本")
     private String protocolVersion;
 
-    /** 状态(ONLINE/OFFLINE) */
-    @Excel(name = "状态(ONLINE/OFFLINE)")
+    /** 状态(ENABLE/DEACTIVATE) */
+    @Excel(name = "状态(ENABLE/DEACTIVATE)")
     private String status;
 
     /** 上线时间 */

@@ -119,16 +119,23 @@
           <dict-tag :options="live_stream_type" :value="scope.row.type"/>
         </template>
       </el-table-column>
-      <el-table-column label="通道数量" align="center" prop="channelCount" width="80"/>
       <el-table-column label="直播流地址" align="center" prop="liveAddress" min-width="180">
         <template #default="scope">
-          <span>{{ scope.row.liveAddress }}</span>
-          <el-button link type="primary" icon="Document" @click="handleCopy(scope.row.liveAddress)">复制</el-button>
+          <div v-if="scope.row.liveAddress">
+            <span>{{ scope.row.liveAddress }}</span>
+            <el-button link type="primary" icon="Document" @click="handleCopy(scope.row.liveAddress)">复制</el-button>
+          </div>
         </template>
       </el-table-column>
-      <el-table-column label="状态" align="center" prop="status">
+      <el-table-column label="通道号" align="center" prop="channel" width="80"/>
+      <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
-          <dict-tag :options="device_status" :value="scope.row.status" width="80"/>
+          <el-switch
+              v-model="scope.row.status"
+              active-value="ENABLE"
+              inactive-value="DEACTIVATE"
+              @change="handleStatusChange(scope.row)"
+          ></el-switch>
         </template>
       </el-table-column>
       <el-table-column label="上线时间" align="center" prop="lastOnlineTime" width="160">
@@ -165,8 +172,8 @@
     <!-- 添加或修改视频监控设备对话框 -->
     <el-dialog :title="title" v-model="open" width="600px" append-to-body>
       <el-form ref="deviceRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="直播流接入类型" prop="type" @change="liveStreamChange">
-          <el-select v-model="form.type" placeholder="请选择直播流接入类型">
+        <el-form-item label="直播流接入类型" prop="type">
+          <el-select v-model="form.type" placeholder="请选择直播流接入类型" @change="liveStreamChange" filterable>
             <el-option
                 v-for="dict in live_stream_type"
                 :key="dict.value"
@@ -176,13 +183,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="设备名称" prop="deviceName">
-          <el-input v-model="form.deviceName" placeholder="请输入设备名称"/>
+          <el-input v-model="form.deviceName" placeholder="请输入设备名称" :maxlength="100" show-word-limit/>
         </el-form-item>
         <el-form-item label="直播流地址"
                       prop="liveAddress"
                       v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4'"
         >
-          <el-input v-model="form.liveAddress" placeholder="请输入直播流地址"/>
+          <el-input v-model="form.liveAddress" placeholder="请输入直播流地址" :maxlength="1024" show-word-limit/>
         </el-form-item>
         <el-form-item label="视频文件" prop="liveAddress"
                       v-if="form.type === '6'"
@@ -196,19 +203,33 @@
         </el-form-item>
 
         <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7'">
-          <el-input v-model="form.ipAddress" placeholder="请输入IP地址" />
+          <el-input v-model="form.ipAddress" placeholder="请输入IP地址" :maxlength="50" show-word-limit/>
         </el-form-item>
         <el-form-item label="端口号" prop="port" v-if="form.type === '7'">
-          <el-input v-model="form.port" placeholder="请输入端口号" disabled/>
+          <el-input v-model="form.port" placeholder="请输入端口号" disabled :maxlength="10" show-word-limit/>
         </el-form-item>
         <el-form-item label="用户名" prop="userName" v-if="form.type === '7'">
-          <el-input v-model="form.userName" placeholder="请输入用户名" />
+          <el-input v-model="form.userName" placeholder="请输入用户名" :maxlength="64" show-word-limit/>
         </el-form-item>
         <el-form-item label="密码" prop="password" v-if="form.type === '7'">
-          <el-input v-model="form.password" placeholder="请输入密码" />
+          <el-input v-model="form.password" placeholder="请输入密码" :maxlength="128" show-word-limit/>
+        </el-form-item>
+        <el-form-item label="通道号" prop="channel" v-if="form.type === '7'">
+          <el-input v-model="form.channel" placeholder="请输入通道号" @input="handleNumberInput" :maxlength="5"
+                    show-word-limit/>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio
+                v-for="dict in device_status"
+                :key="dict.value"
+                :label="dict.value"
+            >{{ dict.label }}
+            </el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入内容"/>
+          <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" :maxlength="255" show-word-limit/>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -224,7 +245,7 @@
 <script setup lang="ts" name="Config">
 import useClipboard from "vue-clipboard3";
 import type {DeviceQueryParams, QsDevice} from "@/types/api/qs/device"
-import {addDevice, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
+import {addDevice, changeDeviceStatus, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
 
 const {toClipboard} = useClipboard()
 
@@ -277,6 +298,9 @@ const data = reactive({
     fileAddress: [
       {required: true, message: "视频文件不能为空", trigger: "blur"}
     ],
+    channel: [
+      {required: true, message: "通道号不能为空", trigger: "blur"}
+    ],
   }
 })
 
@@ -320,11 +344,11 @@ function reset() {
     type: "1",
     deviceType: null,
     deviceModel: null,
-    channelCount: null,
+    channel: null,
     alarmChannelId: null,
     onlineType: null,
     protocolVersion: null,
-    status: null,
+    status: "ENABLE",
     lastOnlineTime: null,
     lastOfflineTime: null,
     createBy: null,
@@ -440,9 +464,31 @@ const handleCopy = async (text: string) => {
  * @param text
  */
 const liveStreamChange = (e: string) => {
-  if(e === '7'){
+  if (e === '7') {
     form.value.port = '8000';
   }
 }
+
+/**
+ * 直播流接入类型
+ *
+ * @param text
+ */
+const handleNumberInput = (val: string) => {
+  form.value.channel = val.replace(/\D/g, '');
+}
+
+/** 状态修改  */
+function handleStatusChange(row: QsDevice) {
+  const text = row.status === "ENABLE" ? "启用" : "停用"
+  proxy.$modal.confirm('确认要"' + text + '"该设备吗?').then(function () {
+    return changeDeviceStatus(row.id!, row.status!)
+  }).then(() => {
+    proxy.$modal.msgSuccess(text + "成功")
+  }).catch(function () {
+    row.status = row.status === "DEACTIVATE" ? "ENABLE" : "DEACTIVATE"
+  })
+}
+
 getList()
 </script>

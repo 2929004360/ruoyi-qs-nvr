@@ -70,7 +70,18 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-common-swagger</artifactId>
         </dependency>
-        
+
+        <!-- 海康sdk接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-haikang</artifactId>
+        </dependency>
+
+        <!-- 泉视接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId> ruoyi-api-qs</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

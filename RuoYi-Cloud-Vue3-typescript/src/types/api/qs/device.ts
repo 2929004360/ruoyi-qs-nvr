@@ -8,7 +8,7 @@ export interface DeviceQueryParams extends PageDomain {
   ipAddress?: string;
   /** 直播流接入类型(1=RTSP,2=RTMP,3=FLV,4=HLS,5=ONVIF,6=视频文件,7=海康SDK,8=海康ISUP,9=大华SDK,10=宇视SDK,11=天地伟业SDK,12=国标28181,13=PUSH,14=部标1078) */
   type?: string;
-  /** 状态(ONLINE/OFFLINE) */
+  /** 状态(ENABLE/DEACTIVATE) */
   status?: string;
   /** 上线时间 */
   lastOnlineTime?: string;
@@ -40,15 +40,15 @@ export interface QsDevice extends BaseEntity {
   deviceModel?: string;
   /** 直播流地址 */
   liveAddress?: string;
-  /** 通道数量 */
-  channelCount?: number;
+  /** 通道号 */
+  channel?: number;
   /** 报警通道号 */
   alarmChannelId?: number;
   /** 上线类型(1=主动添加, 2=主动注册) */
   onlineType?: string;
   /** 协议版本 */
   protocolVersion?: string;
-  /** 状态(ONLINE/OFFLINE) */
+  /** 状态(ENABLE/DEACTIVATE) */
   status?: string;
   /** 上线时间 */
   lastOnlineTime?: string;

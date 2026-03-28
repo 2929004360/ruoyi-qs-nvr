@@ -82,18 +82,16 @@
             <systemPath>${project.basedir}/src/main/resources/jar/jna.jar</systemPath>
         </dependency>
 
-        <!-- lombok -->
+        <!-- 海康sdk api -->
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-haikang</artifactId>
         </dependency>
 
-
-        <!-- hutool -->
+        <!-- 泉视接口 -->
         <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>5.8.41</version>
+            <groupId>com.ruoyi</groupId>
+            <artifactId> ruoyi-api-qs</artifactId>
         </dependency>
     </dependencies>
 

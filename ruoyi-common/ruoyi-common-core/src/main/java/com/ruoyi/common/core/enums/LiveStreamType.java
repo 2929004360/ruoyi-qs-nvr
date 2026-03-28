@@ -1,4 +1,4 @@
-package com.ruoyi.qs.enums;
+package com.ruoyi.common.core.enums;
 
 /**
  * 直播流接入类型枚举

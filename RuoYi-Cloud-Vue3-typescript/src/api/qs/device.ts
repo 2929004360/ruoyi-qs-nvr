@@ -45,3 +45,15 @@ export function delDevice(id: number | number[]): Promise<AjaxResult> {
 }
 
 
+// 状态修改
+export function changeDeviceStatus(id: number, status: string): Promise<AjaxResult> {
+  const data = {
+      id,
+    status
+  }
+  return request({
+    url: '/qs/device/changeStatus',
+    method: 'put',
+    data: data
+  })
+}

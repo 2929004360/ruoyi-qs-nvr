@@ -1,7 +1,8 @@
 package com.ruoyi.qs.service;
 
+import com.ruoyi.qs.api.domain.QsDevice;
+
 import java.util.List;
-import com.ruoyi.qs.domain.QsDevice;
 
 /**
  * 视频监控设备Service接口
@@ -58,4 +59,12 @@ public interface IQsDeviceService
      * @return 结果
      */
     public int deleteQsDeviceById(Long id);
+
+    /**
+     * 状态修改
+     *
+     * @param qsDevice 视频监控设备
+     * @return
+     */
+    int updateQsDeviceStatus(QsDevice qsDevice);
 }
