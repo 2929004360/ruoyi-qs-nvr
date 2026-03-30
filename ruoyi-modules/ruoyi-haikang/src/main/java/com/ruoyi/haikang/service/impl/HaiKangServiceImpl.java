@@ -2,9 +2,13 @@ package com.ruoyi.haikang.service.impl;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.exception.ServiceException;
+import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.net.Client;
 import com.ruoyi.haikang.net.HCNetSDK;
 import com.ruoyi.haikang.service.IHaiKangService;
+import com.ruoyi.haikang.utils.CommonUtil;
+import com.sun.jna.Pointer;
+import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -115,5 +119,63 @@ public class HaiKangServiceImpl implements IHaiKangService {
         }
 
         return userIdMap.get(ip);
+    }
+
+    /**
+     * 获取设备的基本参数
+     *
+     * @param ip 设备ip
+     * @return
+     */
+    @Override
+    public HaikangDeviceInfo getDeviceInfo(String ip) {
+        Integer iUserID = getUserId(ip);
+        HaikangDeviceInfo deviceInfo = new HaikangDeviceInfo();
+        HCNetSDK.NET_DVR_DEVICECFG_V40 m_strDeviceCfg = new HCNetSDK.NET_DVR_DEVICECFG_V40();
+        m_strDeviceCfg.dwSize = m_strDeviceCfg.size();
+        m_strDeviceCfg.write();
+        Pointer pStrDeviceCfg = m_strDeviceCfg.getPointer();
+        IntByReference pInt = new IntByReference(0);
+        boolean b_GetCfg = client.hCNetSDK.NET_DVR_GetDVRConfig(iUserID, HCNetSDK.NET_DVR_GET_DEVICECFG_V40, 0Xffffffff, pStrDeviceCfg, m_strDeviceCfg.dwSize, pInt);
+        if (!b_GetCfg) {
+            System.out.println("获取参数失败  错误码：" + client.hCNetSDK.NET_DVR_GetLastError());
+        }
+        m_strDeviceCfg.read();
+        parseVersion(m_strDeviceCfg.dwSoftwareVersion, deviceInfo);
+        parseBuildTime(m_strDeviceCfg.dwSoftwareBuildDate, deviceInfo);
+        parseDSPBuildDate(m_strDeviceCfg.dwDSPSoftwareBuildDate, deviceInfo);
+
+        deviceInfo.setDeviceName(CommonUtil.parseHikvisionString(m_strDeviceCfg.sDVRName));
+        deviceInfo.setDeviceSerial(CommonUtil.parseHikvisionString(m_strDeviceCfg.sSerialNumber));
+        deviceInfo.setByChanNum(m_strDeviceCfg.byChanNum);
+
+        return deviceInfo;
+    }
+
+    //设备版本解析
+    public void parseVersion(int version, HaikangDeviceInfo deviceInfo) {
+        int firstVersion = (version & 0XFF << 24) >> 24;
+        int secondVersion = (version & 0XFF << 16) >> 16;
+        int lowVersion = version & 0XFF;
+
+        deviceInfo.setFirstVersion(firstVersion);
+        deviceInfo.setSecondVersion(firstVersion);
+        deviceInfo.setLowVersion(firstVersion);
+    }
+
+    public void parseBuildTime(int buildTime, HaikangDeviceInfo deviceInfo) {
+        int year = ((buildTime & 0XFF << 16) >> 16) + 2000;
+        int month = (buildTime & 0XFF << 8) >> 8;
+        int data = buildTime & 0xFF;
+
+        deviceInfo.setBuildTime(year + "-" + month + "-" + data);
+    }
+
+    public void parseDSPBuildDate(int DSPBuildDate, HaikangDeviceInfo deviceInfo) {
+        int year = ((DSPBuildDate & 0XFF << 16) >> 16) + 2000;
+        int month = (DSPBuildDate & 0XFF << 8) >> 8;
+        int data = DSPBuildDate & 0xFF;
+
+        deviceInfo.setDSPBuildDate(year + "-" + month + "-" + data);
     }
 }

@@ -1,5 +1,7 @@
 package com.ruoyi.haikang.service;
 
+import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
+
 /**
  * @FileName IHaikangService
  * @Description
@@ -33,4 +35,12 @@ public interface IHaiKangService {
      * @return
      */
     public Integer getUserId(String ip);
+
+    /**
+     * 获取设备的基本参数
+     *
+     * @param ip 设备ip
+     * @return
+     */
+    HaikangDeviceInfo getDeviceInfo(String ip);
 }

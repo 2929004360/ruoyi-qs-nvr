@@ -42,19 +42,6 @@ public class QsDeviceController extends BaseController
     }
 
     /**
-     * 导出视频监控设备列表
-     */
-    @RequiresPermissions("qs:device:export")
-    @Log(title = "视频监控设备", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, QsDevice qsDevice)
-    {
-        List<QsDevice> list = qsDeviceService.selectQsDeviceList(qsDevice);
-        ExcelUtil<QsDevice> util = new ExcelUtil<QsDevice>(QsDevice.class);
-        util.exportExcel(response, list, "视频监控设备数据");
-    }
-
-    /**
      * 获取视频监控设备详细信息
      */
     @RequiresPermissions("qs:device:query")

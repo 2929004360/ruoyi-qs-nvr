@@ -2,6 +2,7 @@ package com.ruoyi.haikang.api;
 
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.security.annotation.InnerAuth;
+import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.haikang.service.IHaiKangService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,5 +62,17 @@ public class HaiKangApiController {
     @PostMapping("/getUserId/{ip}")
     public R<Integer> getUserId(@PathVariable String ip) {
         return R.ok(haiKangService.getUserId(ip));
+    }
+
+    /**
+     * 获取设备的基本参数
+     *
+     * @param ip 设备ip
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/getDeviceInfo/{ip}")
+    public R<HaikangDeviceInfo> getDeviceInfo(@PathVariable String ip) {
+        return R.ok(haiKangService.getDeviceInfo(ip));
     }
 }

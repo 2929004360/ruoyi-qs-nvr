@@ -31,4 +31,9 @@ public class ServiceNameConstants
      * 泉视模块的serviceid
      */
     public static final String QS_SERVICE = "ruoyi-qs";
+
+    /**
+     * 海康isup模块的serviceid
+     */
+    public static final String HAIKANG_ISUP_SERVICE = "ruoyi-haikang-isup";
 }

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -69,7 +70,6 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     public int insertQsDevice(QsDevice qsDevice) {
         qsDevice.setCreateBy(String.valueOf(SecurityUtils.getUserId()));
         qsDevice.setCreateTime(DateUtils.getNowDate());
-        qsDevice.setLastOnlineTime(DateUtils.getNowDate());
 
         // RTSP协议
         if (LiveStreamType.RTSP.getCode().equals(qsDevice.getType())) {
@@ -125,6 +125,11 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             }
         }
 
+        // 海康ISUP
+        if (LiveStreamType.HIK_ISUP.getCode().equals(qsDevice.getType())) {
+            qsDevice.setDeviceCode("haikang_isup_" + qsDevice.getDeviceCode());
+        }
+
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
 
@@ -136,7 +141,61 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
      */
     @Override
     public int updateQsDevice(QsDevice qsDevice) {
+        qsDevice.setUpdateBy(String.valueOf(SecurityUtils.getUserId()));
         qsDevice.setUpdateTime(DateUtils.getNowDate());
+
+        // RTSP协议
+        if (LiveStreamType.RTSP.getCode().equals(qsDevice.getType())) {
+            if (!isValidRtspFormat(qsDevice.getLiveAddress())) {
+                throw new SecurityException("RTSP地址格式不正确");
+            }
+        }
+
+        // RTMP协议
+        if (LiveStreamType.RTMP.getCode().equals(qsDevice.getType())) {
+            if (!isValidRtmpFormat(qsDevice.getLiveAddress())) {
+                throw new SecurityException("RTMP地址格式不正确");
+            }
+        }
+
+        // FLV协议
+        if (LiveStreamType.FLV.getCode().equals(qsDevice.getType())) {
+            if (!isValidFlvAddress(qsDevice.getLiveAddress())) {
+                throw new SecurityException("FLV地址格式不正确");
+            }
+        }
+
+        // HLS协议
+        if (LiveStreamType.HLS.getCode().equals(qsDevice.getType())) {
+            if (!isValidHlsAddress(qsDevice.getLiveAddress())) {
+                throw new SecurityException("HLS地址格式不正确");
+            }
+        }
+
+        // 视频文件
+        if (LiveStreamType.VIDEO_FILE.getCode().equals(qsDevice.getType())) {
+            if (!isValidMp4Address(qsDevice.getLiveAddress())) {
+                throw new SecurityException("视频文件格式不正确");
+            }
+        }
+
+        // 海康SDK
+        if (LiveStreamType.HIK_SDK.getCode().equals(qsDevice.getType())) {
+            R<Void> logoutDevicer = remoteHaiKangService.logoutDevice(qsDevice.getIpAddress(), SecurityConstants.INNER);
+            if (logoutDevicer.getCode() != Constants.SUCCESS) {
+                throw new SecurityException(logoutDevicer.getMsg());
+            }
+
+            LoginDevice loginDevice = new LoginDevice();
+            loginDevice.setIpAddress(qsDevice.getIpAddress());
+            loginDevice.setPort(qsDevice.getPort());
+            loginDevice.setUserName(qsDevice.getUserName());
+            loginDevice.setPassword(qsDevice.getPassword());
+            R<Integer> r = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);
+            if (r.getCode() != Constants.SUCCESS) {
+                throw new SecurityException(r.getMsg());
+            }
+        }
         return qsDeviceMapper.updateQsDevice(qsDevice);
     }
 
@@ -171,6 +230,18 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     @Override
     public int updateQsDeviceStatus(QsDevice qsDevice) {
         return qsDeviceMapper.updateQsDeviceStatus(qsDevice.getId(), qsDevice.getStatus());
+    }
+
+    /**
+     * 更新设备在线状态
+     *
+     * @param onlineDeviceSet 在线设备集合
+     * @param deviceStatus    设备状态
+     * @return
+     */
+    @Override
+    public Boolean updateQsDeviceStatusList(Set<Long> onlineDeviceSet, String deviceStatus) {
+        return qsDeviceMapper.updateQsDeviceStatusList(onlineDeviceSet, deviceStatus);
     }
 
 

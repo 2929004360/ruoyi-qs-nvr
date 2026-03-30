@@ -10,10 +10,8 @@ export interface DeviceQueryParams extends PageDomain {
   type?: string;
   /** 状态(ENABLE/DEACTIVATE) */
   status?: string;
-  /** 上线时间 */
-  lastOnlineTime?: string;
-  /** 离线时间 */
-  lastOfflineTime?: string;
+  /** 设备状态(OFFLINE=离线,ON=在线) */
+  deviceStatus?: string;
 }
 
 /** 视频监控设备配置信息 */
@@ -36,24 +34,28 @@ export interface QsDevice extends BaseEntity {
   type?: string;
   /** 设备类型(0=IPC, 1=NVR) */
   deviceType?: number;
-  /** 设备型号/型号代码 */
-  deviceModel?: string;
   /** 直播流地址 */
   liveAddress?: string;
   /** 通道号 */
   channel?: number;
   /** 报警通道号 */
   alarmChannelId?: number;
-  /** 上线类型(1=主动添加, 2=主动注册) */
-  onlineType?: string;
-  /** 协议版本 */
-  protocolVersion?: string;
   /** 状态(ENABLE/DEACTIVATE) */
   status?: string;
-  /** 上线时间 */
-  lastOnlineTime?: string;
-  /** 离线时间 */
-  lastOfflineTime?: string;
+  /** 码流类型(1=主码流,2=子码流,3=第三码流) */
+  streamType?: string;
+  /** 经度 */
+  longitude?: string;
+  /** 纬度 */
+  latitude?: string;
+  /** 国标编码 */
+  gbCode?: string;
+  /** 传输协议(UDP/TCP) */
+  protocol?: string;
+  /** 设备状态(OFFLINE=离线,ON=在线) */
+  deviceStatus?: string;
+  /** 上线类型(1=主动添加, 2=主动注册) */
+  onlineType?: string;
   /** 创建者 */
   createBy?: string;
   /** 创建时间 */

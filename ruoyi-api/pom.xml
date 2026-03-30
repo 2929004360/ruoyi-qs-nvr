@@ -12,6 +12,7 @@
         <module>ruoyi-api-system</module>
         <module>ruoyi-api-haikang</module>
         <module>ruoyi-api-qs</module>
+        <module>ruoyi-api-haikang-isup</module>
     </modules>
 
     <artifactId>ruoyi-api</artifactId>

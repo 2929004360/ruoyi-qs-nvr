@@ -20,7 +20,7 @@
       <el-form-item label="接入类型" prop="type">
         <el-select v-model="queryParams.type" placeholder="请选择直播流接入类型" clearable>
           <el-option
-              v-for="dict in live_stream_type"
+              v-for="dict in qs_live_stream_type"
               :key="dict.value"
               :label="dict.label"
               :value="dict.value"
@@ -30,32 +30,22 @@
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option
-              v-for="dict in device_status"
+              v-for="dict in qs_status"
               :key="dict.value"
               :label="dict.label"
               :value="dict.value"
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="上线时间" style="width: 308px">
-        <el-date-picker
-            v-model="daterangeLastOnlineTime"
-            value-format="YYYY-MM-DD"
-            type="daterange"
-            range-separator="-"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-        ></el-date-picker>
-      </el-form-item>
-      <el-form-item label="离线时间" style="width: 308px">
-        <el-date-picker
-            v-model="daterangeLastOfflineTime"
-            value-format="YYYY-MM-DD"
-            type="daterange"
-            range-separator="-"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-        ></el-date-picker>
+      <el-form-item label="设备状态" prop="deviceStatus">
+        <el-select v-model="queryParams.deviceStatus" placeholder="请选择设备状态" clearable>
+          <el-option
+              v-for="dict in qs_device_status"
+              :key="dict.value"
+              :label="dict.label"
+              :value="dict.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -96,34 +86,24 @@
         >删除
         </el-button>
       </el-col>
-      <el-col :span="1.5">
-        <el-button
-            type="warning"
-            plain
-            icon="Download"
-            @click="handleExport"
-            v-hasPermi="['qs:device:export']"
-        >导出
-        </el-button>
-      </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
     <el-table v-loading="loading" :data="deviceList" @selection-change="handleSelectionChange" border>
       <el-table-column type="selection" width="55" align="center" fixed/>
       <el-table-column label="编号" align="center" prop="id" width="60" fixed/>
-      <el-table-column label="设备名称" align="center" prop="deviceName" width="120" fixed/>
-      <el-table-column label="IP地址" align="center" prop="ipAddress" width="120"/>
+      <el-table-column label="设备名称" align="center" prop="deviceName" fixed/>
+      <el-table-column label="IP地址" align="center" prop="ipAddress"/>
       <el-table-column label="接入类型" align="center" prop="type" width="100">
         <template #default="scope">
-          <dict-tag :options="live_stream_type" :value="scope.row.type"/>
+          <dict-tag :options="qs_live_stream_type" :value="scope.row.type"/>
         </template>
       </el-table-column>
       <el-table-column label="直播流地址" align="center" prop="liveAddress" min-width="180">
         <template #default="scope">
           <div v-if="scope.row.liveAddress">
             <span>{{ scope.row.liveAddress }}</span>
-            <el-button link type="primary" icon="Document" @click="handleCopy(scope.row.liveAddress)">复制</el-button>
+            <el-button link type="primary" @click="handleCopy(scope.row.liveAddress)">复制</el-button>
           </div>
         </template>
       </el-table-column>
@@ -138,17 +118,12 @@
           ></el-switch>
         </template>
       </el-table-column>
-      <el-table-column label="上线时间" align="center" prop="lastOnlineTime" width="160">
+      <el-table-column label="设备状态" align="center" prop="deviceStatus" width="100">
         <template #default="scope">
-          <span>{{ parseTime(scope.row.lastOnlineTime) }}</span>
+          <dict-tag :options="qs_device_status" :value="scope.row.deviceStatus"/>
         </template>
       </el-table-column>
-      <el-table-column label="离线时间" align="center" prop="lastOfflineTime" width="160">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.lastOfflineTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="备注" align="center" prop="remark" width="120"/>
+      <el-table-column label="备注" align="center" prop="remark" width="180"/>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="150" fixed="right">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['qs:device:edit']">
@@ -171,11 +146,11 @@
 
     <!-- 添加或修改视频监控设备对话框 -->
     <el-dialog :title="title" v-model="open" width="600px" append-to-body>
-      <el-form ref="deviceRef" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="deviceRef" :model="form" :rules="rules" label-width="140px">
         <el-form-item label="直播流接入类型" prop="type">
           <el-select v-model="form.type" placeholder="请选择直播流接入类型" @change="liveStreamChange" filterable>
             <el-option
-                v-for="dict in live_stream_type"
+                v-for="dict in qs_live_stream_type"
                 :key="dict.value"
                 :label="dict.label"
                 :value="dict.value"
@@ -202,26 +177,94 @@
           />
         </el-form-item>
 
-        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7'">
+        <el-form-item label="上线类型" prop="onlineType" v-if="form.type === '9'">
+          <el-radio-group v-model="form.onlineType">
+            <el-radio
+                v-for="dict in qs_online_type"
+                :key="dict.value"
+                :label="dict.value"
+            >{{ dict.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7' || form.type === '9'">
           <el-input v-model="form.ipAddress" placeholder="请输入IP地址" :maxlength="50" show-word-limit/>
         </el-form-item>
-        <el-form-item label="端口号" prop="port" v-if="form.type === '7'">
+        <el-form-item label="端口号" prop="port" v-if="form.type === '7' || form.type === '9'">
           <el-input v-model="form.port" placeholder="请输入端口号" disabled :maxlength="10" show-word-limit/>
         </el-form-item>
-        <el-form-item label="用户名" prop="userName" v-if="form.type === '7'">
+        <el-form-item label="用户名" prop="userName" v-if="form.type === '7' || form.type === '9'">
           <el-input v-model="form.userName" placeholder="请输入用户名" :maxlength="64" show-word-limit/>
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="form.type === '7'">
+        <el-form-item label="密码" prop="password" v-if="form.type === '7' || form.type === '9'">
           <el-input v-model="form.password" placeholder="请输入密码" :maxlength="128" show-word-limit/>
         </el-form-item>
-        <el-form-item label="通道号" prop="channel" v-if="form.type === '7'">
+
+        <el-form-item label="海康ISUP设备ID" prop="deviceCode" v-if="form.type === '8'">
+          <el-select v-model="form.deviceCode" @change="haikangIsupdeviceCodeChange" placeholder="请选择海康ISUP设备ID"
+                     filterable>
+            <el-option
+                v-for="item in haiKangIsupDeviceList"
+                :key="item.deviceId"
+                :label="item.deviceId"
+                :value="item.deviceId"
+            >
+              <span style="float: left">{{ item.deviceId }}</span>
+              <span
+                  style="
+                  float: right;
+                  color: var(--el-text-color-secondary);
+                  font-size: 13px;
+                "
+              >
+                {{ item.ip }}
+              </span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="通道号" prop="channel" v-if="form.type === '7' || form.type === '8' || form.type === '9'">
           <el-input v-model="form.channel" placeholder="请输入通道号" @input="handleNumberInput" :maxlength="5"
+                    show-word-limit/>
+        </el-form-item>
+
+        <el-form-item label="码流类型" prop="streamType" v-if="form.type === '7' || form.type === '8' || form.type === '9'">
+          <el-radio-group v-model="form.streamType">
+            <el-radio
+                v-for="dict in qs_stream_type"
+                :key="dict.value"
+                :label="dict.value"
+            >{{ dict.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="传输协议" prop="protocol">
+          <el-radio-group v-model="form.protocol">
+            <el-radio
+                v-for="dict in qs_protocol"
+                :key="dict.value"
+                :label="dict.value"
+            >{{ dict.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="经度" prop="longitude">
+          <el-input v-model="form.longitude" placeholder="请输入经度" @input="handleNumberInput" :maxlength="20"
+                    show-word-limit/>
+        </el-form-item>
+        <el-form-item label="纬度" prop="latitude">
+          <el-input v-model="form.latitude" placeholder="请输入纬度" @input="handleNumberInput" :maxlength="20"
+                    show-word-limit/>
+        </el-form-item>
+        <el-form-item label="国标编码" prop="gbCode">
+          <el-input v-model="form.gbCode" placeholder="请输入国标编码" @input="handleNumberInput" :maxlength="100"
                     show-word-limit/>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio
-                v-for="dict in device_status"
+                v-for="dict in qs_status"
                 :key="dict.value"
                 :label="dict.value"
             >{{ dict.label }}
@@ -246,11 +289,20 @@
 import useClipboard from "vue-clipboard3";
 import type {DeviceQueryParams, QsDevice} from "@/types/api/qs/device"
 import {addDevice, changeDeviceStatus, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
+import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
+import {HaikangIsupDevice} from "@/types/api";
 
 const {toClipboard} = useClipboard()
 
 const {proxy} = getCurrentInstance()
-const {device_status, live_stream_type} = proxy.useDict('device_status', 'live_stream_type')
+const {
+  qs_status,
+  qs_live_stream_type,
+  qs_stream_type,
+  qs_protocol,
+  qs_device_status,
+  qs_online_type,
+} = proxy.useDict('qs_status', 'qs_live_stream_type', 'qs_stream_type', 'qs_protocol', 'qs_device_status','qs_online_type')
 
 const deviceList = ref<QsDevice[]>([])
 const open = ref<boolean>(false)
@@ -261,8 +313,8 @@ const single = ref<boolean>(true)
 const multiple = ref<boolean>(true)
 const total = ref<number>(0)
 const title = ref<string>("")
-const daterangeLastOnlineTime = ref<string[]>([])
-const daterangeLastOfflineTime = ref<string[]>([])
+
+const haiKangIsupDeviceList = ref<HaikangIsupDevice[]>([])
 
 const data = reactive({
   form: {} as QsDevice,
@@ -273,8 +325,7 @@ const data = reactive({
     ipAddress: undefined,
     type: undefined,
     status: undefined,
-    lastOnlineTime: undefined,
-    lastOfflineTime: undefined,
+    deviceStatus: undefined,
   } as DeviceQueryParams,
   rules: {
     deviceName: [
@@ -301,6 +352,9 @@ const data = reactive({
     channel: [
       {required: true, message: "通道号不能为空", trigger: "blur"}
     ],
+    deviceCode: [
+      {required: true, message: "设备唯一标识不能为空", trigger: "blur"}
+    ],
   }
 })
 
@@ -310,14 +364,6 @@ const {queryParams, form, rules} = toRefs(data)
 function getList() {
   loading.value = true
   queryParams.value.params = {}
-  if (null != daterangeLastOnlineTime.value && '' != daterangeLastOnlineTime.value) {
-    queryParams.value.params["beginLastOnlineTime"] = daterangeLastOnlineTime.value[0]
-    queryParams.value.params["endLastOnlineTime"] = daterangeLastOnlineTime.value[1]
-  }
-  if (null != daterangeLastOfflineTime.value && '' != daterangeLastOfflineTime.value) {
-    queryParams.value.params["beginLastOfflineTime"] = daterangeLastOfflineTime.value[0]
-    queryParams.value.params["endLastOfflineTime"] = daterangeLastOfflineTime.value[1]
-  }
   listDevice(queryParams.value).then(response => {
     deviceList.value = response.rows
     total.value = response.total
@@ -343,14 +389,12 @@ function reset() {
     password: null,
     type: "1",
     deviceType: null,
-    deviceModel: null,
+    onlineType: null,
     channel: null,
     alarmChannelId: null,
-    onlineType: null,
-    protocolVersion: null,
     status: "ENABLE",
-    lastOnlineTime: null,
-    lastOfflineTime: null,
+    streamType: "1",
+    protocol: "TCP",
     createBy: null,
     createTime: null,
     updateBy: null,
@@ -368,8 +412,6 @@ function handleQuery() {
 
 /** 重置按钮操作 */
 function resetQuery() {
-  daterangeLastOnlineTime.value = []
-  daterangeLastOfflineTime.value = []
   proxy.resetForm("queryRef")
   handleQuery()
 }
@@ -432,13 +474,6 @@ function handleDelete(row: QsDevice) {
   })
 }
 
-/** 导出按钮操作 */
-function handleExport() {
-  proxy.download('qs/device/export', {
-    ...queryParams.value
-  }, `device_${new Date().getTime()}.xlsx`)
-}
-
 /**
  * 复制内容到粘贴板
  *
@@ -464,8 +499,32 @@ const handleCopy = async (text: string) => {
  * @param text
  */
 const liveStreamChange = (e: string) => {
+  form.value.deviceCode = null
+  form.value.deviceName = null
+  form.value.ipAddress = null
+  form.value.port = null
+  form.value.userName = null
+  form.value.password = null
+  form.value.channel = null
+
+  // 海康sdk
   if (e === '7') {
     form.value.port = '8000';
+    return
+  }
+
+  // 海康isup
+  if (e === '8') {
+    listHaiKangIsupDevice().then((res) => {
+      haiKangIsupDeviceList.value = res.data
+    })
+  }
+
+  // 海康sdk
+  if (e === '9') {
+    form.value.port = '37777';
+    form.value.onlineType = '1';
+    return
   }
 }
 
@@ -488,6 +547,16 @@ function handleStatusChange(row: QsDevice) {
   }).catch(function () {
     row.status = row.status === "DEACTIVATE" ? "ENABLE" : "DEACTIVATE"
   })
+}
+
+/**
+ * 海康isup设备code改变
+ *
+ * @param e
+ */
+const haikangIsupdeviceCodeChange = (e: string) => {
+  const device = haiKangIsupDeviceList.value.find(item => item.deviceId === e);
+  form.value.ipAddress = device.ip
 }
 
 getList()

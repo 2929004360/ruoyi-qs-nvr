@@ -2,6 +2,7 @@ package com.ruoyi.haikang.api.factory;
 
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
+import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,11 @@ public class RemoteHaiKangFallbackFactory implements FallbackFactory<RemoteHaiKa
             @Override
             public R<Integer> getUserId(String ip, String source) {
                 return R.fail("海康sdk获取设备登录的用户ID失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<HaikangDeviceInfo> getDeviceInfo(String ipAddress, String source) {
+                return R.fail("海康sdk获取设备的基本参数失败:" + throwable.getMessage());
             }
         };
     }

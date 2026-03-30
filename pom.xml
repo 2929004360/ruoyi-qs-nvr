@@ -222,9 +222,17 @@
             <!-- 泉视接口 -->
             <dependency>
                 <groupId>com.ruoyi</groupId>
-                <artifactId> ruoyi-api-qs</artifactId>
+                <artifactId>ruoyi-api-qs</artifactId>
                 <version>${ruoyi.version}</version>
             </dependency>
+
+            <!-- 海康isup接口 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-api-haikang-isup</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 

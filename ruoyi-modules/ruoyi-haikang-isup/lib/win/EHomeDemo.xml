@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<LocalCfg>
+    <Param>
+        <LogPath>C:/EHomeSdkLog/</LogPath>
+        <LogLevel>3</LogLevel>
+        <LogAutoDel>false</LogAutoDel>
+        <KeepAliveSeconds>15</KeepAliveSeconds>
+        <KeepAliveCount>6</KeepAliveCount>
+        <AlarmServerType>2</AlarmServerType>
+        <AlarmServerIP>10.8.99.129</AlarmServerIP>
+        <AlarmServerUdpPort>7661</AlarmServerUdpPort>
+        <AlarmServerTcpPort>7333</AlarmServerTcpPort>
+        <AlarmServerMqttPort>7032</AlarmServerMqttPort>
+        <AlarmServerPortUseCms>0</AlarmServerPortUseCms>
+        <NTPServerIP>10.17.132.231</NTPServerIP>
+        <NTPServerPort>123</NTPServerPort>
+        <NTPInterval>3600</NTPInterval>
+        <PictureServerType>2</PictureServerType>
+        <PictureServerIP>10.8.99.129</PictureServerIP>
+        <PictureServerPort>6011</PictureServerPort>
+        <CmsAccessSecurity>0</CmsAccessSecurity>
+        <AlarmAccessSecurity>0</AlarmAccessSecurity>
+        <StreamAccessSecurity>0</StreamAccessSecurity>
+        <AlarmPictureSeparate>1</AlarmPictureSeparate>
+    </Param>
+    <AddressMap>
+        <!--If there is a mapping relationship, the following values are the post-mapping addresses -->
+        <Enable>0</Enable>
+        <!--If Enable == 1, the following values will be send to device. Otherwise, the values which in Param will be send to Device -->
+        <StreamServerIP>10.21.84.13</StreamServerIP>
+        <StreamServerPort>8000</StreamServerPort>
+        <PlayBackServerIP>10.21.84.13</PlayBackServerIP>
+        <PlayBackServerPort>8888</PlayBackServerPort>
+        <AudioServerIP>10.21.84.13</AudioServerIP>
+        <AudioServerPort>7500</AudioServerPort>
+        <AlarmServerIP>10.21.84.13</AlarmServerIP>
+        <AlarmServerUdpPort>7669</AlarmServerUdpPort>
+        <AlarmServerTcpPort>7668</AlarmServerTcpPort>
+        <AlarmServerMqttPort>7667</AlarmServerMqttPort>
+        <PictureServerIP>10.21.84.13</PictureServerIP>
+        <PictureServerPort>8089</PictureServerPort>
+    </AddressMap>
+    <DasInfo>
+        <ServerType>0</ServerType>
+        <!--0-LBS&DAS 1-LBS 2-DAS-->
+        <DasInfoPath>C:/EHomeSdkLog/DasInfo.xml</DasInfoPath>
+        <DASIP>10.21.84.13</DASIP>
+        <DASPort>7662</DASPort>
+    </DasInfo>
+</LocalCfg>

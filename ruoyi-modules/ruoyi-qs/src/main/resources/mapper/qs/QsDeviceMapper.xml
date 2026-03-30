@@ -14,15 +14,16 @@
         <result property="password" column="password"/>
         <result property="type" column="type"/>
         <result property="deviceType" column="device_type"/>
-        <result property="deviceModel" column="device_model"/>
         <result property="liveAddress" column="live_address"/>
         <result property="channel" column="channel"/>
         <result property="alarmChannelId" column="alarm_channel_id"/>
-        <result property="onlineType" column="online_type"/>
-        <result property="protocolVersion" column="protocol_version"/>
         <result property="status" column="status"/>
-        <result property="lastOnlineTime" column="last_online_time"/>
-        <result property="lastOfflineTime" column="last_offline_time"/>
+        <result property="streamType" column="stream_type"/>
+        <result property="longitude" column="longitude"/>
+        <result property="latitude" column="latitude"/>
+        <result property="gbCode" column="gb_code"/>
+        <result property="protocol" column="protocol"/>
+        <result property="deviceStatus" column="device_status"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -40,15 +41,16 @@
                password,
                type,
                device_type,
-               device_model,
                live_address,
                channel,
                alarm_channel_id,
-               online_type,
-               protocol_version,
                status,
-               last_online_time,
-               last_offline_time,
+               stream_type,
+               longitude,
+               latitude,
+               gb_code,
+               protocol,
+               device_status,
                create_by,
                create_time,
                update_by,
@@ -65,12 +67,7 @@
             <if test="ipAddress != null  and ipAddress != ''">and ip_address like concat('%', #{ipAddress}, '%')</if>
             <if test="type != null  and type != ''">and type = #{type}</if>
             <if test="status != null  and status != ''">and status = #{status}</if>
-            <if test="params.beginLastOnlineTime != null and params.beginLastOnlineTime != '' and params.endLastOnlineTime != null and params.endLastOnlineTime != ''">
-                and last_online_time between #{params.beginLastOnlineTime} and #{params.endLastOnlineTime}
-            </if>
-            <if test="params.beginLastOfflineTime != null and params.beginLastOfflineTime != '' and params.endLastOfflineTime != null and params.endLastOfflineTime != ''">
-                and last_offline_time between #{params.beginLastOfflineTime} and #{params.endLastOfflineTime}
-            </if>
+            <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
         </where>
     </select>
 
@@ -90,15 +87,16 @@
             <if test="password != null and password != ''">password,</if>
             <if test="type != null">type,</if>
             <if test="deviceType != null">device_type,</if>
-            <if test="deviceModel != null">device_model,</if>
             <if test="liveAddress != null">live_address,</if>
             <if test="channel != null">channel,</if>
             <if test="alarmChannelId != null">alarm_channel_id,</if>
-            <if test="onlineType != null">online_type,</if>
-            <if test="protocolVersion != null">protocol_version,</if>
             <if test="status != null">status,</if>
-            <if test="lastOnlineTime != null">last_online_time,</if>
-            <if test="lastOfflineTime != null">last_offline_time,</if>
+            <if test="streamType != null">stream_type,</if>
+            <if test="longitude != null">longitude,</if>
+            <if test="latitude != null">latitude,</if>
+            <if test="gbCode != null">gb_code,</if>
+            <if test="protocol != null">protocol,</if>
+            <if test="deviceStatus != null">device_status,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -114,15 +112,16 @@
             <if test="password != null and password != ''">#{password},</if>
             <if test="type != null">#{type},</if>
             <if test="deviceType != null">#{deviceType},</if>
-            <if test="deviceModel != null">#{deviceModel},</if>
             <if test="liveAddress != null">#{liveAddress},</if>
             <if test="channel != null">#{channel},</if>
             <if test="alarmChannelId != null">#{alarmChannelId},</if>
-            <if test="onlineType != null">#{onlineType},</if>
-            <if test="protocolVersion != null">#{protocolVersion},</if>
             <if test="status != null">#{status},</if>
-            <if test="lastOnlineTime != null">#{lastOnlineTime},</if>
-            <if test="lastOfflineTime != null">#{lastOfflineTime},</if>
+            <if test="streamType != null">#{streamType},</if>
+            <if test="longitude != null">#{longitude},</if>
+            <if test="latitude != null">#{latitude},</if>
+            <if test="gbCode != null">#{gbCode},</if>
+            <if test="protocol != null">#{protocol},</if>
+            <if test="deviceStatus != null">#{deviceStatus},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -142,15 +141,16 @@
             <if test="password != null and password != ''">password = #{password},</if>
             <if test="type != null">type = #{type},</if>
             <if test="deviceType != null">device_type = #{deviceType},</if>
-            <if test="deviceModel != null">device_model = #{deviceModel},</if>
             <if test="liveAddress != null">live_address = #{liveAddress},</if>
             <if test="channel != null">channel = #{channel},</if>
             <if test="alarmChannelId != null">alarm_channel_id = #{alarmChannelId},</if>
-            <if test="onlineType != null">online_type = #{onlineType},</if>
-            <if test="protocolVersion != null">protocol_version = #{protocolVersion},</if>
             <if test="status != null">status = #{status},</if>
-            <if test="lastOnlineTime != null">last_online_time = #{lastOnlineTime},</if>
-            <if test="lastOfflineTime != null">last_offline_time = #{lastOfflineTime},</if>
+            <if test="streamType != null">stream_type = #{streamType},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="gbCode != null">gb_code = #{gbCode},</if>
+            <if test="protocol != null">protocol = #{protocol},</if>
+            <if test="deviceStatus != null">device_status = #{deviceStatus},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -161,7 +161,16 @@
     </update>
 
     <update id="updateQsDeviceStatus">
-        update qs_device set status = #{status}, update_time = sysdate() where id = #{id}
+        update qs_device
+        set status      = #{status},
+            update_time = sysdate()
+        where id = #{id}
+    </update>
+    <update id="updateQsDeviceStatusList">
+        update qs_device set device_status = #{deviceStatus}, update_time = sysdate() where id in
+        <foreach item="id" collection="list" open="(" separator="," close=")">
+            #{id}
+        </foreach>
     </update>
 
     <delete id="deleteQsDeviceById" parameterType="Long">

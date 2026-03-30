@@ -9,6 +9,7 @@ import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 视频监控设备服务降级处理
@@ -31,6 +32,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             @Override
             public R<List<QsDevice>> list(QsDevice qsDevice, String source) {
                 return R.fail("查询视频监控设备失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> updateQsDeviceStatusList(Set<Long> onlineDeviceSet, String deviceStatus, String inner) {
+                return R.fail("更新设备在线状态失败:" + throwable.getMessage());
             }
         };
     }

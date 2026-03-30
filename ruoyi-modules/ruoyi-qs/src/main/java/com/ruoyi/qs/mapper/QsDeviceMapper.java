@@ -4,6 +4,7 @@ import com.ruoyi.qs.api.domain.QsDevice;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 视频监控设备Mapper接口
@@ -68,4 +69,13 @@ public interface QsDeviceMapper {
      * @return
      */
     int updateQsDeviceStatus(@Param("id") Long id,@Param("status") String status);
+
+    /**
+     * 更新设备在线状态
+     *
+     * @param onlineDeviceSet 在线设备集合
+     * @param deviceStatus    设备状态
+     * @return
+     */
+    Boolean updateQsDeviceStatusList(@Param("list") Set<Long> onlineDeviceSet,@Param("deviceStatus") String deviceStatus);
 }

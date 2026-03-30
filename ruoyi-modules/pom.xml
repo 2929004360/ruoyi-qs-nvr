@@ -15,6 +15,7 @@
         <module>ruoyi-file</module>
         <module>ruoyi-haikang</module>
         <module>ruoyi-qs</module>
+        <module>ruoyi-haikang-isup</module>
     </modules>
 
     <artifactId>ruoyi-modules</artifactId>
