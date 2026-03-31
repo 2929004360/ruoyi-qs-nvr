@@ -7,6 +7,8 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.common.security.utils.SecurityUtils;
+import com.ruoyi.dahua.api.RemoteDaHuaService;
+import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.domain.QsDevice;
@@ -37,6 +39,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
     @Autowired
     private RemoteHaiKangService remoteHaiKangService;
+
+    @Autowired
+    private RemoteDaHuaService remoteDaHuaService;
 
     /**
      * 查询视频监控设备
@@ -116,20 +121,59 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             qsDevice.setDeviceCode("haikang_" + IdUtil.getSnowflakeNextId());
             LoginDevice loginDevice = new LoginDevice();
             loginDevice.setIpAddress(qsDevice.getIpAddress());
-            loginDevice.setPort(qsDevice.getPort());
+            loginDevice.setPort(Short.parseShort(String.valueOf(qsDevice.getPort())));
             loginDevice.setUserName(qsDevice.getUserName());
             loginDevice.setPassword(qsDevice.getPassword());
             R<Integer> r = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);
             if (r.getCode() != Constants.SUCCESS) {
                 throw new SecurityException(r.getMsg());
             }
+            qsDevice.setDeviceStatus("ON");
         }
 
         // 海康ISUP
         if (LiveStreamType.HIK_ISUP.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("haikang_isup_" + qsDevice.getDeviceCode());
+            qsDevice.setDeviceStatus("ON");
         }
 
+        // 大华sdk
+        if (LiveStreamType.DAHUA_SDK.getCode().equals(qsDevice.getType())) {
+            com.ruoyi.dahua.api.domain.LoginDevice loginDevice = new com.ruoyi.dahua.api.domain.LoginDevice();
+
+            // 1=主动添加
+            if("1".equals(qsDevice.getOnlineType())){
+                qsDevice.setDeviceCode("dahua_" + IdUtil.getSnowflakeNextId());
+                loginDevice.setIpAddress(qsDevice.getIpAddress());
+                loginDevice.setPort(qsDevice.getPort());
+                loginDevice.setUserName(qsDevice.getUserName());
+                loginDevice.setPassword(qsDevice.getPassword());
+                loginDevice.setOnlineType(qsDevice.getOnlineType());
+            }
+
+            // 2=主动注册
+            if("2".equals(qsDevice.getOnlineType())){
+                R<DahuaDevice> dahuaDevicer = remoteDaHuaService.getDahuaDevice(qsDevice.getIpAddress(), SecurityConstants.INNER);
+                if(dahuaDevicer.getCode() != Constants.SUCCESS){
+                    throw new SecurityException(dahuaDevicer.getMsg());
+                }
+                if(dahuaDevicer.getData() == null){
+                    throw new SecurityException("未找到设备");
+                }
+                loginDevice.setIpAddress(qsDevice.getIpAddress());
+                loginDevice.setPort(Integer.valueOf(dahuaDevicer.getData().getPort()));
+                loginDevice.setDeviceId(dahuaDevicer.getData().getDeviceId());
+                loginDevice.setUserName(qsDevice.getUserName());
+                loginDevice.setPassword(qsDevice.getPassword());
+                loginDevice.setOnlineType(qsDevice.getOnlineType());
+            }
+
+            R<Void> r = remoteDaHuaService.loginDevice(loginDevice, SecurityConstants.INNER);
+            if (r.getCode() != Constants.SUCCESS) {
+                throw new SecurityException(r.getMsg());
+            }
+
+            qsDevice.setDeviceStatus("ON");
+        }
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
 
@@ -179,23 +223,56 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             }
         }
 
-        // 海康SDK
-        if (LiveStreamType.HIK_SDK.getCode().equals(qsDevice.getType())) {
-            R<Void> logoutDevicer = remoteHaiKangService.logoutDevice(qsDevice.getIpAddress(), SecurityConstants.INNER);
-            if (logoutDevicer.getCode() != Constants.SUCCESS) {
-                throw new SecurityException(logoutDevicer.getMsg());
-            }
+//        // 海康SDK
+//        if (LiveStreamType.HIK_SDK.getCode().equals(qsDevice.getType())) {
+//
+//            LoginDevice loginDevice = new LoginDevice();
+//            loginDevice.setIpAddress(qsDevice.getIpAddress());
+//            loginDevice.setPort(Short.parseShort(String.valueOf(qsDevice.getPort())));
+//            loginDevice.setUserName(qsDevice.getUserName());
+//            loginDevice.setPassword(qsDevice.getPassword());
+//            R<Integer> r = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);
+//            if (r.getCode() != Constants.SUCCESS) {
+//                throw new SecurityException(r.getMsg());
+//            }
+//        }
 
-            LoginDevice loginDevice = new LoginDevice();
-            loginDevice.setIpAddress(qsDevice.getIpAddress());
-            loginDevice.setPort(qsDevice.getPort());
-            loginDevice.setUserName(qsDevice.getUserName());
-            loginDevice.setPassword(qsDevice.getPassword());
-            R<Integer> r = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);
-            if (r.getCode() != Constants.SUCCESS) {
-                throw new SecurityException(r.getMsg());
-            }
-        }
+//        // 大华sdk
+//        if (LiveStreamType.DAHUA_SDK.getCode().equals(qsDevice.getType())) {
+//
+//            com.ruoyi.dahua.api.domain.LoginDevice loginDevice = new com.ruoyi.dahua.api.domain.LoginDevice();
+//
+//            // 1=主动添加
+//            if("1".equals(qsDevice.getOnlineType())){
+//                qsDevice.setDeviceCode("dahua_" + IdUtil.getSnowflakeNextId());
+//                loginDevice.setIpAddress(qsDevice.getIpAddress());
+//                loginDevice.setPort(qsDevice.getPort());
+//                loginDevice.setUserName(qsDevice.getUserName());
+//                loginDevice.setPassword(qsDevice.getPassword());
+//            }
+//
+//            // 2=主动注册
+//            if("2".equals(qsDevice.getOnlineType())){
+//                R<DahuaDevice> dahuaDevicer = remoteDaHuaService.getDahuaDevice(qsDevice.getIpAddress(), SecurityConstants.INNER);
+//                if(dahuaDevicer.getCode() != Constants.SUCCESS){
+//                    throw new SecurityException(dahuaDevicer.getMsg());
+//                }
+//                if(dahuaDevicer.getData() == null){
+//                    throw new SecurityException("未找到设备");
+//                }
+//                loginDevice.setIpAddress(qsDevice.getIpAddress());
+//                loginDevice.setPort(Integer.valueOf(dahuaDevicer.getData().getPort()));
+//                loginDevice.setDeviceId(dahuaDevicer.getData().getDeviceId());
+//                loginDevice.setUserName(qsDevice.getUserName());
+//                loginDevice.setPassword(qsDevice.getPassword());
+//                loginDevice.setOnlineType(qsDevice.getOnlineType());
+//            }
+//
+//            R<Void> r = remoteDaHuaService.loginDevice(loginDevice, SecurityConstants.INNER);
+//            if (r.getCode() != Constants.SUCCESS) {
+//                throw new SecurityException(r.getMsg());
+//            }
+//        }
         return qsDeviceMapper.updateQsDevice(qsDevice);
     }
 

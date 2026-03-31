@@ -13,6 +13,7 @@
         <module>ruoyi-api-haikang</module>
         <module>ruoyi-api-qs</module>
         <module>ruoyi-api-haikang-isup</module>
+        <module>ruoyi-api-dahua</module>
     </modules>
 
     <artifactId>ruoyi-api</artifactId>

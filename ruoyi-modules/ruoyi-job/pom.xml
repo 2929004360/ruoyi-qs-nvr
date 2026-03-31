@@ -88,6 +88,12 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-haikang-isup</artifactId>
         </dependency>
+
+        <!-- 大华sdk接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-dahua</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

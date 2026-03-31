@@ -16,6 +16,7 @@
         <module>ruoyi-haikang</module>
         <module>ruoyi-qs</module>
         <module>ruoyi-haikang-isup</module>
+        <module>ruoyi-dahua</module>
     </modules>
 
     <artifactId>ruoyi-modules</artifactId>

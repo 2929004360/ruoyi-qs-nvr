@@ -55,7 +55,7 @@ public class HaiKangSdkCommandLineRunner implements CommandLineRunner, Disposabl
             Integer userId = haiKangService.getUserId(device.getIpAddress());
             if (userId == null) {
                 haiKangService.loginDevice(device.getIpAddress(),
-                        device.getPort(),
+                        Short.valueOf(String.valueOf(device.getPort())),
                         device.getUserName(),
                         device.getPassword());
             }

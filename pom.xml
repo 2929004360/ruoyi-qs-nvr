@@ -233,6 +233,12 @@
                 <version>${ruoyi.version}</version>
             </dependency>
 
+            <!-- 大华接口 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-api-dahua</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

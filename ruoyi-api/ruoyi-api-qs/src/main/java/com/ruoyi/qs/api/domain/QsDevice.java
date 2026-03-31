@@ -31,7 +31,7 @@ public class QsDevice extends BaseEntity
     private String ipAddress;
 
     /** 端口号 */
-    private Short port;
+    private Integer port;
 
     /** 用户名 */
     private String userName;
@@ -74,4 +74,7 @@ public class QsDevice extends BaseEntity
 
     /** 设备状态(OFFLINE=离线,ON=在线) */
     private String deviceStatus;
+
+    /** 上线类型(1=主动添加, 2=主动注册) */
+    private String onlineType;
 }

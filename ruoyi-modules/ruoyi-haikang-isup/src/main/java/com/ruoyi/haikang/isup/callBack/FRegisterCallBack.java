@@ -83,7 +83,7 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
 
 
                 Device device = new Device();
-                device.setDeviceId(deviceId);
+                device.setDeviceId("haikang_isup_"+deviceId);
                 device.setIp(ip);
                 device.setLUserID(lUserID);
 

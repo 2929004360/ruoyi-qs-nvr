@@ -36,4 +36,9 @@ public class ServiceNameConstants
      * 海康isup模块的serviceid
      */
     public static final String HAIKANG_ISUP_SERVICE = "ruoyi-haikang-isup";
+
+    /**
+     * 大华sdk模块的serviceid
+     */
+    public static final String DAHUA_SERVICE = "ruoyi-dahua";
 }

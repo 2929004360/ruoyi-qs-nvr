@@ -59,7 +59,7 @@ public class HaiKangTask {
                 } else {
                     LoginDevice loginDevice = new LoginDevice();
                     loginDevice.setIpAddress(device.getIpAddress());
-                    loginDevice.setPort(device.getPort());
+                    loginDevice.setPort(Short.parseShort(String.valueOf(device.getPort())));
                     loginDevice.setUserName(device.getUserName());
                     loginDevice.setPassword(device.getPassword());
                     R<Integer> loginDeviceR = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);

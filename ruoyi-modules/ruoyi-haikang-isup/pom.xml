@@ -12,7 +12,7 @@
     <artifactId>ruoyi-modules-haikang-isup</artifactId>
 
     <description>
-        ruoyi-modules-haikang-isup 海康sdk模块
+        ruoyi-modules-haikang-isup 海康isup模块
     </description>
 
     <dependencies>

@@ -178,7 +178,7 @@
         </el-form-item>
 
         <el-form-item label="上线类型" prop="onlineType" v-if="form.type === '9'">
-          <el-radio-group v-model="form.onlineType">
+          <el-radio-group v-model="form.onlineType" @change="onlineTypeChange">
             <el-radio
                 v-for="dict in qs_online_type"
                 :key="dict.value"
@@ -188,24 +188,47 @@
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7' || form.type === '9'">
+        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
           <el-input v-model="form.ipAddress" placeholder="请输入IP地址" :maxlength="50" show-word-limit/>
         </el-form-item>
-        <el-form-item label="端口号" prop="port" v-if="form.type === '7' || form.type === '9'">
+        <el-form-item label="端口号" prop="port" v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
           <el-input v-model="form.port" placeholder="请输入端口号" disabled :maxlength="10" show-word-limit/>
         </el-form-item>
-        <el-form-item label="用户名" prop="userName" v-if="form.type === '7' || form.type === '9'">
+        <el-form-item label="用户名" prop="userName" v-if="form.type === '7' || (form.type === '9' )">
           <el-input v-model="form.userName" placeholder="请输入用户名" :maxlength="64" show-word-limit/>
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="form.type === '7' || form.type === '9'">
+        <el-form-item label="密码" prop="password" v-if="form.type === '7' || (form.type === '9' )">
           <el-input v-model="form.password" placeholder="请输入密码" :maxlength="128" show-word-limit/>
         </el-form-item>
 
         <el-form-item label="海康ISUP设备ID" prop="deviceCode" v-if="form.type === '8'">
-          <el-select v-model="form.deviceCode" @change="haikangIsupdeviceCodeChange" placeholder="请选择海康ISUP设备ID"
+          <el-select v-model="form.deviceCode" @change="haikangIsupDeviceCodeChange" placeholder="请选择海康ISUP设备ID"
                      filterable>
             <el-option
                 v-for="item in haiKangIsupDeviceList"
+                :key="item.deviceId"
+                :label="item.deviceId"
+                :value="item.deviceId"
+            >
+              <span style="float: left">{{ item.deviceId }}</span>
+              <span
+                  style="
+                  float: right;
+                  color: var(--el-text-color-secondary);
+                  font-size: 13px;
+                "
+              >
+                {{ item.ip }}
+              </span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="大华设备ID" prop="deviceCode" v-if="form.type === '9' && form.onlineType === '2'">
+          <el-select v-model="form.deviceCode" @change="dahuaDeviceCodeChange" placeholder="请选择大华设备ID"
+                     filterable>
+            <el-option
+                v-for="item in dahuaDeviceList"
                 :key="item.deviceId"
                 :label="item.deviceId"
                 :value="item.deviceId"
@@ -285,12 +308,14 @@
   </div>
 </template>
 
-<script setup lang="ts" name="Config">
+<script setup lang="ts" name="Device">
 import useClipboard from "vue-clipboard3";
 import type {DeviceQueryParams, QsDevice} from "@/types/api/qs/device"
 import {addDevice, changeDeviceStatus, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
 import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
 import {HaikangIsupDevice} from "@/types/api";
+import {DaHuaDevice} from "@/types/api/qs/dahua";
+import {listDaHusDevice} from "@/api/qs/dahua";
 
 const {toClipboard} = useClipboard()
 
@@ -315,6 +340,7 @@ const total = ref<number>(0)
 const title = ref<string>("")
 
 const haiKangIsupDeviceList = ref<HaikangIsupDevice[]>([])
+const dahuaDeviceList = ref<DaHuaDevice[]>([])
 
 const data = reactive({
   form: {} as QsDevice,
@@ -438,6 +464,23 @@ function handleUpdate(row: QsDevice) {
     form.value = response.data
     open.value = true
     title.value = "修改视频监控设备"
+
+    // 海康isup
+    if (form.value.type === '8') {
+      listHaiKangIsupDevice().then((res) => {
+        haiKangIsupDeviceList.value = res.data
+      })
+    }
+
+    // 大华主动上线
+    if(form.value.type === '9' && form.value.onlineType === '2'){
+      listDaHusDevice().then((res) => {
+        res.data.forEach((item)=>{
+          item.deviceId = "dahua_" + item.deviceId
+        })
+        dahuaDeviceList.value = res.data
+      })
+    }
   })
 }
 
@@ -554,9 +597,36 @@ function handleStatusChange(row: QsDevice) {
  *
  * @param e
  */
-const haikangIsupdeviceCodeChange = (e: string) => {
+const haikangIsupDeviceCodeChange = (e: string) => {
   const device = haiKangIsupDeviceList.value.find(item => item.deviceId === e);
   form.value.ipAddress = device.ip
+}
+
+/**
+ * 上线类型改变
+ *
+ * @param e
+ */
+const onlineTypeChange = (e: string) => {
+  if(e === '2'){
+    listDaHusDevice().then((res) => {
+      res.data.forEach((item)=>{
+        item.deviceId = "dahua_" + item.deviceId
+      })
+      dahuaDeviceList.value = res.data
+    })
+  }
+}
+
+/**
+ * 大华设备code改变
+ *
+ * @param e
+ */
+const dahuaDeviceCodeChange = (e: string) => {
+  const device = dahuaDeviceList.value.find(item => item.deviceId === e);
+  form.value.ipAddress = device.ip
+  form.value.port = device.port
 }
 
 getList()
