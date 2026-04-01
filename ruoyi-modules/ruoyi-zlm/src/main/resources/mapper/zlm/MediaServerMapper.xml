@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.zlm.mapper.MediaServerMapper">
+
+    <resultMap type="ZlmMediaServer" id="ZlmMediaServerResult">
+        <result property="id" column="id"/>
+        <result property="ip" column="ip"/>
+        <result property="hookIp" column="hook_ip"/>
+        <result property="sdpIp" column="sdp_ip"/>
+        <result property="streamIp" column="stream_ip"/>
+        <result property="httpPort" column="http_port"/>
+        <result property="httpSslPort" column="http_ssl_port"/>
+        <result property="rtmpPort" column="rtmp_port"/>
+        <result property="rtmpSslPort" column="rtmp_ssl_port"/>
+        <result property="rtpProxyPort" column="rtp_proxy_port"/>
+        <result property="rtspPort" column="rtsp_port"/>
+        <result property="rtspSslPort" column="rtsp_ssl_port"/>
+        <result property="flvPort" column="flv_port"/>
+        <result property="flvSslPort" column="flv_ssl_port"/>
+        <result property="mp4Port" column="mp4_port"/>
+        <result property="mp4SslPort" column="mp4_ssl_port"/>
+        <result property="wsFlvPort" column="ws_flv_port"/>
+        <result property="wsFlvSslPort" column="ws_flv_ssl_port"/>
+        <result property="jttProxyPort" column="jtt_proxy_port"/>
+        <result property="autoConfig" column="auto_config"/>
+        <result property="secret" column="secret"/>
+        <result property="type" column="type"/>
+        <result property="rtpEnable" column="rtp_enable"/>
+        <result property="rtpPortRange" column="rtp_port_range"/>
+        <result property="sendRtpPortRange" column="send_rtp_port_range"/>
+        <result property="recordAssistPort" column="record_assist_port"/>
+        <result property="defaultServer" column="default_server"/>
+        <result property="hookAliveInterval" column="hook_alive_interval"/>
+        <result property="recordPath" column="record_path"/>
+        <result property="recordDay" column="record_day"/>
+        <result property="transcodeSuffix" column="transcode_suffix"/>
+        <result property="serverId" column="server_id"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectZlmMediaServerVo">
+        select id,
+               ip,
+               hook_ip,
+               sdp_ip,
+               stream_ip,
+               http_port,
+               http_ssl_port,
+               rtmp_port,
+               rtmp_ssl_port,
+               rtp_proxy_port,
+               rtsp_port,
+               rtsp_ssl_port,
+               flv_port,
+               flv_ssl_port,
+               mp4_port,
+               mp4_ssl_port,
+               ws_flv_port,
+               ws_flv_ssl_port,
+               jtt_proxy_port,
+               auto_config,
+               secret,
+               type,
+               rtp_enable,
+               rtp_port_range,
+               send_rtp_port_range,
+               record_assist_port,
+               default_server,
+               hook_alive_interval,
+               record_path,
+               record_day,
+               transcode_suffix,
+               server_id,
+               status,
+               create_time,
+               update_time
+        from zlm_media_server
+    </sql>
+
+    <insert id="add" parameterType="ZlmMediaServer">
+        insert into zlm_media_server
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="ip != null">ip,</if>
+            <if test="hookIp != null">hook_ip,</if>
+            <if test="sdpIp != null">sdp_ip,</if>
+            <if test="streamIp != null">stream_ip,</if>
+            <if test="httpPort != null">http_port,</if>
+            <if test="httpSslPort != null">http_ssl_port,</if>
+            <if test="rtmpPort != null">rtmp_port,</if>
+            <if test="rtmpSslPort != null">rtmp_ssl_port,</if>
+            <if test="rtpProxyPort != null">rtp_proxy_port,</if>
+            <if test="rtspPort != null">rtsp_port,</if>
+            <if test="rtspSslPort != null">rtsp_ssl_port,</if>
+            <if test="flvPort != null">flv_port,</if>
+            <if test="flvSslPort != null">flv_ssl_port,</if>
+            <if test="mp4Port != null">mp4_port,</if>
+            <if test="mp4SslPort != null">mp4_ssl_port,</if>
+            <if test="wsFlvPort != null">ws_flv_port,</if>
+            <if test="wsFlvSslPort != null">ws_flv_ssl_port,</if>
+            <if test="jttProxyPort != null">jtt_proxy_port,</if>
+            <if test="autoConfig != null">auto_config,</if>
+            <if test="secret != null">secret,</if>
+            <if test="type != null">type,</if>
+            <if test="rtpEnable != null">rtp_enable,</if>
+            <if test="rtpPortRange != null">rtp_port_range,</if>
+            <if test="sendRtpPortRange != null">send_rtp_port_range,</if>
+            <if test="recordAssistPort != null">record_assist_port,</if>
+            <if test="defaultServer != null">default_server,</if>
+            <if test="hookAliveInterval != null">hook_alive_interval,</if>
+            <if test="recordPath != null">record_path,</if>
+            <if test="recordDay != null">record_day,</if>
+            <if test="transcodeSuffix != null">transcode_suffix,</if>
+            <if test="serverId != null">server_id,</if>
+            <if test="status != null">status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="ip != null">#{ip},</if>
+            <if test="hookIp != null">#{hookIp},</if>
+            <if test="sdpIp != null">#{sdpIp},</if>
+            <if test="streamIp != null">#{streamIp},</if>
+            <if test="httpPort != null">#{httpPort},</if>
+            <if test="httpSslPort != null">#{httpSslPort},</if>
+            <if test="rtmpPort != null">#{rtmpPort},</if>
+            <if test="rtmpSslPort != null">#{rtmpSslPort},</if>
+            <if test="rtpProxyPort != null">#{rtpProxyPort},</if>
+            <if test="rtspPort != null">#{rtspPort},</if>
+            <if test="rtspSslPort != null">#{rtspSslPort},</if>
+            <if test="flvPort != null">#{flvPort},</if>
+            <if test="flvSslPort != null">#{flvSslPort},</if>
+            <if test="mp4Port != null">#{mp4Port},</if>
+            <if test="mp4SslPort != null">#{mp4SslPort},</if>
+            <if test="wsFlvPort != null">#{wsFlvPort},</if>
+            <if test="wsFlvSslPort != null">#{wsFlvSslPort},</if>
+            <if test="jttProxyPort != null">#{jttProxyPort},</if>
+            <if test="autoConfig != null">#{autoConfig},</if>
+            <if test="secret != null">#{secret},</if>
+            <if test="type != null">#{type},</if>
+            <if test="rtpEnable != null">#{rtpEnable},</if>
+            <if test="rtpPortRange != null">#{rtpPortRange},</if>
+            <if test="sendRtpPortRange != null">#{sendRtpPortRange},</if>
+            <if test="recordAssistPort != null">#{recordAssistPort},</if>
+            <if test="defaultServer != null">#{defaultServer},</if>
+            <if test="hookAliveInterval != null">#{hookAliveInterval},</if>
+            <if test="recordPath != null">#{recordPath},</if>
+            <if test="recordDay != null">#{recordDay},</if>
+            <if test="transcodeSuffix != null">#{transcodeSuffix},</if>
+            <if test="serverId != null">#{serverId},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="com.ruoyi.zlm.domain.ZlmMediaServer">
+        update zlm_media_server
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="ip != null">ip = #{ip},</if>
+            <if test="hookIp != null">hook_ip = #{hookIp},</if>
+            <if test="sdpIp != null">sdp_ip = #{sdpIp},</if>
+            <if test="streamIp != null">stream_ip = #{streamIp},</if>
+            <if test="httpPort != null">http_port = #{httpPort},</if>
+            <if test="httpSslPort != null">http_ssl_port = #{httpSslPort},</if>
+            <if test="rtmpPort != null">rtmp_port = #{rtmpPort},</if>
+            <if test="rtmpSslPort != null">rtmp_ssl_port = #{rtmpSslPort},</if>
+            <if test="rtpProxyPort != null">rtp_proxy_port = #{rtpProxyPort},</if>
+            <if test="rtspPort != null">rtsp_port = #{rtspPort},</if>
+            <if test="rtspSslPort != null">rtsp_ssl_port = #{rtspSslPort},</if>
+            <if test="flvPort != null">flv_port = #{flvPort},</if>
+            <if test="flvSslPort != null">flv_ssl_port = #{flvSslPort},</if>
+            <if test="mp4Port != null">mp4_port = #{mp4Port},</if>
+            <if test="mp4SslPort != null">mp4_ssl_port = #{mp4SslPort},</if>
+            <if test="wsFlvPort != null">ws_flv_port = #{wsFlvPort},</if>
+            <if test="wsFlvSslPort != null">ws_flv_ssl_port = #{wsFlvSslPort},</if>
+            <if test="jttProxyPort != null">jtt_proxy_port = #{jttProxyPort},</if>
+            <if test="autoConfig != null">auto_config = #{autoConfig},</if>
+            <if test="secret != null">secret = #{secret},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="rtpEnable != null">rtp_enable = #{rtpEnable},</if>
+            <if test="rtpPortRange != null">rtp_port_range = #{rtpPortRange},</if>
+            <if test="sendRtpPortRange != null">send_rtp_port_range = #{sendRtpPortRange},</if>
+            <if test="recordAssistPort != null">record_assist_port = #{recordAssistPort},</if>
+            <if test="defaultServer != null">default_server = #{defaultServer},</if>
+            <if test="hookAliveInterval != null">hook_alive_interval = #{hookAliveInterval},</if>
+            <if test="recordPath != null">record_path = #{recordPath},</if>
+            <if test="recordDay != null">record_day = #{recordDay},</if>
+            <if test="transcodeSuffix != null">transcode_suffix = #{transcodeSuffix},</if>
+            <if test="serverId != null">server_id = #{serverId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="delOne">
+        DELETE FROM zlm_media_server WHERE id=#{id} and server_id = #{serverId}
+    </delete>
+
+    <select id="queryDefault" resultMap="ZlmMediaServerResult"
+            parameterType="java.lang.String">
+        <include refid="selectZlmMediaServerVo"/>
+        WHERE default_server = true
+        and server_id = #{serverId}
+    </select>
+
+    <select id="queryOne" resultMap="ZlmMediaServerResult">
+        <include refid="selectZlmMediaServerVo"/>
+        WHERE id = #{id}
+          and server_id = #{serverId}
+    </select>
+
+    <select id="queryAll" resultMap="ZlmMediaServerResult" parameterType="java.lang.String">
+        <include refid="selectZlmMediaServerVo"/>
+         where server_id = #{serverId}
+    </select>
+
+    <select id="getOne" resultMap="ZlmMediaServerResult" parameterType="java.lang.String">
+        <include refid="selectZlmMediaServerVo"/>
+        WHERE id = #{id}
+    </select>
+</mapper>
