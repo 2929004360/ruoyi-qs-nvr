@@ -25,6 +25,12 @@
         <result property="protocol" column="protocol"/>
         <result property="deviceStatus" column="device_status"/>
         <result property="onlineType" column="online_type"/>
+        <result property="enableAudio" column="enable_audio"/>
+        <result property="enableMp4" column="enable_mp4"/>
+        <result property="streamStatus" column="stream_status"/>
+        <result property="mediaServerId" column="media_serverId"/>
+        <result property="streamKey" column="stream_key"/>
+        <result property="enableDisableNoneReader" column="enable_disable_none_reader"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -53,6 +59,12 @@
                protocol,
                device_status,
                online_type,
+               enable_audio,
+               enable_mp4,
+               stream_status,
+               media_serverId,
+               stream_key,
+               enable_disable_none_reader,
                create_by,
                create_time,
                update_by,
@@ -78,6 +90,12 @@
         where id = #{id}
     </select>
 
+    <select id="getQsDeviceStream" resultMap="QsDeviceResult"
+            parameterType="java.lang.String">
+        <include refid="selectQsDeviceVo"/>
+        where device_code = #{stream}
+    </select>
+
     <insert id="insertQsDevice" parameterType="QsDevice" useGeneratedKeys="true" keyProperty="id">
         insert into qs_device
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -100,6 +118,12 @@
             <if test="protocol != null">protocol,</if>
             <if test="deviceStatus != null">device_status,</if>
             <if test="onlineType != null">online_type,</if>
+            <if test="enableAudio != null">enable_audio,</if>
+            <if test="enableMp4 != null">enable_mp4,</if>
+            <if test="streamStatus != null">stream_status,</if>
+            <if test="mediaServerId != null">media_serverId,</if>
+            <if test="streamKey != null">stream_key,</if>
+            <if test="enableDisableNoneReader != null">enable_disable_none_reader,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -126,6 +150,13 @@
             <if test="protocol != null">#{protocol},</if>
             <if test="deviceStatus != null">#{deviceStatus},</if>
             <if test="onlineType != null">#{onlineType},</if>
+            <if test="enableAudio != null">#{enableAudio},</if>
+            <if test="enableMp4 != null">#{enableMp4},</if>
+            <if test="enableMp4 != null">#{enableMp4},</if>
+            <if test="streamStatus != null">#{streamStatus},</if>
+            <if test="mediaServerId != null">#{mediaServerId},</if>
+            <if test="streamKey != null">#{streamKey},</if>
+            <if test="enableDisableNoneReader != null">#{enableDisableNoneReader},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -156,6 +187,12 @@
             <if test="protocol != null">protocol = #{protocol},</if>
             <if test="deviceStatus != null">device_status = #{deviceStatus},</if>
             <if test="onlineType != null">online_type = #{onlineType},</if>
+            <if test="enableAudio != null">enable_audio = #{enableAudio},</if>
+            <if test="enableMp4 != null">enable_mp4 = #{enableMp4},</if>
+            <if test="streamStatus != null">stream_status = #{streamStatus},</if>
+            media_serverId = #{mediaServerId},
+            stream_key = #{streamKey},
+            <if test="enableDisableNoneReader != null">enable_disable_none_reader = #{enableDisableNoneReader},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

@@ -84,6 +84,25 @@
             <artifactId>logging-interceptor</artifactId>
             <version>4.12.0</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.4.8-jre</version>
+        </dependency>
+
+        <!-- zlm 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-zlm</artifactId>
+        </dependency>
+
+        <!-- 泉视 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-qs</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,15 +1,26 @@
 package com.ruoyi.zlm.hook;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.hook.OnStreamChangedHookParam;
+import com.ruoyi.zlm.api.utils.MediaServerUtils;
+import com.ruoyi.zlm.config.UserSetting;
+import com.ruoyi.zlm.event.MediaArrivalEvent;
+import com.ruoyi.zlm.event.MediaDepartureEvent;
 import com.ruoyi.zlm.hook.event.HookZlmServerKeepaliveEvent;
 import com.ruoyi.zlm.service.IMediaServerService;
+import com.ruoyi.zlm.service.IMediaService;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.HashMap;
 
 /**
  * @description:针对 ZLMediaServer的hook事件监听
@@ -27,6 +38,12 @@ public class ZLMHttpHookListener {
 
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
+
+    @Autowired
+    private UserSetting userSetting;
+
+    @Autowired
+    private IMediaService mediaService;
 
 
     /**
@@ -74,7 +91,38 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_stream_changed", produces = "application/json;charset=UTF-8")
     public HookResult onStreamChanged(@RequestBody OnStreamChangedHookParam param) {
-        log.info("[ZLM HOOK] 流变化：{}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
+        ZlmMediaServer mediaServer = mediaServerService.getOne(param.getMediaServerId());
+        if (mediaServer == null) {
+            return HookResult.SUCCESS();
+        }
+        if (!ObjectUtils.isEmpty(mediaServer.getTranscodeSuffix()) && !"null".equalsIgnoreCase(mediaServer.getTranscodeSuffix()) && param.getStream().endsWith(mediaServer.getTranscodeSuffix())) {
+            return HookResult.SUCCESS();
+        }
+        if (param.getSchema().equalsIgnoreCase("rtsp")) {
+            if (param.isRegist()) {
+                log.info("[ZLM HOOK] 流注册, {}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
+                String queryParams = param.getParams();
+                if (queryParams == null) {
+                    try {
+                        URL url = new URL("http" + param.getOriginUrl().substring(4));
+                        queryParams = url.getQuery();
+                    } catch (MalformedURLException ignored) {
+                    }
+                }
+                if (queryParams != null) {
+                    param.setParamMap(MediaServerUtils.urlParamToMap(queryParams));
+                } else {
+                    param.setParamMap(new HashMap<>());
+                }
+                MediaArrivalEvent mediaArrivalEvent = MediaArrivalEvent.getInstance(this, param, mediaServer, userSetting.getServerId());
+                applicationEventPublisher.publishEvent(mediaArrivalEvent);
+            } else {
+                log.info("[ZLM HOOK] 流注销, {}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
+                MediaDepartureEvent mediaDepartureEvent = MediaDepartureEvent.getInstance(this, param, mediaServer);
+                applicationEventPublisher.publishEvent(mediaDepartureEvent);
+            }
+        }
+
         return HookResult.SUCCESS();
     }
 
@@ -84,9 +132,26 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_stream_none_reader", produces = "application/json;charset=UTF-8")
     public JSONObject onStreamNoneReader(@RequestBody OnStreamNoneReaderHookParam param) {
-        log.info("[ZLM HOOK] 流无人观看：{}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
+        log.info("[ZLM HOOK]流无人观看：{}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
+
+        ZlmMediaServer mediaInfo = mediaServerService.getOne(param.getMediaServerId());
+        if (mediaInfo == null) {
+            JSONObject ret = new JSONObject();
+            ret.put("code", 0);
+            return ret;
+        }
+        if (mediaInfo.getTranscodeSuffix() != null && param.getStream().endsWith(mediaInfo.getTranscodeSuffix())) {
+            param.setStream(param.getStream().substring(0, param.getStream().lastIndexOf(mediaInfo.getTranscodeSuffix()) - 1));
+        }
+        if (!ObjectUtils.isEmpty(mediaInfo.getTranscodeSuffix()) && !"null".equalsIgnoreCase(mediaInfo.getTranscodeSuffix()) && param.getStream().endsWith(mediaInfo.getTranscodeSuffix())) {
+            param.setStream(param.getStream().substring(0, param.getStream().lastIndexOf(mediaInfo.getTranscodeSuffix()) - 1));
+        }
+
         JSONObject ret = new JSONObject();
+        boolean close = mediaService.closeStreamOnNoneReader(param.getMediaServerId(), param.getApp(), param.getStream(), param.getSchema());
+        log.info("[ZLM HOOK]流无人观看是否触发关闭：{}, {}->{}->{}/{}", close, param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
         ret.put("code", 0);
+        ret.put("close", close);
         return ret;
     }
 

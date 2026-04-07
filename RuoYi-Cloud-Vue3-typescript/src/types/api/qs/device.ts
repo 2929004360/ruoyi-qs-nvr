@@ -56,6 +56,18 @@ export interface QsDevice extends BaseEntity {
   deviceStatus?: string;
   /** 上线类型(1=主动添加, 2=主动注册) */
   onlineType?: string;
+  /** 开启音频(0=关闭, 1=开启) */
+  enableAudio?: string;
+  /** 开启mp4录制(0=关闭, 1=开启) */
+  enableMp4?: string;
+  /** 流状态(0=停止,1=直播中) */
+  streamStatus?: string;
+  /** 当前拉流使用的流媒体服务ID */
+  mediaServerId?: string;
+  /** 拉流代理时zlm返回的key，用于停止拉流代理 */
+  streamKey?: string;
+  /** 是否 无人观看时自动停用 */
+  enableDisableNoneReader?: string;
   /** 创建者 */
   createBy?: string;
   /** 创建时间 */

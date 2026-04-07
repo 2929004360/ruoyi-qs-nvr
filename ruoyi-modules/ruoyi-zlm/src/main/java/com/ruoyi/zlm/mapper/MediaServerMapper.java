@@ -1,6 +1,6 @@
 package com.ruoyi.zlm.mapper;
 
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.stereotype.Repository;
@@ -74,4 +74,11 @@ public interface MediaServerMapper {
      * @return
      */
     ZlmMediaServer getOne(String id);
+
+    /**
+     * 获取所有在线的媒体服务器
+     *
+     * @return
+     */
+    List<ZlmMediaServer> getAllOnlineMediaServe();
 }

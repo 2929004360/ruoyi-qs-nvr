@@ -82,6 +82,12 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-dahua</artifactId>
         </dependency>
+
+        <!-- zlm接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-zlm</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

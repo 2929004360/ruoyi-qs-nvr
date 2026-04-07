@@ -1,5 +1,6 @@
 package com.ruoyi.zlm.hook;
 
+import com.ruoyi.zlm.api.hook.HookParam;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,7 +9,7 @@ import lombok.Setter;
  * @author fengcheng
  */
 
-public class OnPublishHookParam extends HookParam{
+public class OnPublishHookParam extends HookParam {
 
     @Getter
     @Setter

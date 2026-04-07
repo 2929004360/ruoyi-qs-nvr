@@ -41,4 +41,9 @@ public class ServiceNameConstants
      * 大华sdk模块的serviceid
      */
     public static final String DAHUA_SERVICE = "ruoyi-dahua";
+
+    /**
+     * zlm模块的serviceid
+     */
+    public static final String ZLM_SERVICE = "ruoyi-zlm";
 }

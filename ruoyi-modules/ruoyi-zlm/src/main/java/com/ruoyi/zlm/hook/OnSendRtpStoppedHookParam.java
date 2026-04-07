@@ -1,10 +1,12 @@
 package com.ruoyi.zlm.hook;
 
+import com.ruoyi.zlm.api.hook.HookParam;
+
 /**
  * zlm hook事件中的on_send_rtp_stopped事件的参数
  * @author fengcheng
  */
-public class OnSendRtpStoppedHookParam extends HookParam{
+public class OnSendRtpStoppedHookParam extends HookParam {
     private String app;
     private String stream;
 

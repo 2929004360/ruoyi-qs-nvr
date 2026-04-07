@@ -30,3 +30,5 @@ export * from "./tool/gen";
 // qs 模块
 export * from "./qs/device";
 export * from "./qs/haikang-isup";
+export * from "./qs/zlm";
+export * from "./qs/dahua";

@@ -1,7 +1,7 @@
 package com.ruoyi.zlm.config;
 
 import com.ruoyi.common.core.utils.DateUtils;
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

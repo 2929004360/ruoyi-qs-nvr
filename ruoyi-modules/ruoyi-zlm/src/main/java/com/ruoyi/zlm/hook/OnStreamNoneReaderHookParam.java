@@ -1,6 +1,8 @@
 package com.ruoyi.zlm.hook;
 
-public class OnStreamNoneReaderHookParam extends HookParam{
+import com.ruoyi.zlm.api.hook.HookParam;
+
+public class OnStreamNoneReaderHookParam extends HookParam {
 
     private String schema;
     private String app;

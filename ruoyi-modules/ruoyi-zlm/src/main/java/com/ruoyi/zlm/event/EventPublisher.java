@@ -1,7 +1,7 @@
 package com.ruoyi.zlm.event;
 
 
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import com.ruoyi.zlm.mediaServer.MediaServerOfflineEvent;
 import com.ruoyi.zlm.mediaServer.MediaServerOnlineEvent;
 import lombok.extern.slf4j.Slf4j;

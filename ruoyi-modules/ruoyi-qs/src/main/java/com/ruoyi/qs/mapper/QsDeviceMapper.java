@@ -78,4 +78,12 @@ public interface QsDeviceMapper {
      * @return
      */
     Boolean updateQsDeviceStatusList(@Param("list") Set<Long> onlineDeviceSet,@Param("deviceStatus") String deviceStatus);
+
+    /**
+     * 更具流id获取视频监控设备
+     *
+     * @param stream 流id
+     * @return
+     */
+    QsDevice getQsDeviceStream(String stream);
 }

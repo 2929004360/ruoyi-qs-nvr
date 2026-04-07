@@ -1,10 +1,12 @@
 package com.ruoyi.zlm.hook;
 
+import com.ruoyi.zlm.api.hook.HookParam;
+
 /**
  * zlm hook事件中的on_play事件的参数
  * @author fengcheng
  */
-public class OnPlayHookParam extends HookParam{
+public class OnPlayHookParam extends HookParam {
     private String id;
     private String app;
     private String stream;

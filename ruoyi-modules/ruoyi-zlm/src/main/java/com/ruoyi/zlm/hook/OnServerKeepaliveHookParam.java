@@ -1,5 +1,7 @@
 package com.ruoyi.zlm.hook;
 
+import com.ruoyi.zlm.api.hook.HookParam;
+
 /**
  * zlm hook事件中的on_play事件的参数
  *

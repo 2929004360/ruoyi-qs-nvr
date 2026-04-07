@@ -1,10 +1,9 @@
-package com.ruoyi.zlm.domain;
+package com.ruoyi.zlm.api.domain;
 
 
 import com.ruoyi.common.core.annotation.Excel;
 import com.ruoyi.common.core.web.domain.BaseEntity;
-import com.ruoyi.zlm.config.ZLMServerConfig;
-import io.swagger.v3.oas.annotations.media.Schema;
+import com.ruoyi.zlm.api.config.ZLMServerConfig;
 import lombok.Data;
 import org.springframework.util.ObjectUtils;
 
@@ -13,7 +12,6 @@ import org.springframework.util.ObjectUtils;
  *
  * @author fengcheng
  */
-@Schema(description = "流媒体服务信息")
 @Data
 public class ZlmMediaServer extends BaseEntity{
 

@@ -1,6 +1,6 @@
 package com.ruoyi.zlm.mediaServer;
 
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import org.springframework.context.ApplicationEvent;
 
 import java.util.ArrayList;

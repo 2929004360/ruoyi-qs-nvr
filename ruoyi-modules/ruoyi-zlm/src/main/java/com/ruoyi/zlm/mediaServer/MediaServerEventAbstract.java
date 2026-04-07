@@ -1,6 +1,6 @@
 package com.ruoyi.zlm.mediaServer;
 
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.context.ApplicationEvent;

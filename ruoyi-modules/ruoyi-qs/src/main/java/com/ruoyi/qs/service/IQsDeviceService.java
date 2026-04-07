@@ -1,5 +1,6 @@
 package com.ruoyi.qs.service;
 
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.qs.api.domain.QsDevice;
 
 import java.util.List;
@@ -77,4 +78,20 @@ public interface IQsDeviceService
      * @return
      */
     Boolean updateQsDeviceStatusList(Set<Long> onlineDeviceSet, String deviceStatus);
+
+    /**
+     * 修改视频监控设备
+     *
+     * @param qsDevice 视频监控设备
+     * @return
+     */
+    int editQsDevice(QsDevice qsDevice);
+
+    /**
+     * 更具流id获取视频监控设备
+     *
+     * @param stream 流id
+     * @return
+     */
+    QsDevice getQsDeviceStream(String stream);
 }

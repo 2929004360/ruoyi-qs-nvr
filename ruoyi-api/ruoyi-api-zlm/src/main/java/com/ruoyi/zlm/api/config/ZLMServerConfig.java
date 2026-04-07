@@ -1,7 +1,7 @@
-package com.ruoyi.zlm.config;
+package com.ruoyi.zlm.api.config;
 
 import com.alibaba.fastjson2.annotation.JSONField;
-import com.ruoyi.zlm.hook.HookParam;
+import com.ruoyi.zlm.api.hook.HookParam;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

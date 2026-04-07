@@ -1,6 +1,7 @@
 package com.ruoyi.qs.api;
 
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.service.IQsDeviceService;
@@ -44,5 +45,24 @@ public class QsDeviceApiController {
     public R<Boolean> updateQsDeviceStatusList(@RequestBody Set<Long> onlineDeviceSet, @PathVariable String deviceStatus) {
         Boolean b = qsDeviceService.updateQsDeviceStatusList(onlineDeviceSet, deviceStatus);
         return R.ok(b);
+    }
+
+
+    /**
+     * 修改视频监控设备
+     */
+    @InnerAuth
+    @PutMapping("/updateQsDevice")
+    public R<Boolean> updateQsDevice(@RequestBody QsDevice qsDevice) {
+        return qsDeviceService.editQsDevice(qsDevice) > 0 ? R.ok(true) : R.ok(false);
+    }
+
+    /**
+     * 更具流id获取视频监控设备
+     */
+    @InnerAuth
+    @GetMapping("/getQsDeviceStream/{stream}")
+    public R<QsDevice> getQsDeviceStream(@PathVariable String stream) {
+        return R.ok(qsDeviceService.getQsDeviceStream(stream));
     }
 }

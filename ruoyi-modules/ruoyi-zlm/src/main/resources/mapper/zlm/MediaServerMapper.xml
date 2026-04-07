@@ -159,7 +159,7 @@
         </trim>
     </insert>
 
-    <update id="update" parameterType="com.ruoyi.zlm.domain.ZlmMediaServer">
+    <update id="update" parameterType="ZlmMediaServer">
         update zlm_media_server
         <trim prefix="SET" suffixOverrides=",">
             <if test="ip != null">ip = #{ip},</if>
@@ -225,5 +225,10 @@
     <select id="getOne" resultMap="ZlmMediaServerResult" parameterType="java.lang.String">
         <include refid="selectZlmMediaServerVo"/>
         WHERE id = #{id}
+    </select>
+
+    <select id="getAllOnlineMediaServe" resultMap="ZlmMediaServerResult">
+        <include refid="selectZlmMediaServerVo"/>
+        where status = 'ON'
     </select>
 </mapper>

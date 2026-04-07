@@ -126,6 +126,24 @@
       <el-table-column label="备注" align="center" prop="remark" width="180"/>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="150" fixed="right">
         <template #default="scope">
+          <el-button link
+                     type="primary"
+                     icon="VideoPlay"
+                     @click="handlePlay(scope.row)"
+                     v-hasPermi="['qs:device:play']"
+                     :loading="scope.row.loading"
+          >
+            播放
+          </el-button>
+          <el-button link
+                     v-if="scope.row.streamStatus === '1' && (scope.row.type === '1' || scope.row.type === '2')"
+                     type="danger"
+                     icon="SwitchButton"
+                     @click="handleStopPlay(scope.row)"
+                     v-hasPermi="['qs:device:play']"
+          >
+            停止
+          </el-button>
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['qs:device:edit']">
             修改
           </el-button>
@@ -188,10 +206,12 @@
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="IP地址" prop="ipAddress" v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
+        <el-form-item label="IP地址" prop="ipAddress"
+                      v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
           <el-input v-model="form.ipAddress" placeholder="请输入IP地址" :maxlength="50" show-word-limit/>
         </el-form-item>
-        <el-form-item label="端口号" prop="port" v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
+        <el-form-item label="端口号" prop="port"
+                      v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
           <el-input v-model="form.port" placeholder="请输入端口号" disabled :maxlength="10" show-word-limit/>
         </el-form-item>
         <el-form-item label="用户名" prop="userName" v-if="form.type === '7' || (form.type === '9' )">
@@ -252,7 +272,8 @@
                     show-word-limit/>
         </el-form-item>
 
-        <el-form-item label="码流类型" prop="streamType" v-if="form.type === '7' || form.type === '8' || form.type === '9'">
+        <el-form-item label="码流类型" prop="streamType"
+                      v-if="form.type === '7' || form.type === '8' || form.type === '9'">
           <el-radio-group v-model="form.streamType">
             <el-radio
                 v-for="dict in qs_stream_type"
@@ -260,6 +281,25 @@
                 :label="dict.value"
             >{{ dict.label }}
             </el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="开启音频"
+                      prop="enableAudio"
+                      v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4' || form.type === '6'"
+        >
+          <el-radio-group v-model="form.enableAudio">
+            <el-radio label="0">关闭</el-radio>
+            <el-radio label="1">开启</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="开启mp4录制"
+                      prop="enableMp4"
+                      v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4' || form.type === '6'"
+        >
+          <el-radio-group v-model="form.enableMp4">
+            <el-radio label="0">关闭</el-radio>
+            <el-radio label="1">开启</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="传输协议" prop="protocol">
@@ -294,6 +334,16 @@
             </el-radio>
           </el-radio-group>
         </el-form-item>
+
+        <el-form-item label="无人观看"
+                      prop="enableDisableNoneReader"
+                      v-if="form.type === '1' || form.type === '2'"
+        >
+          <el-radio-group v-model="form.enableDisableNoneReader">
+            <el-radio label="0">不处理</el-radio>
+            <el-radio label="1">停用</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" :maxlength="255" show-word-limit/>
         </el-form-item>
@@ -305,17 +355,91 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog :title="`视频播放-${deviceRow.deviceName}`"
+               v-model="easyPlayerOpen"
+               width="840px"
+               append-to-body
+               draggable
+               @close="getList"
+    >
+      <div style="width: 100%;height: 100%;display: flex;justify-content: center" v-if="easyPlayerOpen">
+        <EasyPlayer
+            ref="EasyPlayerRef"
+            style="width: 800px;height: 400px;"
+            width="100"
+            height="100"
+            :isPercentage="true"
+            :quality="quality"
+            :defaultQuality="defaultQuality"
+            :isPtz="isPtz"
+            :isQuality="isQuality"
+            :hasAudio="deviceRow.enableAudio === '1'"
+            :isMute="deviceRow.enableAudio === '1'"
+            :isLive="isLive"
+            :videoUrl="wsUrl"/>
+      </div>
+
+      <el-tabs v-model="tabActiveName"
+               type="card"
+               :stretch="true"
+               style="margin-top: 10px;"
+               v-if="deviceRow.type === '1' || deviceRow.type === '2'">
+        <el-tab-pane label="实时视频" name="media">
+          <el-row :gutter="10">
+            <el-col :span="3"><span style="width: 80px; line-height: 40px; text-align: right;">播放地址：</span></el-col>
+            <el-col :span="21">
+              <el-input v-model="flvUrl" :disabled="true" style="margin-top: 10px">
+                <template #prepend>flv地址</template>
+                <template #append>
+                  <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(flvUrl)"/>
+                </template>
+              </el-input>
+              <el-input v-model="wsUrl" :disabled="true" style="margin-top: 10px">
+                <template #prepend>wsUrl地址</template>
+                <template #append>
+                  <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(wsUrl)"/>
+                </template>
+              </el-input>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="10" style="margin-top: 10px">
+            <el-col :span="3"><span style="width: 80px; line-height: 40px; text-align: right;">资源地址：</span></el-col>
+            <el-col :span="21">
+              <el-input v-model="rtcUrl" :disabled="true">
+                <template #prepend>
+                  <StreamDropdown :stream-info="streamInfo"/>
+                </template>
+                <template #append>
+                  <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(wsUrl)"/>
+                </template>
+              </el-input>
+            </el-col>
+          </el-row>
+        </el-tab-pane>
+        <!--        <el-tab-pane label="编码信息" name="codec">-->
+        <!--          <MediaInfo v-if="tabActiveName === 'codec' && streamInfo" ref="mediaInfo" :app="streamInfo.app"-->
+        <!--                     :stream="streamInfo.stream" :mediaServerId="streamInfo.mediaServerId"></MediaInfo>-->
+        <!--        </el-tab-pane>-->
+      </el-tabs>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts" name="Device">
 import useClipboard from "vue-clipboard3";
+import EasyPlayer from "@/components/EasyPlayer";
 import type {DeviceQueryParams, QsDevice} from "@/types/api/qs/device"
 import {addDevice, changeDeviceStatus, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
 import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
-import {HaikangIsupDevice} from "@/types/api";
+import {HaikangIsupDevice, PullConfig} from "@/types/api";
 import {DaHuaDevice} from "@/types/api/qs/dahua";
 import {listDaHusDevice} from "@/api/qs/dahua";
+import {stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
+import {DocumentCopy} from '@element-plus/icons-vue'
+import StreamDropdown from "@/components/Channel/streamDropdown.vue";
 
 const {toClipboard} = useClipboard()
 
@@ -327,7 +451,7 @@ const {
   qs_protocol,
   qs_device_status,
   qs_online_type,
-} = proxy.useDict('qs_status', 'qs_live_stream_type', 'qs_stream_type', 'qs_protocol', 'qs_device_status','qs_online_type')
+} = proxy.useDict('qs_status', 'qs_live_stream_type', 'qs_stream_type', 'qs_protocol', 'qs_device_status', 'qs_online_type')
 
 const deviceList = ref<QsDevice[]>([])
 const open = ref<boolean>(false)
@@ -341,6 +465,20 @@ const title = ref<string>("")
 
 const haiKangIsupDeviceList = ref<HaikangIsupDevice[]>([])
 const dahuaDeviceList = ref<DaHuaDevice[]>([])
+
+// 播放
+const easyPlayerOpen = ref(false)
+const deviceRow = ref({})
+const rtcUrl = ref("");
+const flvUrl = ref("");
+const wsUrl = ref('');
+const tabActiveName = ref('media');
+const streamInfo = ref({});
+const quality = ref(['普清', '高清', '超清']);
+const defaultQuality = ref('高清');
+const isPtz = ref(true);
+const isQuality = ref(true);
+const isLive = ref(true);
 
 const data = reactive({
   form: {} as QsDevice,
@@ -421,6 +559,8 @@ function reset() {
     status: "ENABLE",
     streamType: "1",
     protocol: "TCP",
+    enableAudio: "0",
+    enableMp4: "0",
     createBy: null,
     createTime: null,
     updateBy: null,
@@ -473,9 +613,9 @@ function handleUpdate(row: QsDevice) {
     }
 
     // 大华主动上线
-    if(form.value.type === '9' && form.value.onlineType === '2'){
+    if (form.value.type === '9' && form.value.onlineType === '2') {
       listDaHusDevice().then((res) => {
-        res.data.forEach((item)=>{
+        res.data.forEach((item) => {
           item.deviceId = "dahua_" + item.deviceId
         })
         dahuaDeviceList.value = res.data
@@ -608,9 +748,9 @@ const haikangIsupDeviceCodeChange = (e: string) => {
  * @param e
  */
 const onlineTypeChange = (e: string) => {
-  if(e === '2'){
+  if (e === '2') {
     listDaHusDevice().then((res) => {
-      res.data.forEach((item)=>{
+      res.data.forEach((item) => {
         item.deviceId = "dahua_" + item.deviceId
       })
       dahuaDeviceList.value = res.data
@@ -629,5 +769,131 @@ const dahuaDeviceCodeChange = (e: string) => {
   form.value.port = device.port
 }
 
-getList()
+/**
+ * 播放
+ *
+ * @param row
+ */
+const handlePlay = (row: QsDevice) => {
+  row.loading = true
+  // rtsp协议或者rtmp
+  if (row.type === '1' || row.type === '2') {
+    let data = {
+      deviceId: row.id,
+      app: 'rtsp',
+      stream: row.deviceCode,
+      url: row.liveAddress,
+      enable_audio: false,
+      enable_mp4: false,
+      rtp_type: '1',
+      timeOut: 10,
+    } as PullConfig;
+
+    if(row.type === '1'){
+      data.app = "rtsp"
+    }else {
+      data.app = "rtmp"
+    }
+
+    if (row.protocol === 'UDP') {
+      data.rtp_type = '0'
+    } else if (row.protocol === 'TCP') {
+      data.rtp_type = '1'
+    }
+
+    if (row.enableAudio === '1') {
+      data.enable_audio = true
+    }
+
+    if (row.enableMp4 === '1') {
+      data.enable_mp4 = true
+    }
+
+    streamPullPlay(data).then(async (res: any) => {
+      await nextTick(async () => {
+        if (location.protocol === "https:") {
+          flvUrl.value = res.data.https_flv;
+          rtcUrl.value = res.data.rtcs;
+          wsUrl.value = res.data.wss_flv;
+        } else {
+          flvUrl.value = res.data.flv;
+          rtcUrl.value = res.data.rtc;
+          wsUrl.value = res.data.ws_flv;
+        }
+
+        streamInfo.value = res.data;
+        quality.value = []
+        defaultQuality.value = ''
+        isPtz.value = false
+        isQuality.value = false
+        isLive.value = true
+        deviceRow.value = row
+        row.loading = false
+        easyPlayerOpen.value = true
+      })
+    }).catch((err) => {
+      row.loading = false
+    })
+  } else if (row.type === '3' || row.type === '4') {
+    nextTick(async () => {
+      wsUrl.value = row.liveAddress
+      quality.value = []
+      defaultQuality.value = ''
+      isPtz.value = false
+      isQuality.value = false
+      isLive.value = true
+      deviceRow.value = row
+      row.loading = false
+      easyPlayerOpen.value = true
+    })
+  }else if (row.type === '6') {
+    nextTick(async () => {
+      wsUrl.value = row.liveAddress
+      quality.value = []
+      defaultQuality.value = ''
+      isPtz.value = false
+      isQuality.value = false
+      isLive.value = false
+      deviceRow.value = row
+      row.loading = false
+      easyPlayerOpen.value = true
+    })
+  }
+
+}
+
+/**
+ * 停止播放
+ */
+const handleStopPlay = (row:QsDevice) => {
+  let data = {
+    deviceId: row.id,
+    mediaServerId: row.mediaServerId,
+    streamKey: row.streamKey,
+  }
+  stopStreamPullPlay(data).then((res) => {
+    getList()
+    proxy.$modal.msgSuccess("停止播放成功");
+  })
+}
+
+
+let timer = null
+/**
+ * 获取列表
+ */
+const startTimer = () => {
+  // 清除可能存在的旧定时器，防止重复创建
+  if (timer) clearInterval(timer);
+
+  // 立即先执行一次
+  getList();
+
+  // 30000 毫秒 = 30 秒
+  timer = setInterval(() => {
+    getList();
+  }, 30000);
+};
+
+startTimer()
 </script>

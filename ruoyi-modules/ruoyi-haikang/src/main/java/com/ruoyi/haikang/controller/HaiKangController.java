@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
  * @date 2026-03-28
  **/
 @RestController
-@RequestMapping("/haikang")
 public class HaiKangController extends BaseController {
 
     @Autowired

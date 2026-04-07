@@ -77,4 +77,22 @@ public class QsDevice extends BaseEntity
 
     /** 上线类型(1=主动添加, 2=主动注册) */
     private String onlineType;
+
+    /** 开启音频(0=关闭, 1=开启) */
+    private String enableAudio;
+
+    /** 开启mp4录制(0=关闭, 1=开启) */
+    private String enableMp4;
+
+    /** 流状态(0=停止,1=直播中) */
+    private String streamStatus;
+
+    /** 当前拉流使用的流媒体服务ID */
+    private String mediaServerId;
+
+    /** 拉流代理时zlm返回的key，用于停止拉流代理 */
+    private String streamKey;
+
+    /** 是否 无人观看时自动停用 */
+    private String enableDisableNoneReader;
 }

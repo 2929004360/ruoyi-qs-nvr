@@ -2,7 +2,7 @@ package com.ruoyi.zlm.runner;
 
 import com.ruoyi.zlm.config.MediaConfig;
 import com.ruoyi.zlm.config.UserSetting;
-import com.ruoyi.zlm.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import com.ruoyi.zlm.mediaServer.MediaServerChangeEvent;
 import com.ruoyi.zlm.service.IMediaServerService;
 import lombok.extern.slf4j.Slf4j;

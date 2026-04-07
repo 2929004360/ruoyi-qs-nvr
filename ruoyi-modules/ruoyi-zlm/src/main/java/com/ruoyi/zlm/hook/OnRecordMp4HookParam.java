@@ -1,10 +1,12 @@
 package com.ruoyi.zlm.hook;
 
+import com.ruoyi.zlm.api.hook.HookParam;
+
 /**
  * zlm hook事件中的on_rtp_server_timeout事件的参数
  * @author fengcheng
  */
-public class OnRecordMp4HookParam extends HookParam{
+public class OnRecordMp4HookParam extends HookParam {
     private String app;
     private String stream;
     private String file_name;

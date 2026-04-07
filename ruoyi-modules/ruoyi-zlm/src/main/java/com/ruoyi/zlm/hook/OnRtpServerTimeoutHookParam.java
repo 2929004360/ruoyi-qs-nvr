@@ -1,10 +1,12 @@
 package com.ruoyi.zlm.hook;
 
+import com.ruoyi.zlm.api.hook.HookParam;
+
 /**
  * zlm hook事件中的on_rtp_server_timeout事件的参数
  * @author fengcheng
  */
-public class OnRtpServerTimeoutHookParam extends HookParam{
+public class OnRtpServerTimeoutHookParam extends HookParam {
     private int local_port;
     private String stream_id;
     private int tcpMode;

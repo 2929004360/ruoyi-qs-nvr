@@ -239,6 +239,14 @@
                 <artifactId>ruoyi-api-dahua</artifactId>
                 <version>${ruoyi.version}</version>
             </dependency>
+
+            <!-- zlm接口 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-api-zlm</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
