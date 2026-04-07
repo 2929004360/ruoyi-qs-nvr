@@ -55,7 +55,7 @@ public interface RemoteQsDeviceService {
     public R<Boolean> updateQsDevice(@RequestBody QsDevice qsDevice, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 
     /**
-     * 更具流id获取视频监控设备
+     * 根据流id获取视频监控设备
      *
      * @param stream 流id
      * @param inner  请求来源
@@ -63,4 +63,14 @@ public interface RemoteQsDeviceService {
      */
     @GetMapping("/api/device/getQsDeviceStream/{stream}")
     R<QsDevice> getQsDeviceStream(@PathVariable String stream, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 获取视频监控设备详细信息
+     *
+     * @param id    设备id
+     * @param inner 请求来源
+     * @return
+     */
+    @GetMapping("/api/device/getQsDeviceInfo/{id}")
+    R<QsDevice> getQsDeviceInfo(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

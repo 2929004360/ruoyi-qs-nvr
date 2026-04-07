@@ -1,9 +1,7 @@
 package com.ruoyi.zlm.service;
 
-import com.ruoyi.zlm.api.domain.StreamPullPlay;
-import com.ruoyi.zlm.api.domain.MediaInfo;
-import com.ruoyi.zlm.api.domain.StreamInfo;
-import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.*;
+import com.ruoyi.zlm.domain.Snap;
 
 import java.util.List;
 
@@ -107,9 +105,9 @@ public interface IMediaServerService {
      * 根据应用名和流ID获取播放地址, 只是地址拼接
      *
      * @param mediaServer 媒体服务器
-     * @param app 应用名
-     * @param stream 流ID
-     * @param mediaInfo 媒体信息
+     * @param app         应用名
+     * @param stream      流ID
+     * @param mediaInfo   媒体信息
      * @return
      */
     StreamInfo getStreamInfoByAppAndStream(ZlmMediaServer mediaServer, String app, String stream, MediaInfo mediaInfo);
@@ -120,4 +118,73 @@ public interface IMediaServerService {
      * @param streamPullPlay
      */
     void stopStreamPullPlay(StreamPullPlay streamPullPlay);
+
+    /**
+     * 点播成功时调用截图
+     *
+     * @param mediaServer media
+     * @param app         app
+     * @param stream      流id
+     */
+    String snapOnPlay(ZlmMediaServer mediaServer, String app, String stream);
+
+    /**
+     * 获取截图
+     *
+     * @param mediaServer
+     * @param snap
+     * @return
+     */
+    String getSnap(ZlmMediaServer mediaServer, Snap snap);
+
+    /**
+     * 创建RTP服务器
+     *
+     * @param mediaServer  zlm服务实例
+     * @param app          应用名
+     * @param streamId     流Id
+     * @param ssrc         ssrc
+     * @param port         端口， 0/null为使用随机
+     * @param onlyAuto     是否只自动分配
+     * @param disableAudio 是否禁用音频
+     * @param reUsePort    是否重用端口
+     * @param tcpMode      0/null udp 模式，1 tcp 被动模式, 2 tcp 主动模式。
+     * @return
+     */
+    int createRTPServer(ZlmMediaServer mediaServer, String app, String streamId, long ssrc, Integer port, Boolean onlyAuto, Boolean disableAudio, Boolean reUsePort, Integer tcpMode);
+
+    /**
+     * rtp播放
+     *
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @param callback
+     * @return
+     */
+    void rtpPlay(RTPServerParam rtpServerParam, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * 关闭RTP服务器
+     *
+     * @param mediaServerItem
+     * @param streamId
+     */
+    void closeRTPServer(ZlmMediaServer mediaServerItem, String streamId);
+
+    /**
+     * 停止rtp播放
+     *
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @return
+     */
+    void stopRtpPlay(RTPServerParam rtpServerParam);
+
+    /**
+     * 判断流是否已经准备好
+     *
+     * @param mediaServer
+     * @param rtp
+     * @param streamId
+     * @return
+     */
+    Boolean isStreamReady(ZlmMediaServer mediaServer, String rtp, String streamId);
 }

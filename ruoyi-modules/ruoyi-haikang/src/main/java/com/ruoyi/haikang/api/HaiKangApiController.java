@@ -4,6 +4,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
+import com.ruoyi.haikang.api.domain.RtpServerParam;
 import com.ruoyi.haikang.service.IHaiKangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -74,5 +75,29 @@ public class HaiKangApiController {
     @PostMapping("/getDeviceInfo/{ip}")
     public R<HaikangDeviceInfo> getDeviceInfo(@PathVariable String ip) {
         return R.ok(haiKangService.getDeviceInfo(ip));
+    }
+
+    /**
+     * 开始播放
+     *
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/startPlay")
+    public R<Void> startPlay(@RequestBody RtpServerParam rtpServerParam) {
+        haiKangService.startPlay(rtpServerParam);
+        return R.ok();
+    }
+
+    /**
+     * 开始播放
+     *
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/stopPlay/{id}")
+    public R<Void> stopPlay(@PathVariable Long id) {
+        haiKangService.stopPlay(id);
+        return R.ok();
     }
 }

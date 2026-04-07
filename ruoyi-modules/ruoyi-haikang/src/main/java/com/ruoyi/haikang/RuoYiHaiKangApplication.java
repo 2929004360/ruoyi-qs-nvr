@@ -4,6 +4,7 @@ import com.ruoyi.common.security.annotation.EnableCustomConfig;
 import com.ruoyi.common.security.annotation.EnableRyFeignClients;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 海康sdk模块
@@ -13,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @EnableCustomConfig
 @EnableRyFeignClients
 @SpringBootApplication
+@EnableScheduling
 public class RuoYiHaiKangApplication
 {
     public static void main(String[] args)

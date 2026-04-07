@@ -1,12 +1,13 @@
 package com.ruoyi.zlm.controller;
 
+import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.web.domain.AjaxResult;
-import com.ruoyi.zlm.api.domain.StreamContent;
-import com.ruoyi.zlm.api.domain.StreamInfo;
-import com.ruoyi.zlm.api.domain.StreamPullPlay;
+import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.InviteErrorCode;
 import com.ruoyi.zlm.config.UserSetting;
+import com.ruoyi.zlm.domain.Snap;
 import com.ruoyi.zlm.service.ErrorCallback;
 import com.ruoyi.zlm.service.IMediaServerService;
 import com.ruoyi.zlm.utils.ZLMRESTfulUtils;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -72,8 +74,7 @@ public class ZlmController {
                         }
                         streamInfo.changeStreamIp(host);
                     }
-                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix())
-                            && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
                         streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
                     }
                     r.setData(new StreamContent(streamInfo));
@@ -101,6 +102,88 @@ public class ZlmController {
     @PostMapping("/stopStreamPullPlay")
     public AjaxResult stopStreamPullPlay(@RequestBody StreamPullPlay streamPullPlay) {
         mediaServerService.stopStreamPullPlay(streamPullPlay);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 停止拉流播放
+     *
+     * @param snap 截图参数
+     * @return
+     */
+    @PostMapping("/getSnap")
+    public AjaxResult getSnap(@RequestBody Snap snap) {
+        ZlmMediaServer mediaServer = mediaServerService.getMediaServerForMinimumLoad(null);
+        String filePath = mediaServerService.getSnap(mediaServer, snap);
+        return AjaxResult.success(filePath);
+    }
+
+    /**
+     * rtp播放
+     *
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @param request        HttpServletRequest
+     * @return
+     */
+    @PostMapping("/rtpPlay")
+    public DeferredResult<R<StreamContent>> rtpPlay(@RequestBody RTPServerParam rtpServerParam, HttpServletRequest request) {
+        log.info("rtp播放： app：{}-stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
+
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()))) {
+            log.error("不支持的播放类型：{}", rtpServerParam.getType());
+            throw new RuntimeException("不支持的播放类型");
+        }
+
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                R<StreamContent> r = R.ok();
+                if (streamInfo != null) {
+                    if (userSetting.getUseSourceIpAsStreamIp()) {
+                        streamInfo = streamInfo.clone();//深拷贝
+                        String host;
+                        try {
+                            URL url = new URL(request.getRequestURL().toString());
+                            host = url.getHost();
+                        } catch (MalformedURLException e) {
+                            host = request.getLocalAddr();
+                        }
+                        streamInfo.changeStreamIp(host);
+                    }
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                        streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
+                    }
+                    r.setData(new StreamContent(streamInfo));
+                } else {
+                    r.setCode(code);
+                    r.setMsg(msg);
+                }
+
+                result.setResult(r);
+            } else {
+                result.setResult(R.fail(code, msg));
+            }
+        };
+
+        mediaServerService.rtpPlay(rtpServerParam, callback);
+        return result;
+    }
+
+    /**
+     * 停止rtp播放
+     *
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @return
+     */
+    @PostMapping("/stopRtpPlay")
+    public AjaxResult stopRtpPlay(@RequestBody RTPServerParam rtpServerParam) {
+        log.info("停止rtp播放： id：{}", rtpServerParam.getId());
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()))) {
+            log.error("不支持的播放类型：{}", rtpServerParam.getType());
+            throw new RuntimeException("不支持的播放类型");
+        }
+        mediaServerService.stopRtpPlay(rtpServerParam);
         return AjaxResult.success();
     }
 }

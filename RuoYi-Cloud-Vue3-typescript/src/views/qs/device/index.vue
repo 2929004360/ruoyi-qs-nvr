@@ -108,6 +108,11 @@
         </template>
       </el-table-column>
       <el-table-column label="通道号" align="center" prop="channel" width="80"/>
+      <el-table-column label="截图" align="center" prop="snap" width="150">
+        <template #default="scope">
+          <image-preview v-if="scope.row.snap" :src="scope.row.snap" :width="100" :height="50"/>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
           <el-switch
@@ -136,7 +141,8 @@
             播放
           </el-button>
           <el-button link
-                     v-if="scope.row.streamStatus === '1' && (scope.row.type === '1' || scope.row.type === '2')"
+                     v-if="scope.row.streamStatus === '1'
+                     && (scope.row.type === '1' || scope.row.type === '2' || scope.row.type === '3' || scope.row.type === '4' || scope.row.type === '7')"
                      type="danger"
                      icon="SwitchButton"
                      @click="handleStopPlay(scope.row)"
@@ -337,7 +343,7 @@
 
         <el-form-item label="无人观看"
                       prop="enableDisableNoneReader"
-                      v-if="form.type === '1' || form.type === '2'"
+                      v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4'"
         >
           <el-radio-group v-model="form.enableDisableNoneReader">
             <el-radio label="0">不处理</el-radio>
@@ -434,10 +440,10 @@ import EasyPlayer from "@/components/EasyPlayer";
 import type {DeviceQueryParams, QsDevice} from "@/types/api/qs/device"
 import {addDevice, changeDeviceStatus, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
 import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
-import {HaikangIsupDevice, PullConfig} from "@/types/api";
+import {HaikangIsupDevice, PullConfig, RTPServerParam, Snap} from "@/types/api";
 import {DaHuaDevice} from "@/types/api/qs/dahua";
 import {listDaHusDevice} from "@/api/qs/dahua";
-import {stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
+import {getSnap, rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
 
@@ -789,9 +795,9 @@ const handlePlay = (row: QsDevice) => {
       timeOut: 10,
     } as PullConfig;
 
-    if(row.type === '1'){
+    if (row.type === '1') {
       data.app = "rtsp"
-    }else {
+    } else {
       data.app = "rtmp"
     }
 
@@ -835,18 +841,89 @@ const handlePlay = (row: QsDevice) => {
       row.loading = false
     })
   } else if (row.type === '3' || row.type === '4') {
-    nextTick(async () => {
-      wsUrl.value = row.liveAddress
-      quality.value = []
-      defaultQuality.value = ''
-      isPtz.value = false
-      isQuality.value = false
-      isLive.value = true
-      deviceRow.value = row
-      row.loading = false
-      easyPlayerOpen.value = true
-    })
-  }else if (row.type === '6') {
+    if ((row.type === '3' && row.flvType === 'flv') || row.type === '4') {
+      let data = {
+        deviceId: row.id,
+        app: 'flv',
+        stream: row.deviceCode,
+        url: row.liveAddress,
+        enable_audio: false,
+        enable_mp4: false,
+        rtp_type: '1',
+        timeOut: 10,
+      } as PullConfig;
+
+      if (row.type === '3') {
+        data.app = "flv"
+      } else {
+        data.app = "hls"
+      }
+
+      if (row.protocol === 'UDP') {
+        data.rtp_type = '0'
+      } else if (row.protocol === 'TCP') {
+        data.rtp_type = '1'
+      }
+
+      if (row.enableAudio === '1') {
+        data.enable_audio = true
+      }
+
+      if (row.enableMp4 === '1') {
+        data.enable_mp4 = true
+      }
+
+      streamPullPlay(data).then(async (res: any) => {
+        await nextTick(async () => {
+          if (location.protocol === "https:") {
+            flvUrl.value = res.data.https_flv;
+            rtcUrl.value = res.data.rtcs;
+            wsUrl.value = res.data.wss_flv;
+          } else {
+            flvUrl.value = res.data.flv;
+            rtcUrl.value = res.data.rtc;
+            wsUrl.value = res.data.ws_flv;
+          }
+
+          streamInfo.value = res.data;
+          quality.value = []
+          defaultQuality.value = ''
+          isPtz.value = false
+          isQuality.value = false
+          isLive.value = true
+          deviceRow.value = row
+          row.loading = false
+          easyPlayerOpen.value = true
+        })
+      }).catch((err) => {
+        row.loading = false
+      })
+    } else {
+      nextTick(async () => {
+        wsUrl.value = row.liveAddress
+        quality.value = []
+        defaultQuality.value = ''
+        isPtz.value = false
+        isQuality.value = false
+        isLive.value = true
+        deviceRow.value = row
+        row.loading = false
+        easyPlayerOpen.value = true
+      })
+
+      let data = {
+        app: "flv",
+        stream: row.deviceCode,
+        url: row.liveAddress,
+      } as Snap;
+      getSnap(data).then((res) => {
+        updateDevice({
+          snap: res.msg,
+          id: row.id
+        })
+      })
+    }
+  } else if (row.type === '6') {
     nextTick(async () => {
       wsUrl.value = row.liveAddress
       quality.value = []
@@ -857,6 +934,52 @@ const handlePlay = (row: QsDevice) => {
       deviceRow.value = row
       row.loading = false
       easyPlayerOpen.value = true
+
+      let data = {
+        app: "video_file",
+        stream: row.deviceCode,
+        url: row.liveAddress,
+      } as Snap;
+      getSnap(data).then((res) => {
+        updateDevice({
+          snap: res.msg,
+          id: row.id
+        })
+      })
+    })
+  } else if (row.type === '7') {
+    let data = {
+      app: "haikang",
+      streamId: row.deviceCode,
+      tcpMode: "0",
+      type: row.type,
+      id: row.id
+    } as RTPServerParam;
+
+    rtpPlay(data).then(async (res: any) => {
+      await nextTick(async () => {
+        if (location.protocol === "https:") {
+          flvUrl.value = res.data.https_flv;
+          rtcUrl.value = res.data.rtcs;
+          wsUrl.value = res.data.wss_flv;
+        } else {
+          flvUrl.value = res.data.flv;
+          rtcUrl.value = res.data.rtc;
+          wsUrl.value = res.data.ws_flv;
+        }
+
+        streamInfo.value = res.data;
+        quality.value = []
+        defaultQuality.value = ''
+        isPtz.value = false
+        isQuality.value = false
+        isLive.value = true
+        deviceRow.value = row
+        row.loading = false
+        easyPlayerOpen.value = true
+      })
+    }).catch((err) => {
+      row.loading = false
     })
   }
 
@@ -865,16 +988,27 @@ const handlePlay = (row: QsDevice) => {
 /**
  * 停止播放
  */
-const handleStopPlay = (row:QsDevice) => {
-  let data = {
-    deviceId: row.id,
-    mediaServerId: row.mediaServerId,
-    streamKey: row.streamKey,
+const handleStopPlay = (row: QsDevice) => {
+  if (row.type === '1' || row.type === '2' || row.type === '3' || row.type === '4') {
+    let data = {
+      deviceId: row.id,
+      mediaServerId: row.mediaServerId,
+      streamKey: row.streamKey,
+    }
+    stopStreamPullPlay(data).then((res) => {
+      getList()
+      proxy.$modal.msgSuccess("停止播放成功");
+    })
+  } else if (row.type === '7') {
+    let data = {
+      "type": row.type,
+      "id": row.id
+    }
+    stopRtpPlay(data).then((res) => {
+      getList()
+      proxy.$modal.msgSuccess("停止播放成功");
+    })
   }
-  stopStreamPullPlay(data).then((res) => {
-    getList()
-    proxy.$modal.msgSuccess("停止播放成功");
-  })
 }
 
 

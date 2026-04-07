@@ -15,5 +15,4 @@ import org.springframework.cloud.openfeign.FeignClient;
 @FeignClient(contextId = "remoteZlmService", value = ServiceNameConstants.ZLM_SERVICE, fallbackFactory = RemoteZlmFallbackFactory.class)
 public interface RemoteZlmService {
 
-
 }

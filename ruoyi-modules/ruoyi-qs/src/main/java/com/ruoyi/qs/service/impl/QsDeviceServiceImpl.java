@@ -103,6 +103,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         // FLV协议
         if (LiveStreamType.FLV.getCode().equals(qsDevice.getType())) {
             qsDevice.setDeviceCode("flv_" + IdUtil.getSnowflakeNextId());
+            String flvType = getProtocolTypeSimple(qsDevice.getLiveAddress());
+            qsDevice.setFlvType(flvType);
+
             if (!isValidFlvAddress(qsDevice.getLiveAddress())) {
                 throw new RuntimeException("FLV地址格式不正确");
             }
@@ -212,6 +215,8 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // FLV协议
         if (LiveStreamType.FLV.getCode().equals(qsDevice.getType())) {
+            String flvType = getProtocolTypeSimple(qsDevice.getLiveAddress());
+            qsDevice.setFlvType(flvType);
             if (!isValidFlvAddress(qsDevice.getLiveAddress())) {
                 throw new RuntimeException("FLV地址格式不正确");
             }
@@ -466,5 +471,25 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         Matcher matcher = pattern.matcher(url);
 
         return matcher.matches();
+    }
+
+    /**
+     * 判断 URL 协议类型 (无前缀版本)
+     */
+    public static String getProtocolTypeSimple(String url) {
+        if (url == null) return null;
+
+        // 转小写以防万一
+        String lowerUrl = url.toLowerCase();
+
+        if (lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) {
+            return "flv";
+        }
+
+        if (lowerUrl.startsWith("ws://") || lowerUrl.startsWith("wss://")) {
+            return "ws";
+        }
+
+        return null;
     }
 }

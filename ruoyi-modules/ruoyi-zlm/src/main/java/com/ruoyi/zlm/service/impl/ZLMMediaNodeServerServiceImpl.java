@@ -6,6 +6,7 @@ import com.ruoyi.zlm.api.domain.MediaInfo;
 import com.ruoyi.zlm.api.domain.StreamInfo;
 import com.ruoyi.zlm.api.domain.StreamPullPlay;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.common.CommonCallback;
 import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.domain.dto.FlagData;
 import com.ruoyi.zlm.domain.dto.StreamProxyResult;
@@ -165,5 +166,55 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
         } else if (zlmResult.getCode() != 0) {
             throw new RuntimeException(zlmResult.getMsg());
         }
+    }
+
+    @Override
+    public void getSnap(ZlmMediaServer mediaServer, String app, String stream, int timeoutSec, int expireSec, String path, String fileName) {
+        String streamUrl;
+        if (mediaServer.getRtspPort() != 0) {
+            streamUrl = String.format("rtsp://127.0.0.1:%s/%s/%s", mediaServer.getRtspPort(), app, stream);
+        } else {
+            streamUrl = String.format("http://127.0.0.1:%s/%s/%s.live.mp4", mediaServer.getHttpPort(), app, stream);
+        }
+        zlmresTfulUtils.getSnap(mediaServer, streamUrl, timeoutSec, expireSec, path, fileName);
+    }
+
+    @Override
+    public void getSnap(ZlmMediaServer mediaServer, String streamUrl, int timeoutSec, int expireSec, String path, String fileName) {
+        zlmresTfulUtils.getSnap(mediaServer, streamUrl, timeoutSec, expireSec, path, fileName);
+    }
+
+    @Override
+    public void closeRtpServer(ZlmMediaServer mediaServer, String streamId, CommonCallback<Boolean> callback) {
+        if (mediaServer == null) {
+            if (callback != null) {
+                callback.run(false);
+            }
+            return;
+        }
+        Map<String, Object> param = new HashMap<>();
+        param.put("stream_id", streamId);
+        zlmresTfulUtils.closeRtpServer(mediaServer, param, zlmResult -> {
+            if (zlmResult.getCode() == 0) {
+                if (callback != null) {
+                    callback.run(zlmResult.getHit() >= 1);
+                }
+                return;
+            }else {
+                log.error("关闭RTP Server 失败: " + zlmResult.getMsg());
+            }
+            if (callback != null) {
+                callback.run(false);
+            }
+        });
+    }
+
+    @Override
+    public MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream) {
+        ZLMResult<JSONObject> zlmResult = zlmresTfulUtils.getMediaInfo(mediaServer, app, "rtsp", stream);
+        if (zlmResult.getCode() != 0 || zlmResult.getData() == null || zlmResult.getData().getString("app") == null ) {
+            return null;
+        }
+        return MediaInfo.getInstance(zlmResult.getData(), mediaServer, userSetting.getServerId());
     }
 }

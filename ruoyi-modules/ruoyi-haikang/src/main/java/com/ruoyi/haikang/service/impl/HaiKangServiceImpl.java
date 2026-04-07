@@ -1,12 +1,19 @@
 package com.ruoyi.haikang.service.impl;
 
 import cn.hutool.core.util.ObjectUtil;
+import com.ruoyi.common.core.constant.Constants;
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
+import com.ruoyi.haikang.api.domain.RtpServerParam;
 import com.ruoyi.haikang.net.Client;
 import com.ruoyi.haikang.net.HCNetSDK;
 import com.ruoyi.haikang.service.IHaiKangService;
+import com.ruoyi.haikang.service.IHaikangMediaStreamService;
 import com.ruoyi.haikang.utils.CommonUtil;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.domain.QsDevice;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +44,12 @@ public class HaiKangServiceImpl implements IHaiKangService {
      * 海康登录用户ID
      */
     public static ConcurrentHashMap<String, Integer> userIdMap = new ConcurrentHashMap<String, Integer>();
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
+
+    @Autowired
+    private IHaikangMediaStreamService mediaStreamService;
 
     /**
      * 登录设备，支持 V40 和 V30 版本，功能一致。
@@ -150,6 +163,43 @@ public class HaiKangServiceImpl implements IHaiKangService {
         deviceInfo.setByChanNum(m_strDeviceCfg.byChanNum);
 
         return deviceInfo;
+    }
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam
+     */
+    @Override
+    public void startPlay(RtpServerParam rtpServerParam) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        String streamKey = "haikang_play_" + device.getId() + "_" + device.getChannel();
+
+        int lUserID = userIdMap.get(device.getIpAddress());
+
+        mediaStreamService.startPlay(lUserID, device, streamKey,rtpServerParam);
+    }
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    @Override
+    public void stopPlay(Long id) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        String streamKey = "haikang_play_" + device.getId() + "_" + device.getChannel();
+
+        mediaStreamService.endPlay(device.getId(), device.getChannel(), streamKey);
     }
 
     //设备版本解析

@@ -46,7 +46,12 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
 
             @Override
             public R<QsDevice> getQsDeviceStream(String stream, String inner) {
-                return R.fail("更具流id获取视频监控设备失败:" + throwable.getMessage());
+                return R.fail("根据流id获取视频监控设备失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<QsDevice> getQsDeviceInfo(Long id, String inner) {
+                return R.fail("获取视频监控设备详细信息失败:" + throwable.getMessage());
             }
         };
     }

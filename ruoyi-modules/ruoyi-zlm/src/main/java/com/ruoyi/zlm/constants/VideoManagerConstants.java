@@ -12,4 +12,6 @@ public class VideoManagerConstants {
 	public static final String ONLINE_MEDIA_SERVERS_PREFIX = "ZLM_ONLINE_MEDIA_SERVERS:";
 
 	public static final String MEDIA_STREAM_AUTHORITY = "ZLM_MEDIA_STREAM_AUTHORITY";
+
+	public static final String INVITE_PREFIX = "ZLM_RTP_INVITE_INFO";
 }

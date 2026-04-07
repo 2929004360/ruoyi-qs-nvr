@@ -1,5 +1,77 @@
+export interface RTPServerParam {
+    /** 主键ID */
+    id?: number;
+
+    /** 媒体服务器信息 */
+    mediaServer?: any; // 建议替换为具体的 ZlmMediaServer 类型
+
+    /** 流信息 */
+    streamInfo?: any; // 建议替换为具体的 StreamInfo 类型
+
+    /** 应用名 */
+    app?: string;
+
+    /** 流ID */
+    streamId?: string;
+
+    /** 预设的SSRC */
+    presetSsrc?: string;
+
+    /** 是否开启SSRC校验 */
+    ssrcCheck?: boolean;
+
+    /** 是否为回放模式 */
+    playback?: boolean;
+
+    /** 端口号 */
+    port?: number;
+
+    /** 是否仅自动模式 */
+    onlyAuto?: boolean;
+
+    /** 是否禁用音频 */
+    disableAudio?: boolean;
+
+    /** 是否复用端口 */
+    reUsePort?: boolean;
+
+    /** SSRC字符串 */
+    ssrc?: string;
+
+    /** 类型 */
+    type?: string;
+
+    /**
+     * TCP模式
+     * 0: 不启用TCP监听
+     * 1: 启用TCP监听
+     * 2: TCP主动连接模式
+     */
+    tcpMode?: number;
+}
+
 /**
- * RTSP 拉流配置请求参数
+ * 截图参数
+ */
+export interface Snap {
+    /**
+     * 应用名称
+     */
+    app: string;
+
+    /**
+     * 流 ID / 流名称
+     */
+    stream: string;
+
+    /**
+     * 原始流地址
+     */
+    url: string;
+}
+
+/**
+ * 拉流配置请求参数
  */
 export interface PullConfig {
     /**

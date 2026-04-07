@@ -95,4 +95,10 @@ public class QsDevice extends BaseEntity
 
     /** 是否 无人观看时自动停用 */
     private String enableDisableNoneReader;
+
+    /** 截图路径 */
+    private String snap;
+
+    /** flv 类型（ws/flv） */
+    private String flvType;
 }

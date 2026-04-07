@@ -31,6 +31,8 @@
         <result property="mediaServerId" column="media_serverId"/>
         <result property="streamKey" column="stream_key"/>
         <result property="enableDisableNoneReader" column="enable_disable_none_reader"/>
+        <result property="snap" column="snap"/>
+        <result property="flvType" column="flv_type"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -65,6 +67,8 @@
                media_serverId,
                stream_key,
                enable_disable_none_reader,
+               snap,
+               flv_type,
                create_by,
                create_time,
                update_by,
@@ -124,6 +128,8 @@
             <if test="mediaServerId != null">media_serverId,</if>
             <if test="streamKey != null">stream_key,</if>
             <if test="enableDisableNoneReader != null">enable_disable_none_reader,</if>
+            <if test="snap != null">snap,</if>
+            <if test="flvType != null">flv_type,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -157,6 +163,8 @@
             <if test="mediaServerId != null">#{mediaServerId},</if>
             <if test="streamKey != null">#{streamKey},</if>
             <if test="enableDisableNoneReader != null">#{enableDisableNoneReader},</if>
+            <if test="snap != null">#{snap},</if>
+            <if test="flvType != null">#{flvType},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -190,9 +198,11 @@
             <if test="enableAudio != null">enable_audio = #{enableAudio},</if>
             <if test="enableMp4 != null">enable_mp4 = #{enableMp4},</if>
             <if test="streamStatus != null">stream_status = #{streamStatus},</if>
-            media_serverId = #{mediaServerId},
-            stream_key = #{streamKey},
+            <if test="mediaServerId != null">media_serverId = #{mediaServerId},</if>
+            <if test="streamKey != null">stream_key = #{streamKey},</if>
             <if test="enableDisableNoneReader != null">enable_disable_none_reader = #{enableDisableNoneReader},</if>
+            <if test="snap != null">snap = #{snap},</if>
+            <if test="flvType != null">flv_type = #{flvType},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

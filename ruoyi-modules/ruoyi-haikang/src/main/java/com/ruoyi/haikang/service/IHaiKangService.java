@@ -1,6 +1,7 @@
 package com.ruoyi.haikang.service;
 
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
+import com.ruoyi.haikang.api.domain.RtpServerParam;
 
 /**
  * @FileName IHaikangService
@@ -43,4 +44,18 @@ public interface IHaiKangService {
      * @return
      */
     HaikangDeviceInfo getDeviceInfo(String ip);
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam
+     */
+    void startPlay(RtpServerParam rtpServerParam);
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    void stopPlay(Long id);
 }

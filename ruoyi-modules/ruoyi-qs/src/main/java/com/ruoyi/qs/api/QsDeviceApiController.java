@@ -1,7 +1,6 @@
 package com.ruoyi.qs.api;
 
 import com.ruoyi.common.core.domain.R;
-import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.service.IQsDeviceService;
@@ -64,5 +63,14 @@ public class QsDeviceApiController {
     @GetMapping("/getQsDeviceStream/{stream}")
     public R<QsDevice> getQsDeviceStream(@PathVariable String stream) {
         return R.ok(qsDeviceService.getQsDeviceStream(stream));
+    }
+
+    /**
+     * 获取视频监控设备详细信息
+     */
+    @InnerAuth
+    @GetMapping("/getQsDeviceInfo/{id}")
+    public R<QsDevice> getQsDeviceInfo(@PathVariable Long id) {
+        return R.ok(qsDeviceService.selectQsDeviceById(id));
     }
 }

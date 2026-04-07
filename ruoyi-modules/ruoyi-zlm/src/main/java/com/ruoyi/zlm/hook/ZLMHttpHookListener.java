@@ -1,5 +1,6 @@
 package com.ruoyi.zlm.hook;
 
+import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import com.ruoyi.zlm.api.hook.OnStreamChangedHookParam;
@@ -82,7 +83,26 @@ public class ZLMHttpHookListener {
     @PostMapping(value = "/on_publish", produces = "application/json;charset=UTF-8")
     public HookResultForOnPublish onPublish(@RequestBody OnPublishHookParam param) {
         log.info("[ZLM HOOK] 推流鉴权：{}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
-        return HookResultForOnPublish.Fail();
+        JSONObject json = (JSONObject) JSON.toJSON(param);
+
+        String mediaServerId = json.getString("mediaServerId");
+        ZlmMediaServer mediaServer = mediaServerService.getOne(mediaServerId);
+        if (mediaServer == null) {
+            HookResultForOnPublish fail = HookResultForOnPublish.Fail();
+            log.warn("[ZLM HOOK]推流鉴权 响应：{}->找不到对应的mediaServer", param.getMediaServerId());
+            return fail;
+        }
+
+        ResultForOnPublish resultForOnPublish = mediaService.authenticatePublish(mediaServer, param.getApp(), param.getStream(), param.getParams());
+        if (resultForOnPublish != null) {
+            HookResultForOnPublish successResult = HookResultForOnPublish.getInstance(resultForOnPublish);
+            log.info("[ZLM HOOK]推流鉴权 响应：{}->{}->>>>{}", param.getMediaServerId(), param, successResult);
+            return successResult;
+        }else {
+            HookResultForOnPublish fail = HookResultForOnPublish.Fail();
+            log.info("[ZLM HOOK]推流鉴权 响应：{}->{}->>>>{}", param.getMediaServerId(), param, fail);
+            return fail;
+        }
     }
 
     /**

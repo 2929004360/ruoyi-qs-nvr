@@ -4,6 +4,7 @@ import com.ruoyi.zlm.api.domain.StreamPullPlay;
 import com.ruoyi.zlm.api.domain.MediaInfo;
 import com.ruoyi.zlm.api.domain.StreamInfo;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.common.CommonCallback;
 
 import java.util.List;
 
@@ -23,4 +24,12 @@ public interface IMediaNodeServerService {
     String startProxy(ZlmMediaServer mediaServer, StreamPullPlay streamPullPlay);
 
     void stopProxy(ZlmMediaServer mediaServer, String streamKey);
+
+    void getSnap(ZlmMediaServer mediaServer, String app, String stream, int timeoutSec, int expireSec, String path, String fileName);
+
+    void getSnap(ZlmMediaServer mediaServer, String streamUrl, int timeoutSec, int expireSec, String path, String fileName);
+
+    void closeRtpServer(ZlmMediaServer mediaServer, String streamId, CommonCallback<Boolean> callback);
+
+    MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream);
 }

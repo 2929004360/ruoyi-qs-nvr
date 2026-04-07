@@ -68,6 +68,10 @@ export interface QsDevice extends BaseEntity {
   streamKey?: string;
   /** 是否 无人观看时自动停用 */
   enableDisableNoneReader?: string;
+  /** 截图 */
+  snap?: string;
+  /** flv 类型（ws/flv） */
+  flvType?: string;
   /** 创建者 */
   createBy?: string;
   /** 创建时间 */

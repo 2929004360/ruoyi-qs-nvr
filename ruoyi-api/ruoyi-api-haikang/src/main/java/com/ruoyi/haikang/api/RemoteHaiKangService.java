@@ -6,12 +6,10 @@ import com.ruoyi.common.core.constant.ServiceNameConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
+import com.ruoyi.haikang.api.domain.RtpServerParam;
 import com.ruoyi.haikang.api.factory.RemoteHaiKangFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 海康sdk 服务
@@ -57,9 +55,27 @@ public interface RemoteHaiKangService {
     /**
      * 获取设备的基本参数
      *
-     * @param ip 设备ip
-     * @param source    请求来源
+     * @param ip     设备ip
+     * @param source 请求来源
      */
     @PostMapping("/api/haikang/getDeviceInfo/{ip}")
     R<HaikangDeviceInfo> getDeviceInfo(@PathVariable String ip, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam 播放参数
+     * @param source         请求来源
+     */
+    @PostMapping("/api/haikang/startPlay")
+    public R<Void> startPlay(@RequestBody RtpServerParam rtpServerParam, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 停止播放
+     *
+     * @param id    设备id
+     * @param inner 请求来源
+     */
+    @GetMapping("/api/haikang/stopPlay/{id}")
+    public R<Void> stopPlay(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }
