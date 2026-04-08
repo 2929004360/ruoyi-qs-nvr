@@ -127,7 +127,10 @@ public class ZlmController {
     public DeferredResult<R<StreamContent>> rtpPlay(@RequestBody RTPServerParam rtpServerParam, HttpServletRequest request) {
         log.info("rtp播放： app：{}-stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
 
-        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()) || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType()))) {
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType())
+        )) {
             log.error("不支持的播放类型：{}", rtpServerParam.getType());
             throw new RuntimeException("不支持的播放类型");
         }
@@ -177,7 +180,10 @@ public class ZlmController {
     @PostMapping("/stopRtpPlay")
     public AjaxResult stopRtpPlay(@RequestBody RTPServerParam rtpServerParam) {
         log.info("停止rtp播放： id：{}", rtpServerParam.getId());
-        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()) || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType()))) {
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType())
+        )) {
             log.error("不支持的播放类型：{}", rtpServerParam.getType());
             throw new RuntimeException("不支持的播放类型");
         }

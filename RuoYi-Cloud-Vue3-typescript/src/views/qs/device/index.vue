@@ -148,7 +148,9 @@
                      || scope.row.type === '3'
                      || scope.row.type === '4'
                      || scope.row.type === '7'
-                     || scope.row.type === '8')"
+                     || scope.row.type === '8'
+                     || scope.row.type === '9'
+                     )"
                      type="danger"
                      icon="SwitchButton"
                      @click="handleStopPlay(scope.row)"
@@ -405,7 +407,15 @@
                type="card"
                :stretch="true"
                style="margin-top: 10px;"
-               v-if="deviceRow.type === '1' || deviceRow.type === '2'">
+               v-if="
+               deviceRow.type === '1'
+               || deviceRow.type === '2'
+               || deviceRow.type === '3'
+               || deviceRow.type === '4'
+               || deviceRow.type === '7'
+               || deviceRow.type === '8'
+               || deviceRow.type === '9'
+">
         <el-tab-pane label="实时视频" name="media">
           <el-row :gutter="10">
             <el-col :span="3"><span style="width: 80px; line-height: 40px; text-align: right;">播放地址：</span></el-col>
@@ -962,7 +972,7 @@ const handlePlay = (row: QsDevice) => {
         })
       })
     })
-  } else if (row.type === '7' || row.type === '8') {
+  } else if (row.type === '7' || row.type === '8' || row.type === '9')  {
     let data = {
       app: "haikang",
       streamId: row.deviceCode,
@@ -975,6 +985,8 @@ const handlePlay = (row: QsDevice) => {
       data.app = "haikang"
     }else if(row.type === '8'){
       data.app = "haikang_isup"
+    }else if(row.type === '9'){
+      data.app = "dahua"
     }
 
     rtpPlay(data).then(async (res: any) => {
@@ -1020,7 +1032,7 @@ const handleStopPlay = (row: QsDevice) => {
       getList()
       proxy.$modal.msgSuccess("停止播放成功");
     })
-  } else if (row.type === '7' || row.type === '8') {
+  } else if (row.type === '7' || row.type === '8' || row.type === '9') {
     let data = {
       type: row.type,
       streamId: streamInfo.value.stream,

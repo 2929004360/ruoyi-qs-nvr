@@ -1,6 +1,7 @@
 package com.ruoyi.dahua.api;
 
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.api.domain.LoginDevice;
@@ -83,5 +84,29 @@ public class DaHuaApiController {
     @PostMapping("/logoutDevice/{ip}")
     public R<Boolean> logoutDevice(@PathVariable String ip) {
         return R.ok(daHuaService.logoutDevice(ip));
+    }
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam 播放参数
+     */
+    @InnerAuth
+    @PostMapping("/startPlay")
+    public R<Void> startPlay(@RequestBody RtpServerParam rtpServerParam) {
+        daHuaService.startPlay(rtpServerParam);
+        return R.ok();
+    }
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    @InnerAuth
+    @GetMapping("/stopPlay/{id}")
+    public R<Void> stopPlay(@PathVariable Long id) {
+        daHuaService.stopPlay(id);
+        return R.ok();
     }
 }

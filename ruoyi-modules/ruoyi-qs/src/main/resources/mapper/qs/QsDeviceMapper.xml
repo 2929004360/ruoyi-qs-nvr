@@ -158,7 +158,6 @@
             <if test="onlineType != null">#{onlineType},</if>
             <if test="enableAudio != null">#{enableAudio},</if>
             <if test="enableMp4 != null">#{enableMp4},</if>
-            <if test="enableMp4 != null">#{enableMp4},</if>
             <if test="streamStatus != null">#{streamStatus},</if>
             <if test="mediaServerId != null">#{mediaServerId},</if>
             <if test="streamKey != null">#{streamKey},</if>
@@ -247,7 +246,7 @@
         select id,
                live_address
         from qs_device
-        where type in ('1','2','3','4','5')
+        where type in ('1','2','3','4','5','6')
     </select>
 
     <delete id="deleteQsDeviceById" parameterType="Long">

@@ -17,6 +17,7 @@ import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.task.StreamDetector;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -390,6 +391,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         qsDeviceMapper.updateAllQsDeviceStreamUrls(newQsDeviceList);
     }
 
+    @Async("taskExecutor")
     @Override
     public void task() {
         List<QsDevice> qsDeviceList = fetchAllQsDeviceStreamUrls();

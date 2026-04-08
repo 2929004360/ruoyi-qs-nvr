@@ -1,6 +1,7 @@
 package com.ruoyi.dahua.api.factory;
 
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.RemoteDaHuaService;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.api.domain.LoginDevice;
@@ -49,6 +50,16 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             @Override
             public R<Boolean> logoutDevice(String ip, String source) {
                 return R.fail("大华sdk退出设备失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> startPlay(RtpServerParam rtpServerParam, String source) {
+                return R.fail("大华sdk开始播放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlay(Long id, String source) {
+                return R.fail("大华sdk停止播放失败:" + throwable.getMessage());
             }
         };
     }

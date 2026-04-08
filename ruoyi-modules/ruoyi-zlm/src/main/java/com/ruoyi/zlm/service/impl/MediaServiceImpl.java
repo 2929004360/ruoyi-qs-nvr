@@ -55,7 +55,7 @@ public class MediaServiceImpl implements IMediaService {
             }else {
                 return false;
             }
-        }else if("haikang".equals(app) || "haikang_isup".equals(app)){
+        }else if("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)){
             R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
             if(r.getCode() != Constants.SUCCESS){
                 return false;

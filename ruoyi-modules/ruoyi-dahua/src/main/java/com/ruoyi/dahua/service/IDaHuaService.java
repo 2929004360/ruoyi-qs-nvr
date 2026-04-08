@@ -1,5 +1,6 @@
 package com.ruoyi.dahua.service;
 
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.lib.NetSDKLib;
 
@@ -54,4 +55,18 @@ public interface IDaHuaService {
      * @return
      */
     Boolean logoutDevice(String ip);
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam 播放参数
+     */
+    void startPlay(RtpServerParam rtpServerParam);
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    void stopPlay(Long id);
 }

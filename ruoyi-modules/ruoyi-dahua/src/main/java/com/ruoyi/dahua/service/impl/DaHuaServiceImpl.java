@@ -1,5 +1,9 @@
 package com.ruoyi.dahua.service.impl;
 
+import com.ruoyi.common.core.constant.Constants;
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.common.ErrorCode;
@@ -8,8 +12,12 @@ import com.ruoyi.dahua.lib.ToolKits;
 import com.ruoyi.dahua.module.LoginModule;
 import com.ruoyi.dahua.runner.DahuaCommandLineRunnerImpl;
 import com.ruoyi.dahua.service.IDaHuaService;
+import com.ruoyi.dahua.service.IDahuaMediaStreamService;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.domain.QsDevice;
 import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -26,6 +34,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Slf4j
 public class DaHuaServiceImpl implements IDaHuaService {
+
+    @Autowired
+    private IDahuaMediaStreamService mediaStreamService;
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
 
     public static NetSDKLib netsdk = NetSDKLib.NETSDK_INSTANCE;
 
@@ -160,6 +174,51 @@ public class DaHuaServiceImpl implements IDaHuaService {
         }
 
         return bRet;
+    }
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam 播放参数
+     */
+    @Override
+    public void startPlay(RtpServerParam rtpServerParam) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        String streamKey = "dahua_play_" + device.getId() + "_" + device.getChannel();
+
+        NetSDKLib.LLong lLong = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+
+        if (lLong.longValue() == 0) {
+            throw new RuntimeException("大华设备未登录");
+        }
+        mediaStreamService.startPlay(lLong, device, streamKey, rtpServerParam);
+    }
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    @Override
+    public void stopPlay(Long id) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        String streamKey = "dahua_play_" + device.getId() + "_" + device.getChannel();
+
+        NetSDKLib.LLong lLong = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+
+        if (lLong.longValue() == 0) {
+            throw new RuntimeException("大华设备未登录");
+        }
+        mediaStreamService.stopPlay(lLong, device.getId(), device.getChannel(), streamKey);
     }
 
     /**

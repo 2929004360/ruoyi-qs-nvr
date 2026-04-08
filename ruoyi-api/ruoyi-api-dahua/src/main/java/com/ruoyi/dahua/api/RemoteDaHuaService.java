@@ -4,14 +4,12 @@ package com.ruoyi.dahua.api;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.constant.ServiceNameConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.api.domain.LoginDevice;
 import com.ruoyi.dahua.api.factory.RemoteDaHuaFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 大华sdk 服务
@@ -72,4 +70,22 @@ public interface RemoteDaHuaService {
      */
     @PostMapping(value = "/api/dahua/logoutDevice/{ip}")
     R<Boolean> logoutDevice(@PathVariable String ip, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam 播放参数
+     * @param source         请求来源
+     */
+    @PostMapping(value = "/api/dahua/startPlay")
+    R<Void> startPlay(@RequestBody RtpServerParam rtpServerParam, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 停止播放
+     *
+     * @param id     设备id
+     * @param source 请求来源
+     */
+    @GetMapping(value = "/api/dahua/stopPlay/{id}")
+    R<Void> stopPlay(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

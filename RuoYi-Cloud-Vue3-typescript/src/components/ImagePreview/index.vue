@@ -31,11 +31,12 @@ const props = defineProps({
 })
 
 const realSrc = computed(() => {
-  if (!props.src) {
-    return undefined
-  }
+  if (!props.src) return undefined
+
   const real_src = props.src.split(",")[0]
-    return real_src
+  const separator = real_src.includes('?') ? '&' : '?'
+
+  return `${real_src}${separator}_=${Date.now()}`
 })
 
 const realSrcList = computed(() => {
@@ -45,7 +46,8 @@ const realSrcList = computed(() => {
   const real_src_list = props.src.split(",")
   const srcList: string[] = []
   real_src_list.forEach((item: string) => {
-    srcList.push(item)
+    const separator = item.includes('?') ? '&' : '?'
+    srcList.push(`${item}${separator}_=${Date.now()}`)
   })
   return srcList
 })

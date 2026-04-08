@@ -7,6 +7,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.DateUtils;
+import com.ruoyi.dahua.api.RemoteDaHuaService;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
@@ -117,6 +118,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
     @Autowired
     private RemoteHaiKangIsupService remoteHaiKangIsupService;
 
+    @Autowired
+    private RemoteDaHuaService remoteDaHuaService;
+
     @Value("${file.domain}")
     private String fileDomain;
 
@@ -158,7 +162,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
             redisCatchStorage.removeStream(mediaInfo.getMediaServer().getId(), type, event.getApp(), event.getStream());
         }
 
-        if ("haikang".equals(event.getApp()) || "haikang_isup".equals(event.getApp())) {
+        if ("haikang".equals(event.getApp()) || "haikang_isup".equals(event.getApp()) || "dahua".equals(event.getApp())) {
             InviteInfo inviteInfo = inviteStreamService.getInviteInfoByStream(null, event.getStream());
             if (inviteInfo != null && (inviteInfo.getType() == InviteSessionType.PLAY || inviteInfo.getType() == InviteSessionType.PLAYBACK)) {
                 inviteStreamService.removeInviteInfo(inviteInfo);
@@ -841,6 +845,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
         if (LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())) {
             remoteHaiKangIsupService.startPlay(rtpServer, SecurityConstants.INNER);
         }
+
+        // 播放大华sdk
+        if (LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType())) {
+            remoteDaHuaService.startPlay(rtpServer, SecurityConstants.INNER);
+        }
         return ssrcInfo;
     }
 
@@ -890,6 +899,10 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         if (LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())) {
             remoteHaiKangIsupService.stopPlay(rtpServerParam.getId(), SecurityConstants.INNER);
+        }
+
+        if (LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType())) {
+            remoteDaHuaService.stopPlay(rtpServerParam.getId(), SecurityConstants.INNER);
         }
 
         InviteInfo inviteInfo = inviteStreamService.getInviteInfo(InviteSessionType.PLAY, device.getChannel(), rtpServerParam.getStreamId());
