@@ -29,7 +29,7 @@ public class HaiKangTask {
     private RemoteQsDeviceService remoteQsDeviceService;
 
     @Scheduled(cron = "0 * * * * ?")
-    public void sayHello() {
+    public void task() {
         QsDevice qsDevice = new QsDevice();
         qsDevice.setType(LiveStreamType.HIK_SDK.getCode());
         R<List<QsDevice>> r = remoteQsDeviceService.list(qsDevice, SecurityConstants.INNER);

@@ -137,12 +137,18 @@
                      @click="handlePlay(scope.row)"
                      v-hasPermi="['qs:device:play']"
                      :loading="scope.row.loading"
+                     v-if="scope.row.deviceStatus === 'ON'"
           >
             播放
           </el-button>
           <el-button link
                      v-if="scope.row.streamStatus === '1'
-                     && (scope.row.type === '1' || scope.row.type === '2' || scope.row.type === '3' || scope.row.type === '4' || scope.row.type === '7')"
+                     && (scope.row.type === '1'
+                     || scope.row.type === '2'
+                     || scope.row.type === '3'
+                     || scope.row.type === '4'
+                     || scope.row.type === '7'
+                     || scope.row.type === '8')"
                      type="danger"
                      icon="SwitchButton"
                      @click="handleStopPlay(scope.row)"
@@ -343,7 +349,16 @@
 
         <el-form-item label="无人观看"
                       prop="enableDisableNoneReader"
-                      v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4'"
+                      v-if="form.type === '1'
+                      || form.type === '2'
+                      || form.type === '3'
+                      || form.type === '4'
+                      || form.type === '7'
+                      || form.type === '8'
+                      || form.type === '9'
+                      || form.type === '10'
+                      || form.type === '11'
+"
         >
           <el-radio-group v-model="form.enableDisableNoneReader">
             <el-radio label="0">不处理</el-radio>
@@ -947,7 +962,7 @@ const handlePlay = (row: QsDevice) => {
         })
       })
     })
-  } else if (row.type === '7') {
+  } else if (row.type === '7' || row.type === '8') {
     let data = {
       app: "haikang",
       streamId: row.deviceCode,
@@ -955,6 +970,12 @@ const handlePlay = (row: QsDevice) => {
       type: row.type,
       id: row.id
     } as RTPServerParam;
+
+    if(row.type === '7'){
+      data.app = "haikang"
+    }else if(row.type === '8'){
+      data.app = "haikang_isup"
+    }
 
     rtpPlay(data).then(async (res: any) => {
       await nextTick(async () => {
@@ -999,10 +1020,11 @@ const handleStopPlay = (row: QsDevice) => {
       getList()
       proxy.$modal.msgSuccess("停止播放成功");
     })
-  } else if (row.type === '7') {
+  } else if (row.type === '7' || row.type === '8') {
     let data = {
-      "type": row.type,
-      "id": row.id
+      type: row.type,
+      streamId: streamInfo.value.stream,
+      id: row.id
     }
     stopRtpPlay(data).then((res) => {
       getList()

@@ -1,7 +1,5 @@
 package com.ruoyi.haikang.callback;
 
-import cn.hutool.core.util.NumberUtil;
-import com.ruoyi.haikang.manager.StreamManager;
 import com.ruoyi.haikang.net.HCNetSDK;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.ByteByReference;
@@ -39,9 +37,7 @@ public class FRealDataForRtpOverTcpCallback implements HCNetSDK.FRealDataCallBac
             udpSocket = new DatagramSocket();
             // 3. 设置 SSRC
             this.ssrc = ssrc;
-            System.out.println("[RTP] UDP 初始化成功 -> " + host + ":" + rtpPort);
         } catch (Exception e) {
-            System.err.println("[RTP] 初始化失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -63,7 +59,6 @@ public class FRealDataForRtpOverTcpCallback implements HCNetSDK.FRealDataCallBac
     public void close() {
         if (udpSocket != null && !udpSocket.isClosed()) {
             udpSocket.close();
-            System.out.println("[RTP] Socket closed");
         }
     }
 
@@ -145,10 +140,6 @@ public class FRealDataForRtpOverTcpCallback implements HCNetSDK.FRealDataCallBac
                 offset += chunkSize;
                 dataSize -= chunkSize;
             }
-        } else if (dwDataType == HCNetSDK.NET_DVR_SYSHEAD) {
-            // 系统头 (SPS/PPS) 通常在海康的裸流模式下会混在第一帧视频数据前
-            // 如果单独收到，可能需要特殊处理，这里暂忽略，依赖第一帧数据携带
-            System.out.println("[RTP] 收到系统头，大小: " + dwBufSize);
         }
     }
 }

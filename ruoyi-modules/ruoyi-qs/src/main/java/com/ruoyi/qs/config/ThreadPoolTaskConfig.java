@@ -1,4 +1,4 @@
-package com.ruoyi.zlm.config;
+package com.ruoyi.qs.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

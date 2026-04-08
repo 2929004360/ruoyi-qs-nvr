@@ -1,18 +1,18 @@
-package com.ruoyi.haikang.service;
+package com.ruoyi.haikang.isup.service.haikang;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.qs.api.domain.QsDevice;
 
 /**
- * @FileName IHaikangMediaStreamService
+ * @FileName IHaikangIsupMediaStreamService
  * @Description
  * @Author fengcheng
- * @date 2026-01-15
+ * @date 2026-04-08
  **/
-public interface IHaikangMediaStreamService {
+public interface IHaikangIsupMediaStreamService {
 
     /**
-     * 播放视频
+     * 开始播放
      *
      * @param lUserID
      * @param device
@@ -21,13 +21,13 @@ public interface IHaikangMediaStreamService {
      */
     void startPlay(Integer lUserID, QsDevice device, String streamKey, RtpServerParam rtpServerParam);
 
-
     /**
-     * 结束播放视频
+     * 停止播放
      *
-     * @param deviceId
-     * @param channelId
+     * @param lUserID
+     * @param id
+     * @param channel
      * @param streamKey
      */
-    void endPlay(Long deviceId, int channelId, String streamKey);
+    void stopPlay(Integer lUserID, Long id, Integer channel, String streamKey);
 }

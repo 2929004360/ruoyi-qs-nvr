@@ -107,6 +107,12 @@
         <!-- 海康sdk 接口 -->
         <dependency>
             <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-haikang</artifactId>
+        </dependency>
+
+        <!-- 海康isup 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-haikang-isup</artifactId>
         </dependency>
     </dependencies>

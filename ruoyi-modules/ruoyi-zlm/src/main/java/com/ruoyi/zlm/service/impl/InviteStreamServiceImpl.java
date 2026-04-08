@@ -7,16 +7,13 @@ import com.ruoyi.zlm.common.InviteSessionType;
 import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.constants.VideoManagerConstants;
 import com.ruoyi.zlm.domain.InviteInfo;
-import com.ruoyi.zlm.event.MediaDepartureEvent;
 import com.ruoyi.zlm.service.ErrorCallback;
 import com.ruoyi.zlm.service.IInviteStreamService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -37,24 +34,6 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
 
     @Autowired
     private UserSetting userSetting;
-
-    /**
-     * 流离开的处理
-     */
-//    @Async("taskExecutor")
-//    @EventListener
-//    public void onApplicationEvent(MediaDepartureEvent event) {
-//        if ("rtsp".equals(event.getSchema()) && "haikang".equals(event.getApp())) {
-//            InviteInfo inviteInfo = getInviteInfoByStream(null, event.getStream());
-//            if (inviteInfo != null && (inviteInfo.getType() == InviteSessionType.PLAY || inviteInfo.getType() == InviteSessionType.PLAYBACK)) {
-//                removeInviteInfo(inviteInfo);
-//                Device device = deviceMapper.getDeviceByDeviceId(inviteInfo.getDeviceId());
-//                if (device != null) {
-//                    deviceChannelMapper.stopPlayById(inviteInfo.getChannelId());
-//                }
-//            }
-//        }
-//    }
 
     @Override
     public void updateInviteInfo(InviteInfo inviteInfo) {

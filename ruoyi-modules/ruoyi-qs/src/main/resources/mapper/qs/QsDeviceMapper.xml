@@ -225,6 +225,31 @@
         </foreach>
     </update>
 
+    <update id="updateAllQsDevicesToOffline">
+        update qs_device
+        set device_status  = 'OFFLINE',
+            stream_status  = '0',
+            media_serverId = null,
+            stream_key     = null
+    </update>
+    <update id="updateAllQsDeviceStreamUrls"
+            parameterType="QsDevice">
+        <foreach collection="list" item="item" separator=";">
+            UPDATE qs_device
+            <set>
+                device_status = #{item.deviceStatus}
+            </set>
+            WHERE id = #{item.id}
+        </foreach>
+    </update>
+
+    <select id="fetchAllQsDeviceStreamUrls" resultMap="QsDeviceResult">
+        select id,
+               live_address
+        from qs_device
+        where type in ('1','2','3','4','5')
+    </select>
+
     <delete id="deleteQsDeviceById" parameterType="Long">
         delete
         from qs_device

@@ -1,7 +1,7 @@
 package com.ruoyi.haikang.service;
 
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
-import com.ruoyi.haikang.api.domain.RtpServerParam;
+import com.ruoyi.common.core.domain.RtpServerParam;
 
 /**
  * @FileName IHaikangService

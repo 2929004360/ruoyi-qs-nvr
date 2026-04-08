@@ -1,5 +1,6 @@
 package com.ruoyi.haikang.isup.service.haikang;
 
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 
 /**
@@ -18,4 +19,18 @@ public interface IHaiKangIsupService {
      * @return
      */
     HaiKangIsupDeviceInfo getDevInfo(Integer lUserID);
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam
+     */
+    void startPlay(RtpServerParam rtpServerParam);
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    void stopPlay(Long id);
 }

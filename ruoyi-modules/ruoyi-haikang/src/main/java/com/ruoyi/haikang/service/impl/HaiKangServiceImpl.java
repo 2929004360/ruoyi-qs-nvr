@@ -6,7 +6,7 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
-import com.ruoyi.haikang.api.domain.RtpServerParam;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.net.Client;
 import com.ruoyi.haikang.net.HCNetSDK;
 import com.ruoyi.haikang.service.IHaiKangService;

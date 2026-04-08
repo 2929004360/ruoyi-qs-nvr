@@ -55,7 +55,7 @@ public class MediaServiceImpl implements IMediaService {
             }else {
                 return false;
             }
-        }else if("haikang".equals(app) ){
+        }else if("haikang".equals(app) || "haikang_isup".equals(app)){
             R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
             if(r.getCode() != Constants.SUCCESS){
                 return false;
@@ -71,12 +71,15 @@ public class MediaServiceImpl implements IMediaService {
                 RTPServerParam rtpServerParam = new RTPServerParam();
                 rtpServerParam.setId(data.getId());
                 rtpServerParam.setType(data.getType());
+                rtpServerParam.setStreamId(stream);
                 mediaServerService.stopRtpPlay(rtpServerParam);
                 return true;
             }else {
                 return false;
             }
         }
+
+
         return true;
     }
 

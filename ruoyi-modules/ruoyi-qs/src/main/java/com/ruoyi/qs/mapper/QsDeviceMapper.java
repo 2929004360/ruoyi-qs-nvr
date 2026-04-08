@@ -1,6 +1,7 @@
 package com.ruoyi.qs.mapper;
 
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.task.StreamDetector;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -86,4 +87,23 @@ public interface QsDeviceMapper {
      * @return
      */
     QsDevice getQsDeviceStream(String stream);
+
+    /**
+     * 修改所有设备播状态离线和设备状态离线
+     */
+    void updateAllQsDevicesToOffline();
+
+    /**
+     * 获取所有视频监控设备流地址
+     *
+     * @return
+     */
+    List<QsDevice> fetchAllQsDeviceStreamUrls();
+
+    /**
+     * 更新所有视频监控设备流地址
+     *
+     * @param newQsDeviceList
+     */
+    void updateAllQsDeviceStreamUrls(List<QsDevice> newQsDeviceList);
 }

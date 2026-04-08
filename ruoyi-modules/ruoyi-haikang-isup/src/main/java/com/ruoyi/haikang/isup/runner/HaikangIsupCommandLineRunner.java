@@ -1,6 +1,7 @@
 package com.ruoyi.haikang.isup.runner;
 
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
+import com.ruoyi.haikang.isup.service.haikang.stream.StreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
@@ -25,9 +26,9 @@ public class HaikangIsupCommandLineRunner implements CommandLineRunner, Disposab
 //    private final SsService ssService;
 //
 //    private final AlarmService alarmService;
-//
-//    private final StreamService streamService;
-//
+
+    private final StreamService streamService;
+
 //    private final VoiceService voiceService;
 
     @Override
@@ -39,8 +40,8 @@ public class HaikangIsupCommandLineRunner implements CommandLineRunner, Disposab
 //        alarmService.eAlarm_Init();
 //        alarmService.startAlarmListen();
 //
-//        streamService.eStream_Init();
-//
+        streamService.eStream_Init();
+
 //        voiceService.voice_Init();
 //        voiceService.startVoiceServeListen();
 

@@ -1,4 +1,4 @@
-package com.ruoyi.haikang.api.domain;
+package com.ruoyi.common.core.domain;
 
 import lombok.Data;
 

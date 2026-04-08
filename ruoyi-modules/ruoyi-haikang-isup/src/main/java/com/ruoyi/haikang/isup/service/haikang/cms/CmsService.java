@@ -122,7 +122,7 @@ public class CmsService {
             hCEhomeCMS.NET_ECMS_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer());
 
         }
-        hCEhomeCMS.NET_ECMS_SetLogToFile(3, System.getProperty("user.dir") + "/ruoyi-isup/EHomeSDKLog", false);
+        hCEhomeCMS.NET_ECMS_SetLogToFile(3, System.getProperty("user.dir") + "/ruoyi-haikang-isup/EHomeSDKLog", false);
     }
 
     public void startCmsListen() {

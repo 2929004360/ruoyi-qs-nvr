@@ -1,15 +1,13 @@
 package com.ruoyi.haikang.isup.api;
 
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 海康isup api Controller
@@ -48,9 +46,34 @@ public class HaiKangIsupApiController {
     @PostMapping("/getDevInfo/{ip}")
     public R<HaiKangIsupDeviceInfo> getDevInfo(@PathVariable String ip) {
         Integer lUserID = FRegisterCallBack.lUserIDMap.get(ip);
-        if(lUserID == null){
+        if (lUserID == null) {
             return R.fail("设备未登录");
         }
         return R.ok(haiKangIsupService.getDevInfo(lUserID));
+    }
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/startPlay")
+    public R<Void> startPlay(@RequestBody RtpServerParam rtpServerParam) {
+        haiKangIsupService.startPlay(rtpServerParam);
+        return R.ok();
+    }
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    @InnerAuth
+    @GetMapping("/stopPlay/{id}")
+    public R<Void> stopPlay(@PathVariable Long id) {
+        haiKangIsupService.stopPlay(id);
+        return R.ok();
     }
 }

@@ -4,10 +4,11 @@ import com.alibaba.nacos.api.model.v2.ErrorCode;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
-import com.ruoyi.haikang.api.domain.RtpServerParam;
+import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
@@ -113,6 +114,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
     @Lazy
     private IInviteStreamService inviteStreamService;
 
+    @Autowired
+    private RemoteHaiKangIsupService remoteHaiKangIsupService;
+
     @Value("${file.domain}")
     private String fileDomain;
 
@@ -153,6 +157,28 @@ public class MediaServerServiceImpl implements IMediaServerService {
             String type = OriginType.values()[mediaInfo.getOriginType()].getType();
             redisCatchStorage.removeStream(mediaInfo.getMediaServer().getId(), type, event.getApp(), event.getStream());
         }
+
+        if ("haikang".equals(event.getApp()) || "haikang_isup".equals(event.getApp())) {
+            InviteInfo inviteInfo = inviteStreamService.getInviteInfoByStream(null, event.getStream());
+            if (inviteInfo != null && (inviteInfo.getType() == InviteSessionType.PLAY || inviteInfo.getType() == InviteSessionType.PLAYBACK)) {
+                inviteStreamService.removeInviteInfo(inviteInfo);
+
+                R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(Long.valueOf(inviteInfo.getDeviceId()), SecurityConstants.INNER);
+                if (r.getCode() != Constants.SUCCESS) {
+                    return;
+                }
+
+                if (r.getData() == null) {
+                    return;
+                }
+
+                RTPServerParam rtpServerParam = new RTPServerParam();
+                rtpServerParam.setId(r.getData().getId());
+                rtpServerParam.setType(r.getData().getType());
+                rtpServerParam.setStreamId(event.getStream());
+                stopRtpPlay(rtpServerParam);
+            }
+        }
     }
 
     /**
@@ -189,6 +215,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
     @Transactional
     public void onApplicationEvent(MediaServerOfflineEvent event) {
         log.info("流媒体节点离线: {}", event.getMediaServer());
+        if (event.getMediaServer().getId() == null) {
+            return;
+        }
+        String key = VideoManagerConstants.ONLINE_MEDIA_SERVERS_PREFIX + userSetting.getServerId();
+        redisTemplate.opsForZSet().remove(key, event.getMediaServer().getId());
     }
 
     public void addCount(String mediaServerId) {
@@ -372,14 +403,15 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         ZlmMediaServer mediaServer = getMediaServerForMinimumLoad(null);
 
+        if (mediaServer == null) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "无可用的节点", null);
+            return;
+        }
+
         StreamInfo stream = getStreamInfoByAppAndStreamWithCheck(streamPullPlay.getApp(), streamPullPlay.getStream(), mediaServer.getId(), null, false);
         if (stream != null) {
             callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), stream);
             return;
-        }
-
-        if (mediaServer == null) {
-            throw new RuntimeException("没有可用的媒体服务器" + mediaServer.getId());
         }
 
         // 设置流超时的定时任务
@@ -413,9 +445,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
         if (mediaNodeServerService == null) {
-            log.info("[startProxy] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
-            throw new RuntimeException("未找到mediaServer对应的实现类");
+            log.error("[startProxy] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            callback.run(InviteErrorCode.FAIL.getCode(), "[startProxy] 失败, mediaServer的类型： " + mediaServer.getType() + "，未找到对应的实现类", null);
+            return;
         }
+
         String key = mediaNodeServerService.startProxy(mediaServer, streamPullPlay);
         QsDevice qsDevice = new QsDevice();
         qsDevice.setId(streamPullPlay.getDeviceId());
@@ -424,7 +458,8 @@ public class MediaServerServiceImpl implements IMediaServerService {
         qsDevice.setStreamStatus("1");
         R<Boolean> r = remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
-            throw new RuntimeException("更新设备失败");
+            log.error("更新设备失败");
+            callback.run(InviteErrorCode.FAIL.getCode(), "更新设备失败", null);
         }
     }
 
@@ -636,17 +671,36 @@ public class MediaServerServiceImpl implements IMediaServerService {
     public void rtpPlay(RTPServerParam rtpServerParam, ErrorCallback<StreamInfo> callback) {
         ZlmMediaServer mediaServer = getMediaServerForMinimumLoad(null);
 
+        if (mediaServer == null) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "无可用的节点", null);
+            return;
+        }
+
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
-            throw new RuntimeException("获取设备信息失败");
+            callback.run(InviteErrorCode.FAIL.getCode(), "获取设备信息失败", null);
+            return;
         }
         if (r.getData() == null) {
-            throw new RuntimeException("设备不存在");
+            callback.run(InviteErrorCode.FAIL.getCode(), "设备不存在", null);
+            return;
         }
         play(mediaServer, rtpServerParam, r.getData(), null, userSetting.getRecordSip(), callback);
     }
 
+    /**
+     * 点播
+     *
+     * @param mediaServer    zlm服务实例
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @param device         设备信息
+     * @param ssrc           ssrc
+     * @param record         是否录制
+     * @param callback       回调
+     * @return
+     */
     private SSRCInfo play(ZlmMediaServer mediaServer, RTPServerParam rtpServerParam, QsDevice device, String ssrc, Boolean record, ErrorCallback<StreamInfo> callback) {
+        // 获取点播的状态信息
         InviteInfo inviteInfoInCatch = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getChannel());
         if (inviteInfoInCatch != null) {
             if (inviteInfoInCatch.getStreamInfo() == null) {
@@ -654,19 +708,15 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 ssrcFactory.releaseSsrc(mediaServer.getId(), null);
                 // 点播发起了但是尚未成功, 仅注册回调等待结果即可
                 inviteStreamService.once(InviteSessionType.PLAY, device.getChannel(), null, callback);
-                log.info("[点播开始] 已经请求中，等待结果， id: {}", rtpServerParam.getId());
+                log.info("[点播开始] 已经请求中，等待结果， deviceId: {}, channel: {}", device.getId(), device.getChannel());
                 return inviteInfoInCatch.getSsrcInfo();
-
             } else {
                 StreamInfo streamInfo = inviteInfoInCatch.getStreamInfo();
                 String streamId = streamInfo.getStream();
                 if (streamId == null) {
                     callback.run(InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(), "点播失败， redis缓存streamId等于null", null);
                     inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(),
-                            null,
-                            InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(),
-                            "点播失败， redis缓存streamId等于null",
-                            null);
+                            null, InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(), "点播失败， redis缓存streamId等于null", null);
                     return inviteInfoInCatch.getSsrcInfo();
                 }
                 ZlmMediaServer mediaInfo = streamInfo.getMediaServer();
@@ -675,7 +725,8 @@ public class MediaServerServiceImpl implements IMediaServerService {
                     if (callback != null) {
                         callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
                     }
-                    inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(), null, InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(),
+                            null, InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
                     log.info("[点播已存在] 直接返回， 设备编号: {}", rtpServerParam.getId().intValue());
                     return inviteInfoInCatch.getSsrcInfo();
                 } else {
@@ -684,6 +735,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
                     RTPServerParam rtpServer = new RTPServerParam();
                     rtpServer.setId(rtpServerParam.getId());
                     rtpServer.setType(rtpServerParam.getType());
+                    rtpServer.setStreamId(rtpServerParam.getStreamId());
                     stopRtpPlay(rtpServer);
                     inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getChannel());
                 }
@@ -711,10 +763,19 @@ public class MediaServerServiceImpl implements IMediaServerService {
                     if (callback != null) {
                         callback.run(InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getCode(), InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getMsg(), null);
                     }
+
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(), null,
+                            InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getCode(),
+                            InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getMsg(), null);
                     return;
                 }
                 if (callback != null) {
                     callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+
+//                    inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(), null,
+//                            InviteErrorCode.SUCCESS.getCode(),
+//                            InviteErrorCode.SUCCESS.getMsg(),
+//                            streamInfo);
 
                     InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getChannel());
 
@@ -740,16 +801,16 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 if (callback != null) {
                     callback.run(code, msg, null);
                 }
+
+                inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(), null, code, msg, null);
+                inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getChannel());
             }
         });
 
         if (ssrcInfo == null || ssrcInfo.getPort() <= 0) {
-            log.info("[点播端口/SSRC]获取失败，设备编号：{}, 通道编号：{},ssrcInfo；{}",device.getId().toString(), device.getChannel(), ssrcInfo);
+            log.info("[点播端口/SSRC]获取失败，设备编号：{}, 通道编号：{},ssrcInfo；{}", device.getId().toString(), device.getChannel(), ssrcInfo);
             callback.run(InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(), "获取端口或者ssrc失败", null);
-            inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(), null,
-                    InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(),
-                    InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getMsg(),
-                    null);
+            inviteStreamService.call(InviteSessionType.PLAY, device.getChannel(), null, InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(), InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getMsg(), null);
             return null;
         }
 
@@ -760,25 +821,26 @@ public class MediaServerServiceImpl implements IMediaServerService {
         rtpServer.setIp(ip);
         rtpServer.setId(rtpServerParam.getId());
         rtpServer.setSsrc(rtpServerParam.getSsrc());
-        // 播放
-        if (LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())) {
-            remoteHaiKangService.startPlay(rtpServer, SecurityConstants.INNER);
-        }
 
-        log.info("[点播开始] 设备编号: {}, 通道编号: {}, 收流端口： {}, 流ID：{}, SSRC: {}",
-                device.getId().toString(), device.getChannel(), ssrcInfo.getPort(), ssrcInfo.getStream(),
-                ssrcInfo.getSsrc());
+        log.info("[点播开始] 设备编号: {}, 通道编号: {}, 收流端口： {}, 流ID：{}, SSRC: {}", device.getId().toString(), device.getChannel(), ssrcInfo.getPort(), ssrcInfo.getStream(), ssrcInfo.getSsrc());
 
-        InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getChannel(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(),
-                mediaServer.getSdpIp(), ssrcInfo.getPort(), "TCP-ACTIVE", InviteSessionType.PLAY,
-                InviteSessionStatus.ready, userSetting.getRecordSip());
+        InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getChannel(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), "TCP-ACTIVE", InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
         if (record != null) {
             inviteInfo.setRecord(record);
-        }else {
+        } else {
             inviteInfo.setRecord(userSetting.getRecordSip());
         }
         inviteStreamService.updateInviteInfo(inviteInfo);
 
+        // 播放海康sdk
+        if (LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())) {
+            remoteHaiKangService.startPlay(rtpServer, SecurityConstants.INNER);
+        }
+
+        // 播放海康isup
+        if (LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())) {
+            remoteHaiKangIsupService.startPlay(rtpServer, SecurityConstants.INNER);
+        }
         return ssrcInfo;
     }
 
@@ -818,11 +880,22 @@ public class MediaServerServiceImpl implements IMediaServerService {
             throw new RuntimeException("设备不存在");
         }
         QsDevice device = r.getData();
+
         String mediaServerId = device.getMediaServerId();
         ZlmMediaServer mediaServer = getOne(mediaServerId);
         closeRTPServer(mediaServer, device.getStreamKey());
         if (LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())) {
             remoteHaiKangService.stopPlay(rtpServerParam.getId(), SecurityConstants.INNER);
+        }
+
+        if (LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())) {
+            remoteHaiKangIsupService.stopPlay(rtpServerParam.getId(), SecurityConstants.INNER);
+        }
+
+        InviteInfo inviteInfo = inviteStreamService.getInviteInfo(InviteSessionType.PLAY, device.getChannel(), rtpServerParam.getStreamId());
+
+        if(inviteInfo != null){
+            inviteStreamService.removeInviteInfo(inviteInfo);
         }
 
         QsDevice qsDevice = new QsDevice();

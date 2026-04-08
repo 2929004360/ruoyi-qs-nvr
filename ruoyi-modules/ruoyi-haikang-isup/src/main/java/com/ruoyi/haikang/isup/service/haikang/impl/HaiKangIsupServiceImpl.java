@@ -1,11 +1,20 @@
 package com.ruoyi.haikang.isup.service.haikang.impl;
 
+import com.ruoyi.common.core.constant.Constants;
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
+import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
+import com.ruoyi.haikang.isup.service.haikang.IHaikangIsupMediaStreamService;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
 import com.ruoyi.haikang.isup.utils.CommonUtil;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.domain.QsDevice;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -16,6 +25,12 @@ import org.springframework.stereotype.Service;
  **/
 @Service
 public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
+
+    @Autowired
+    private IHaikangIsupMediaStreamService mediaStreamService;
 
     /**
      * 获取设备信息
@@ -70,5 +85,49 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
 
             return deviceInfo;
         }
+    }
+
+    /**
+     * 开始播放
+     *
+     * @param rtpServerParam
+     */
+    @Override
+    public void startPlay(RtpServerParam rtpServerParam) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        String streamKey = "haikang_isup_play_" + device.getId() + "_" + device.getChannel();
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            throw new ServiceException("未找到用户信息");
+        }
+
+        mediaStreamService.startPlay(lUserID, device, streamKey, rtpServerParam);
+    }
+
+    /**
+     * 停止播放
+     *
+     * @param id 设备id
+     */
+    @Override
+    public void stopPlay(Long id) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        String streamKey = "haikang_isup_play_" + device.getId() + "_" + device.getChannel();
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            throw new ServiceException("未找到用户信息");
+        }
+        mediaStreamService.stopPlay(lUserID, device.getId(), device.getChannel(), streamKey);
     }
 }

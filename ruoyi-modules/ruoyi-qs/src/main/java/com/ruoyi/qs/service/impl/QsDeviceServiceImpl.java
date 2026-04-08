@@ -1,7 +1,6 @@
 package com.ruoyi.qs.service.impl;
 
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
@@ -15,16 +14,16 @@ import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.service.IQsDeviceService;
+import com.ruoyi.qs.task.StreamDetector;
 import com.ruoyi.zlm.api.RemoteZlmService;
-import com.ruoyi.zlm.api.domain.StreamContent;
-import com.ruoyi.zlm.api.domain.StreamPullPlay;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.async.DeferredResult;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -50,6 +49,12 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
     @Autowired
     private RemoteZlmService remoteZlmService;
+
+    @Autowired
+    private StreamDetector streamDetector;
+
+    @Autowired
+    private ThreadPoolTaskExecutor taskExecutor;
 
     /**
      * 查询视频监控设备
@@ -354,6 +359,74 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     @Override
     public QsDevice getQsDeviceStream(String stream) {
         return qsDeviceMapper.getQsDeviceStream(stream);
+    }
+
+    /**
+     * 修改所有设备播状态离线和设备状态离线
+     */
+
+    @Override
+    public void updateAllQsDevicesToOffline() {
+        qsDeviceMapper.updateAllQsDevicesToOffline();
+    }
+
+    /**
+     * 获取所有视频监控设备流地址
+     *
+     * @return
+     */
+    @Override
+    public List<QsDevice> fetchAllQsDeviceStreamUrls() {
+        return qsDeviceMapper.fetchAllQsDeviceStreamUrls();
+    }
+
+    /**
+     * 更新所有视频监控设备流地址
+     *
+     * @param newQsDeviceList
+     */
+    @Override
+    public void updateAllQsDeviceStreamUrls(List<QsDevice> newQsDeviceList) {
+        qsDeviceMapper.updateAllQsDeviceStreamUrls(newQsDeviceList);
+    }
+
+    @Override
+    public void task() {
+        List<QsDevice> qsDeviceList = fetchAllQsDeviceStreamUrls();
+        if (qsDeviceList.size() == 0) {
+            return;
+        }
+
+
+        qsDeviceList.stream()
+                .filter(device -> "3".equals(device.getType()) && "ws".equalsIgnoreCase(device.getFlvType()));
+
+        qsDeviceList.forEach(device -> {
+            String originalUrl = device.getLiveAddress();
+            if (originalUrl != null && !originalUrl.isEmpty()) {
+                // 替换逻辑：先替换 wss -> https，再替换 ws -> http
+                // 注意顺序，先替换 wss 防止被误判
+                String newUrl = originalUrl.replace("wss://", "https://")
+                        .replace("ws://", "http://");
+
+                device.setLiveAddress(newUrl);
+            }
+        });
+
+
+        List<StreamDetector.StreamResult> streamResults = streamDetector.batchDetect(qsDeviceList, taskExecutor);
+
+        List<QsDevice> newQsDeviceList = new ArrayList<QsDevice>();
+        for (StreamDetector.StreamResult streamResult : streamResults) {
+            QsDevice device = new QsDevice();
+            device.setId(streamResult.getId());
+            device.setDeviceStatus(streamResult.getStatus());
+            newQsDeviceList.add(device);
+        }
+
+        if (newQsDeviceList.size() > 0) {
+            updateAllQsDeviceStreamUrls(newQsDeviceList);
+        }
     }
 
     /**

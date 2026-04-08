@@ -1,6 +1,7 @@
 package com.ruoyi.haikang.isup.api.factory;
 
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import org.slf4j.Logger;
@@ -33,6 +34,16 @@ public class RemoteHaiKangIsupFallbackFactory implements FallbackFactory<RemoteH
             @Override
             public R<HaiKangIsupDeviceInfo> getDevInfo(String ip, String source) {
                 return R.fail("海康isup获取设备信息失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> startPlay(RtpServerParam rtpServerParam, String inner) {
+                return R.fail("海康isup开始播放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlay(Long id, String inner) {
+                return R.fail("海康isup停止播放失败:" + throwable.getMessage());
             }
         };
     }

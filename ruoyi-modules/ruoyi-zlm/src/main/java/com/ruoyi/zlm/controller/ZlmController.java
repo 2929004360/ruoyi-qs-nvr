@@ -1,6 +1,5 @@
 package com.ruoyi.zlm.controller;
 
-import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.web.domain.AjaxResult;
@@ -15,7 +14,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.ObjectUtils;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -106,7 +104,7 @@ public class ZlmController {
     }
 
     /**
-     * 停止拉流播放
+     * 获取截图
      *
      * @param snap 截图参数
      * @return
@@ -129,7 +127,7 @@ public class ZlmController {
     public DeferredResult<R<StreamContent>> rtpPlay(@RequestBody RTPServerParam rtpServerParam, HttpServletRequest request) {
         log.info("rtp播放： app：{}-stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
 
-        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()))) {
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()) || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType()))) {
             log.error("不支持的播放类型：{}", rtpServerParam.getType());
             throw new RuntimeException("不支持的播放类型");
         }
@@ -179,7 +177,7 @@ public class ZlmController {
     @PostMapping("/stopRtpPlay")
     public AjaxResult stopRtpPlay(@RequestBody RTPServerParam rtpServerParam) {
         log.info("停止rtp播放： id：{}", rtpServerParam.getId());
-        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()))) {
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType()) || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType()))) {
             log.error("不支持的播放类型：{}", rtpServerParam.getType());
             throw new RuntimeException("不支持的播放类型");
         }

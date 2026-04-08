@@ -1,7 +1,7 @@
 package com.ruoyi.haikang.service.impl;
 
 import com.ruoyi.common.core.exception.ServiceException;
-import com.ruoyi.haikang.api.domain.RtpServerParam;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.callback.FRealDataForRtpOverTcpCallback;
 import com.ruoyi.haikang.manager.StreamManager;
 import com.ruoyi.haikang.net.Client;

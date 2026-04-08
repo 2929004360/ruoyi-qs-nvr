@@ -4,7 +4,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
-import com.ruoyi.haikang.api.domain.RtpServerParam;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.service.IHaiKangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

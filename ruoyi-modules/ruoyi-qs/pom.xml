@@ -88,6 +88,25 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-zlm</artifactId>
         </dependency>
+
+        <!--JavaCV相关依赖-->
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacv</artifactId>
+            <version>1.5.10</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>ffmpeg</artifactId>
+            <version>6.1.1-1.5.10</version>
+            <classifier>windows-x86_64-gpl</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>ffmpeg</artifactId>
+            <version>6.1.1-1.5.10</version>
+            <classifier>linux-x86_64-gpl</classifier>
+        </dependency>
     </dependencies>
 
     <build>

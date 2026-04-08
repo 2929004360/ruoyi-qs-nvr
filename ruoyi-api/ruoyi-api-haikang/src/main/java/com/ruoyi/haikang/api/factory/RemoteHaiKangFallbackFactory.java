@@ -4,7 +4,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
-import com.ruoyi.haikang.api.domain.RtpServerParam;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
