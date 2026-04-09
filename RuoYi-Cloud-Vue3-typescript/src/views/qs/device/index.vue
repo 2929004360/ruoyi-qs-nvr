@@ -463,12 +463,20 @@
 import useClipboard from "vue-clipboard3";
 import EasyPlayer from "@/components/EasyPlayer";
 import type {DeviceQueryParams, QsDevice} from "@/types/api/qs/device"
-import {addDevice, changeDeviceStatus, delDevice, getDevice, listDevice, updateDevice} from "@/api/qs/device"
+import {
+  addDevice,
+  changeDeviceStatus,
+  delDevice,
+  getDevice,
+  getVideoSnapshot,
+  listDevice,
+  updateDevice
+} from "@/api/qs/device"
 import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
-import {HaikangIsupDevice, PullConfig, RTPServerParam, Snap} from "@/types/api";
+import {HaikangIsupDevice, PullConfig, RTPServerParam} from "@/types/api";
 import {DaHuaDevice} from "@/types/api/qs/dahua";
 import {listDaHusDevice} from "@/api/qs/dahua";
-import {getSnap, rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
+import {rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
 
@@ -592,6 +600,7 @@ function reset() {
     protocol: "TCP",
     enableAudio: "0",
     enableMp4: "0",
+    enableDisableNoneReader: "0",
     createBy: null,
     createTime: null,
     updateBy: null,
@@ -780,12 +789,18 @@ const haikangIsupDeviceCodeChange = (e: string) => {
  */
 const onlineTypeChange = (e: string) => {
   if (e === '2') {
-    listDaHusDevice().then((res) => {
+    listDaHusDevice().then((res: any) => {
       res.data.forEach((item) => {
         item.deviceId = "dahua_" + item.deviceId
+        if (item.deviceCode === form.value.deviceCode) {
+          form.value.ipAddress = item.ip
+          form.value.port = item.port
+        }
       })
       dahuaDeviceList.value = res.data
     })
+  } else {
+    form.value.port = "37777"
   }
 }
 
@@ -866,7 +881,7 @@ const handlePlay = (row: QsDevice) => {
       row.loading = false
     })
   } else if (row.type === '3' || row.type === '4') {
-    if ((row.type === '3' && row.flvType === 'flv') || row.type === '4') {
+    if (row.type === '3' || row.type === '4') {
       let data = {
         deviceId: row.id,
         app: 'flv',
@@ -877,6 +892,12 @@ const handlePlay = (row: QsDevice) => {
         rtp_type: '1',
         timeOut: 10,
       } as PullConfig;
+
+      if (row.type === '3' && row.flvType === 'ws') {
+        if (row.liveAddress != null) {
+          data.url = convertWsToHttp(row.liveAddress)
+        }
+      }
 
       if (row.type === '3') {
         data.app = "flv"
@@ -923,30 +944,6 @@ const handlePlay = (row: QsDevice) => {
       }).catch((err) => {
         row.loading = false
       })
-    } else {
-      nextTick(async () => {
-        wsUrl.value = row.liveAddress
-        quality.value = []
-        defaultQuality.value = ''
-        isPtz.value = false
-        isQuality.value = false
-        isLive.value = true
-        deviceRow.value = row
-        row.loading = false
-        easyPlayerOpen.value = true
-      })
-
-      let data = {
-        app: "flv",
-        stream: row.deviceCode,
-        url: row.liveAddress,
-      } as Snap;
-      getSnap(data).then((res) => {
-        updateDevice({
-          snap: res.msg,
-          id: row.id
-        })
-      })
     }
   } else if (row.type === '6') {
     nextTick(async () => {
@@ -960,19 +957,10 @@ const handlePlay = (row: QsDevice) => {
       row.loading = false
       easyPlayerOpen.value = true
 
-      let data = {
-        app: "video_file",
-        stream: row.deviceCode,
-        url: row.liveAddress,
-      } as Snap;
-      getSnap(data).then((res) => {
-        updateDevice({
-          snap: res.msg,
-          id: row.id
-        })
-      })
+
+      getVideoSnapshot(row.id);
     })
-  } else if (row.type === '7' || row.type === '8' || row.type === '9')  {
+  } else if (row.type === '7' || row.type === '8' || row.type === '9') {
     let data = {
       app: "haikang",
       streamId: row.deviceCode,
@@ -981,11 +969,11 @@ const handlePlay = (row: QsDevice) => {
       id: row.id
     } as RTPServerParam;
 
-    if(row.type === '7'){
+    if (row.type === '7') {
       data.app = "haikang"
-    }else if(row.type === '8'){
+    } else if (row.type === '8') {
       data.app = "haikang_isup"
-    }else if(row.type === '9'){
+    } else if (row.type === '9') {
       data.app = "dahua"
     }
 
@@ -1016,6 +1004,30 @@ const handlePlay = (row: QsDevice) => {
     })
   }
 
+}
+
+const convertWsToHttp = (wsUrl: string) => {
+  if (!wsUrl) return wsUrl;
+
+  // 正则解释：
+  // ^ 表示开头
+  // wss? 匹配 "ws" 或 "wss"
+  // :\/\/ 匹配 "://"
+  const regex = /^wss?:\/\//;
+
+  if (regex.test(wsUrl)) {
+    // 如果是 wss:// 开头，替换为 https://
+    if (wsUrl.startsWith('wss://')) {
+      return wsUrl.replace(regex, 'https://');
+    }
+    // 如果是 ws:// 开头，替换为 http://
+    else {
+      return wsUrl.replace(regex, 'http://');
+    }
+  }
+
+  // 如果已经是 http/https，直接返回
+  return wsUrl;
 }
 
 /**

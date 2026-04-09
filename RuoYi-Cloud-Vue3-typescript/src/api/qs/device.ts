@@ -57,3 +57,11 @@ export function changeDeviceStatus(id: number, status: string): Promise<AjaxResu
     data: data
   })
 }
+
+// 获取本地mp4截图
+export function getVideoSnapshot(id: number) {
+  return request({
+    url: '/qs/device/getVideoSnapshot/' + id,
+    method: 'put'
+  })
+}

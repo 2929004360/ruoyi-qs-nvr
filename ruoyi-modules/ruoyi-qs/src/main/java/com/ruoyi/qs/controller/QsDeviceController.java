@@ -9,7 +9,9 @@ import com.ruoyi.common.security.annotation.RequiresPermissions;
 import com.ruoyi.common.security.utils.SecurityUtils;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.service.IQsDeviceService;
+import com.ruoyi.qs.utils.VideoSnapshotUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +27,18 @@ import java.util.List;
 public class QsDeviceController extends BaseController {
     @Autowired
     private IQsDeviceService qsDeviceService;
+
+    @Autowired
+    private VideoSnapshotUtil videoSnapshotUtil;
+
+    @Value("${file.domain}")
+    private String fileDomain;
+
+    @Value("${file.path}")
+    private String filePath;
+
+    @Value("${file.prefix}")
+    private String filePrefix;
 
     /**
      * 查询视频监控设备列表
@@ -85,5 +99,65 @@ public class QsDeviceController extends BaseController {
     public AjaxResult changeStatus(@RequestBody QsDevice qsDevice) {
         qsDevice.setUpdateBy(SecurityUtils.getUsername());
         return toAjax(qsDeviceService.updateQsDeviceStatus(qsDevice));
+    }
+
+    /**
+     * 获取本地mp4截图
+     */
+    @RequiresPermissions("qs:device:edit")
+    @Log(title = "视频监控设备", businessType = BusinessType.UPDATE)
+    @PutMapping("/getVideoSnapshot/{id}")
+    public AjaxResult getVideoSnapshot(@PathVariable("id") Long id) {
+        QsDevice device = qsDeviceService.selectQsDeviceById(id);
+
+        try {
+            String videoPath = convertUrlToPath(device.getLiveAddress(), this.fileDomain, this.filePrefix, this.filePath);
+
+            String fileName = "/video_file-" + device.getDeviceCode() + ".jpg";
+
+            String savePath = this.filePath + "/snap" + fileName;
+
+            // 截取第 1 秒的画面
+            videoSnapshotUtil.takeSnapshot(videoPath, savePath, 1.0);
+
+            String filePath = fileDomain + filePrefix + "/snap/" + fileName;
+
+            QsDevice qsDevice = new QsDevice();
+            qsDevice.setId(id);
+            qsDevice.setSnap(filePath);
+            qsDeviceService.updateQsDevice(qsDevice);
+        } catch (Exception e) {
+            return error("获取视频截图失败");
+        }
+
+        return success();
+    }
+
+    /**
+     * 将网络访问路径转换为本地文件物理路径
+     */
+    public String convertUrlToPath(String url, String domain, String prefix, String localBasePath) {
+        // 步骤 A: 去除域名部分
+        // 例如：http://127.0.0.1:9300/statics/...  ->  /statics/...
+        if (url.startsWith(domain)) {
+            url = url.substring(domain.length());
+        }
+
+        // 步骤 B: 去除前缀部分
+        // 例如：/statics/2026/...  ->  /2026/...
+        if (url.startsWith(prefix)) {
+            url = url.substring(prefix.length());
+        }
+
+        // 步骤 C: 拼接本地路径
+        // 注意：防止路径分隔符重复或缺失
+        // localBasePath: D:/ruoyi/uploadPath
+        // url: /2026/03/27/...
+
+        if (url.startsWith("/")) {
+            return localBasePath + url;
+        } else {
+            return localBasePath + "/" + url;
+        }
     }
 }
