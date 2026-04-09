@@ -72,6 +72,10 @@ export interface QsDevice extends BaseEntity {
   snap?: string;
   /** flv 类型（ws/flv） */
   flvType?: string;
+  /** omvif 验证类型（1=WS-UsernameToken,2=Digest） */
+  onvifAuth?: string;
+  /** onvif 主机名 */
+  onvifHostName?: string;
   /** 创建者 */
   createBy?: string;
   /** 创建时间 */

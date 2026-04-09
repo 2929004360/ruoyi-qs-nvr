@@ -125,6 +125,11 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             }
         }
 
+        // ONVIF协议
+        if (LiveStreamType.ONVIF.getCode().equals(qsDevice.getType())) {
+            qsDevice.setDeviceCode("onvif_" + IdUtil.getSnowflakeNextId());
+        }
+
         // 视频文件
         if (LiveStreamType.VIDEO_FILE.getCode().equals(qsDevice.getType())) {
             qsDevice.setDeviceCode("video_file_" + IdUtil.getSnowflakeNextId());
@@ -145,12 +150,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             if (r.getCode() != Constants.SUCCESS) {
                 throw new RuntimeException(r.getMsg());
             }
-            qsDevice.setDeviceStatus("ON");
-        }
 
-        // 海康ISUP
-        if (LiveStreamType.HIK_ISUP.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceStatus("ON");
         }
 
         // 大华sdk
@@ -188,9 +188,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             if (r.getCode() != Constants.SUCCESS) {
                 throw new RuntimeException(r.getMsg());
             }
-
-            qsDevice.setDeviceStatus("ON");
         }
+
+        qsDevice.setDeviceStatus("ON");
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
 

@@ -18,6 +18,7 @@
         <module>ruoyi-haikang-isup</module>
         <module>ruoyi-dahua</module>
         <module>ruoyi-zlm</module>
+        <module>ruoyi-onvif</module>
     </modules>
 
     <artifactId>ruoyi-modules</artifactId>

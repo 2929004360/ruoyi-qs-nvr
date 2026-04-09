@@ -7,6 +7,7 @@ export function streamPullPlay(data: PullConfig): Promise<StreamContent> {
         url: '/zlm/streamPullPlay',
         method: 'post',
         data,
+        timeout: 20000
     })
 }
 
@@ -16,6 +17,7 @@ export function stopStreamPullPlay(data: PullConfig) {
         url: '/zlm/stopStreamPullPlay',
         method: 'post',
         data,
+        timeout: 20000
     })
 }
 
@@ -25,6 +27,7 @@ export function getSnap(data: Snap) {
         url: '/zlm/getSnap',
         method: 'post',
         data,
+        timeout: 20000
     })
 }
 
@@ -34,6 +37,7 @@ export function rtpPlay(data: RTPServerParam) : Promise<StreamContent>{
         url: '/zlm/rtpPlay',
         method: 'post',
         data,
+        timeout: 20000
     })
 }
 
@@ -43,5 +47,6 @@ export function stopRtpPlay(data: RTPServerParam) {
         url: '/zlm/stopRtpPlay',
         method: 'post',
         data,
+        timeout: 20000
     })
 }

@@ -147,6 +147,7 @@
                      || scope.row.type === '2'
                      || scope.row.type === '3'
                      || scope.row.type === '4'
+                     || scope.row.type === '5'
                      || scope.row.type === '7'
                      || scope.row.type === '8'
                      || scope.row.type === '9'
@@ -177,7 +178,7 @@
     />
 
     <!-- 添加或修改视频监控设备对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="600px" append-to-body draggable>
       <el-form ref="deviceRef" :model="form" :rules="rules" label-width="140px">
         <el-form-item label="直播流接入类型" prop="type">
           <el-select v-model="form.type" placeholder="请选择直播流接入类型" @change="liveStreamChange" filterable>
@@ -224,14 +225,28 @@
                       v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
           <el-input v-model="form.ipAddress" placeholder="请输入IP地址" :maxlength="50" show-word-limit/>
         </el-form-item>
+
+        <el-form-item label="onvif设备IP" prop="ipAddress"
+                      v-if="form.type === '5'">
+          <el-select v-model="form.ipAddress" @change="onvifDeviceCodeChange" placeholder="请选择onvif设备IP"
+                     filterable>
+            <el-option
+                v-for="item in onvifDeviceList"
+                :key="item.ip"
+                :label="item.ip"
+                :value="item.ip"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="端口号" prop="port"
                       v-if="form.type === '7' || (form.type === '9' && form.onlineType === '1')">
           <el-input v-model="form.port" placeholder="请输入端口号" disabled :maxlength="10" show-word-limit/>
         </el-form-item>
-        <el-form-item label="用户名" prop="userName" v-if="form.type === '7' || (form.type === '9' )">
+        <el-form-item label="用户名" prop="userName"
+                      v-if="form.type === '7' || form.type === '5' || form.type === '9' ">
           <el-input v-model="form.userName" placeholder="请输入用户名" :maxlength="64" show-word-limit/>
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="form.type === '7' || (form.type === '9' )">
+        <el-form-item label="密码" prop="password" v-if="form.type === '7' || form.type === '5' || form.type === '9' ">
           <el-input v-model="form.password" placeholder="请输入密码" :maxlength="128" show-word-limit/>
         </el-form-item>
 
@@ -298,9 +313,38 @@
           </el-radio-group>
         </el-form-item>
 
+        <el-form-item label="onvif验证类型" prop="onvifAuth"
+                      v-if="form.type === '5'">
+          <el-radio-group v-model="form.onvifAuth">
+            <el-radio
+                v-for="dict in qs_onvif_auth"
+                :key="dict.value"
+                :label="dict.value"
+            >{{ dict.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.type === '5'">
+          <el-button type="primary" @click="onvifAuthLogin">认证</el-button>
+        </el-form-item>
+
+        <el-form-item label="直播流地址"
+                      prop="liveAddress"
+                      v-if="form.type === '5'"
+        >
+          <el-select v-model="form.liveAddress" placeholder="请选择直播流地址" filterable>
+            <el-option
+                v-for="item in streamUris"
+                :key="item"
+                :label="item"
+                :value="item"
+            />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="开启音频"
                       prop="enableAudio"
-                      v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4' || form.type === '6'"
         >
           <el-radio-group v-model="form.enableAudio">
             <el-radio label="0">关闭</el-radio>
@@ -309,7 +353,6 @@
         </el-form-item>
         <el-form-item label="开启mp4录制"
                       prop="enableMp4"
-                      v-if="form.type === '1' || form.type === '2' || form.type === '3' || form.type === '4' || form.type === '6'"
         >
           <el-radio-group v-model="form.enableMp4">
             <el-radio label="0">关闭</el-radio>
@@ -350,18 +393,7 @@
         </el-form-item>
 
         <el-form-item label="无人观看"
-                      prop="enableDisableNoneReader"
-                      v-if="form.type === '1'
-                      || form.type === '2'
-                      || form.type === '3'
-                      || form.type === '4'
-                      || form.type === '7'
-                      || form.type === '8'
-                      || form.type === '9'
-                      || form.type === '10'
-                      || form.type === '11'
-"
-        >
+                      prop="enableDisableNoneReader">
           <el-radio-group v-model="form.enableDisableNoneReader">
             <el-radio label="0">不处理</el-radio>
             <el-radio label="1">停用</el-radio>
@@ -411,6 +443,7 @@
                deviceRow.type === '1'
                || deviceRow.type === '2'
                || deviceRow.type === '3'
+               || deviceRow.type === '5'
                || deviceRow.type === '4'
                || deviceRow.type === '7'
                || deviceRow.type === '8'
@@ -473,12 +506,13 @@ import {
   updateDevice
 } from "@/api/qs/device"
 import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
-import {HaikangIsupDevice, PullConfig, RTPServerParam} from "@/types/api";
+import {HaikangIsupDevice, PullConfig, RTPServerParam, WSDiscoveryDevice, WSOnvifDevice} from "@/types/api";
 import {DaHuaDevice} from "@/types/api/qs/dahua";
 import {listDaHusDevice} from "@/api/qs/dahua";
 import {rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
+import {getOnvifDeviceList, onvifLogin} from "@/api/qs/onvif";
 
 const {toClipboard} = useClipboard()
 
@@ -490,7 +524,8 @@ const {
   qs_protocol,
   qs_device_status,
   qs_online_type,
-} = proxy.useDict('qs_status', 'qs_live_stream_type', 'qs_stream_type', 'qs_protocol', 'qs_device_status', 'qs_online_type')
+  qs_onvif_auth,
+} = proxy.useDict('qs_status', 'qs_live_stream_type', 'qs_stream_type', 'qs_protocol', 'qs_device_status', 'qs_online_type', 'qs_onvif_auth')
 
 const deviceList = ref<QsDevice[]>([])
 const open = ref<boolean>(false)
@@ -504,6 +539,8 @@ const title = ref<string>("")
 
 const haiKangIsupDeviceList = ref<HaikangIsupDevice[]>([])
 const dahuaDeviceList = ref<DaHuaDevice[]>([])
+const onvifDeviceList = ref<WSDiscoveryDevice[]>([])
+const streamUris = ref<string>([])
 
 // 播放
 const easyPlayerOpen = ref(false)
@@ -601,6 +638,8 @@ function reset() {
     enableAudio: "0",
     enableMp4: "0",
     enableDisableNoneReader: "0",
+    onvifAuth: "1",
+    onvifHostName: null,
     createBy: null,
     createTime: null,
     updateBy: null,
@@ -659,6 +698,12 @@ function handleUpdate(row: QsDevice) {
           item.deviceId = "dahua_" + item.deviceId
         })
         dahuaDeviceList.value = res.data
+      })
+    }
+
+    if (form.value.type === '5') {
+      getOnvifDeviceList().then((res) => {
+        onvifDeviceList.value = res.data
       })
     }
   })
@@ -729,6 +774,7 @@ const liveStreamChange = (e: string) => {
   form.value.userName = null
   form.value.password = null
   form.value.channel = null
+  form.value.hostName = null
 
   // 海康sdk
   if (e === '7') {
@@ -748,6 +794,12 @@ const liveStreamChange = (e: string) => {
     form.value.port = '37777';
     form.value.onlineType = '1';
     return
+  }
+
+  if (e === '5') {
+    getOnvifDeviceList().then((res) => {
+      onvifDeviceList.value = res.data
+    })
   }
 }
 
@@ -816,6 +868,53 @@ const dahuaDeviceCodeChange = (e: string) => {
 }
 
 /**
+ * onvif设备code改变
+ *
+ * @param e
+ */
+const onvifDeviceCodeChange = (e: string) => {
+  const device = onvifDeviceList.value.find(item => item.ip === e);
+  form.value.onvifHostName = device.hostName
+}
+
+/**
+ * onvif 设备登录
+ *
+ * @param e
+ */
+const onvifAuthLogin = () => {
+
+  if (!form.value.ipAddress) {
+    proxy.$modal.msgError('请选择onvif设备IP');
+    return
+  }
+
+  if (!form.value.onvifHostName) {
+    proxy.$modal.msgError('请输入设备用户名');
+    return
+  }
+
+  if (!form.value.password) {
+    proxy.$modal.msgError('请输入设备密码');
+    return
+  }
+
+  let data = {
+    ip: form.value.ipAddress,
+    auth: form.value.onvifAuth,
+    hostName: form.value.hostName,
+    username: form.value.userName,
+    password: form.value.password,
+  } as WSOnvifDevice;
+
+  onvifLogin(data).then((res: any) => {
+    streamUris.value = res.data.streamUris
+
+    proxy.$modal.msgSuccess('认证成功');
+  })
+}
+
+/**
  * 播放
  *
  * @param row
@@ -823,10 +922,10 @@ const dahuaDeviceCodeChange = (e: string) => {
 const handlePlay = (row: QsDevice) => {
   row.loading = true
   // rtsp协议或者rtmp
-  if (row.type === '1' || row.type === '2') {
+  if (row.type === '1' || row.type === '2' || row.type === '3' || row.type === '4' || row.type === '5') {
     let data = {
       deviceId: row.id,
-      app: 'rtsp',
+      app: '',
       stream: row.deviceCode,
       url: row.liveAddress,
       enable_audio: false,
@@ -837,8 +936,20 @@ const handlePlay = (row: QsDevice) => {
 
     if (row.type === '1') {
       data.app = "rtsp"
-    } else {
+    } else if (row.type === '2') {
       data.app = "rtmp"
+    } else if (row.type === '3') {
+      data.app = "flv"
+    } else if (row.type === '4') {
+      data.app = "hls"
+    } else if (row.type === '5') {
+      data.app = "onvif"
+    }
+
+    if (row.type === '3' && row.flvType === 'ws') {
+      if (row.liveAddress != null) {
+        data.url = convertWsToHttp(row.liveAddress)
+      }
     }
 
     if (row.protocol === 'UDP') {
@@ -880,71 +991,6 @@ const handlePlay = (row: QsDevice) => {
     }).catch((err) => {
       row.loading = false
     })
-  } else if (row.type === '3' || row.type === '4') {
-    if (row.type === '3' || row.type === '4') {
-      let data = {
-        deviceId: row.id,
-        app: 'flv',
-        stream: row.deviceCode,
-        url: row.liveAddress,
-        enable_audio: false,
-        enable_mp4: false,
-        rtp_type: '1',
-        timeOut: 10,
-      } as PullConfig;
-
-      if (row.type === '3' && row.flvType === 'ws') {
-        if (row.liveAddress != null) {
-          data.url = convertWsToHttp(row.liveAddress)
-        }
-      }
-
-      if (row.type === '3') {
-        data.app = "flv"
-      } else {
-        data.app = "hls"
-      }
-
-      if (row.protocol === 'UDP') {
-        data.rtp_type = '0'
-      } else if (row.protocol === 'TCP') {
-        data.rtp_type = '1'
-      }
-
-      if (row.enableAudio === '1') {
-        data.enable_audio = true
-      }
-
-      if (row.enableMp4 === '1') {
-        data.enable_mp4 = true
-      }
-
-      streamPullPlay(data).then(async (res: any) => {
-        await nextTick(async () => {
-          if (location.protocol === "https:") {
-            flvUrl.value = res.data.https_flv;
-            rtcUrl.value = res.data.rtcs;
-            wsUrl.value = res.data.wss_flv;
-          } else {
-            flvUrl.value = res.data.flv;
-            rtcUrl.value = res.data.rtc;
-            wsUrl.value = res.data.ws_flv;
-          }
-
-          streamInfo.value = res.data;
-          quality.value = []
-          defaultQuality.value = ''
-          isPtz.value = false
-          isQuality.value = false
-          isLive.value = true
-          deviceRow.value = row
-          row.loading = false
-          easyPlayerOpen.value = true
-        })
-      }).catch((err) => {
-        row.loading = false
-      })
-    }
   } else if (row.type === '6') {
     nextTick(async () => {
       wsUrl.value = row.liveAddress
@@ -1034,7 +1080,7 @@ const convertWsToHttp = (wsUrl: string) => {
  * 停止播放
  */
 const handleStopPlay = (row: QsDevice) => {
-  if (row.type === '1' || row.type === '2' || row.type === '3' || row.type === '4') {
+  if (row.type === '1' || row.type === '2' || row.type === '3' || row.type === '4' | row.type === '5') {
     let data = {
       deviceId: row.id,
       mediaServerId: row.mediaServerId,

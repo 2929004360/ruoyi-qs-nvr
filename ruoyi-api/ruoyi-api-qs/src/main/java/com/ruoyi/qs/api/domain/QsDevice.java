@@ -101,4 +101,10 @@ public class QsDevice extends BaseEntity
 
     /** flv 类型（ws/flv） */
     private String flvType;
+
+    /** omvif 验证类型（1=WS-UsernameToken,2=Digest */
+    private String onvifAuth;
+
+    /** onvif 主机名 */
+    private String onvifHostName;
 }
