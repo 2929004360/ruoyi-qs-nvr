@@ -14,7 +14,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableCustomConfig
 @EnableRyFeignClients
 @SpringBootApplication
-@EnableScheduling
 public class RuoYiHaiKangApplication
 {
     public static void main(String[] args)

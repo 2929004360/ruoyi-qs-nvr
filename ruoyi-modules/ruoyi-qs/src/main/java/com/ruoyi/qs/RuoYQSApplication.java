@@ -14,7 +14,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableCustomConfig
 @EnableRyFeignClients
 @SpringBootApplication
-@EnableScheduling
 public class RuoYQSApplication {
     public static void main(String[] args) {
         SpringApplication.run(RuoYQSApplication.class, args);

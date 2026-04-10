@@ -73,4 +73,14 @@ public class QsDeviceApiController {
     public R<QsDevice> getQsDeviceInfo(@PathVariable Long id) {
         return R.ok(qsDeviceService.selectQsDeviceById(id));
     }
+
+    /**
+     * 设备状态任务
+     */
+    @InnerAuth
+    @GetMapping("/task")
+    public R<Void> task() {
+        qsDeviceService.task();
+        return R.ok();
+    }
 }

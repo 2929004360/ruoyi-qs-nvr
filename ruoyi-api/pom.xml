@@ -15,6 +15,7 @@
         <module>ruoyi-api-haikang-isup</module>
         <module>ruoyi-api-dahua</module>
         <module>ruoyi-api-zlm</module>
+        <module>ruoyi-api-onvif</module>
     </modules>
 
     <artifactId>ruoyi-api</artifactId>

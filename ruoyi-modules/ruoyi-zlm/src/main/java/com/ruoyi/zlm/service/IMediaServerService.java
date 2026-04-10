@@ -187,4 +187,20 @@ public interface IMediaServerService {
      * @return
      */
     Boolean isStreamReady(ZlmMediaServer mediaServer, String rtp, String streamId);
+
+    /**
+     * 加载文件形成播放地址
+     *
+     * @param id 设备id
+     * @param callback   回调
+     * @return
+     */
+    void loadRecord(Long id, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * 关闭流文件形成播放地址
+     *
+     * @param id 设备id
+     */
+    void closeStreams(Long id);
 }

@@ -94,6 +94,12 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-dahua</artifactId>
         </dependency>
+
+        <!-- onvif 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-onvif</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -73,4 +73,13 @@ public interface RemoteQsDeviceService {
      */
     @GetMapping("/api/device/getQsDeviceInfo/{id}")
     R<QsDevice> getQsDeviceInfo(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 设备状态任务
+     *
+     * @param inner 请求来源
+     * @return
+     */
+    @GetMapping("/api/device/task")
+    R<QsDevice> task(@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

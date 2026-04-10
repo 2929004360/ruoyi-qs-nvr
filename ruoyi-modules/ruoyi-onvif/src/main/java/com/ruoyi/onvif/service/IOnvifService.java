@@ -1,8 +1,8 @@
 package com.ruoyi.onvif.service;
 
-import com.ruoyi.onvif.domain.OnvifDevice;
+import com.ruoyi.onvif.api.domain.OnvifDevice;
+import com.ruoyi.onvif.api.domain.WSOnvifDevice;
 import com.ruoyi.onvif.domain.WSDiscoveryDevice;
-import com.ruoyi.onvif.domain.WSOnvifDevice;
 
 import java.util.ArrayList;
 

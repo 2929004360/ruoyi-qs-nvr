@@ -182,6 +182,25 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 rtpServerParam.setStreamId(event.getStream());
                 stopRtpPlay(rtpServerParam);
             }
+        } else if ("video_file".equals(event.getApp())) {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(event.getStream(), SecurityConstants.INNER);
+            if (r.getCode() != Constants.SUCCESS) {
+                return;
+            }
+
+            if (r.getData() == null) {
+                return;
+            }
+
+            QsDevice qsDevice = new QsDevice();
+            qsDevice.setId(r.getData().getId());
+            qsDevice.setStreamKey("");
+            qsDevice.setMediaServerId("");
+            qsDevice.setStreamStatus("0");
+            R<Boolean> qsDevicer = remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
+            if (qsDevicer.getCode() != Constants.SUCCESS) {
+                log.error("更新设备失败");
+            }
         }
     }
 
@@ -907,7 +926,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         InviteInfo inviteInfo = inviteStreamService.getInviteInfo(InviteSessionType.PLAY, device.getChannel(), rtpServerParam.getStreamId());
 
-        if(inviteInfo != null){
+        if (inviteInfo != null) {
             inviteStreamService.removeInviteInfo(inviteInfo);
         }
 
@@ -926,7 +945,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
      * 判断流是否已经准备好
      *
      * @param mediaServer
-     * @param rtp
+     * @param app
      * @param streamId
      * @return
      */
@@ -939,6 +958,112 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
         MediaInfo mediaInfo = mediaNodeServerService.getMediaInfo(mediaServer, app, streamId);
         return mediaInfo != null;
+    }
+
+    /**
+     * 加载文件形成播放地址
+     *
+     * @param id       设备id
+     * @param callback 回调
+     * @return
+     */
+    @Override
+    public void loadRecord(Long id, ErrorCallback<StreamInfo> callback) {
+        ZlmMediaServer mediaServer = getMediaServerForMinimumLoad(null);
+
+        if (mediaServer == null) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "无可用的节点", null);
+            return;
+        }
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "获取设备信息失败", null);
+            return;
+        }
+        if (r.getData() == null) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "设备不存在", null);
+            return;
+        }
+
+        QsDevice device = r.getData();
+        String videoPath = convertUrlToPath(device.getLiveAddress(), this.fileDomain, this.filePrefix, this.filePath);
+
+        loadMP4File(mediaServer, "video_file", device.getDeviceCode(), id, videoPath, ((code, msg, streamInfo) -> {
+            callback.run(code, msg, streamInfo);
+        }));
+    }
+
+    /**
+     * 关闭流文件形成播放地址
+     *
+     * @param id 设备id
+     */
+    @Override
+    public void closeStreams(Long id) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败");
+        }
+        if (r.getData() == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        QsDevice device = r.getData();
+        ZlmMediaServer mediaServer = getOne(device.getMediaServerId());
+
+        if (mediaServer == null) {
+            throw new RuntimeException("无可用的节点");
+        }
+
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[closeStreams] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            return;
+        }
+        mediaNodeServerService.closeStreams(mediaServer, "video_file", device.getStreamKey());
+    }
+
+    private void loadMP4File(ZlmMediaServer mediaServer, String app, String stream, Long id, String videoPath, ErrorCallback<StreamInfo> callback) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[loadMP4File] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            throw new RuntimeException("未找到mediaServer对应的实现类");
+        }
+
+        StreamInfo streamData = getStreamInfoByAppAndStreamWithCheck(app, stream, mediaServer.getId(), null, false);
+        if (streamData != null) {
+            callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamData);
+            return;
+        }
+
+        Hook hook = Hook.getInstance(HookType.on_media_arrival, app, stream, mediaServer.getServerId());
+        subscribe.addSubscribe(hook, (hookData) -> {
+            StreamInfo streamInfo = getStreamInfoByAppAndStream(mediaServer, app, stream, hookData.getMediaInfo());
+            if (callback != null) {
+                callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
+                
+                QsDevice qsDevice = new QsDevice();
+                qsDevice.setId(id);
+                qsDevice.setStreamKey(stream);
+                qsDevice.setMediaServerId(mediaServer.getId());
+                qsDevice.setStreamStatus("1");
+                R<Boolean> r = remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
+                if (r.getCode() != Constants.SUCCESS) {
+                    log.error("更新设备失败");
+                    callback.run(InviteErrorCode.FAIL.getCode(), "更新设备失败", null);
+                }
+            }
+        });
+
+        ZLMResult<?> zlmResult = zlmresTfulUtils.loadMP4File(mediaServer, app, stream, videoPath);
+
+        if (zlmResult == null) {
+            throw new RuntimeException("请求失败");
+        }
+        if (zlmResult.getCode() != 0) {
+            throw new RuntimeException(zlmResult.getMsg());
+        }
     }
 
     private void stopProxy(ZlmMediaServer mediaServer, String streamKey) {
@@ -960,4 +1085,31 @@ public class MediaServerServiceImpl implements IMediaServerService {
     }
 
 
+    /**
+     * 将网络访问路径转换为本地文件物理路径
+     */
+    public String convertUrlToPath(String url, String domain, String prefix, String localBasePath) {
+        // 步骤 A: 去除域名部分
+        // 例如：http://127.0.0.1:9300/statics/...  ->  /statics/...
+        if (url.startsWith(domain)) {
+            url = url.substring(domain.length());
+        }
+
+        // 步骤 B: 去除前缀部分
+        // 例如：/statics/2026/...  ->  /2026/...
+        if (url.startsWith(prefix)) {
+            url = url.substring(prefix.length());
+        }
+
+        // 步骤 C: 拼接本地路径
+        // 注意：防止路径分隔符重复或缺失
+        // localBasePath: D:/ruoyi/uploadPath
+        // url: /2026/03/27/...
+
+        if (url.startsWith("/")) {
+            return localBasePath + url;
+        } else {
+            return localBasePath + "/" + url;
+        }
+    }
 }

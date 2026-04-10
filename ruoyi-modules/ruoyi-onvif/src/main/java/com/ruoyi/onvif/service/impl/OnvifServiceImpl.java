@@ -9,9 +9,9 @@ import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSON;
 import com.ruoyi.onvif.DiscoveryManager;
 import com.ruoyi.onvif.OnvifManager;
+import com.ruoyi.onvif.api.domain.WSOnvifDevice;
 import com.ruoyi.onvif.domain.FetchMainAndSubStreamUris;
 import com.ruoyi.onvif.domain.WSDiscoveryDevice;
-import com.ruoyi.onvif.domain.WSOnvifDevice;
 import com.ruoyi.onvif.enums.AuthTypeEnum;
 import com.ruoyi.onvif.listeners.DiscoveryListener;
 import com.ruoyi.onvif.models.Device;
@@ -129,8 +129,8 @@ public class OnvifServiceImpl implements IOnvifService {
      * @param onvifDevice
      */
     @Override
-    public com.ruoyi.onvif.domain.OnvifDevice verifyOnvifDeviceLogin(WSOnvifDevice onvifDevice) {
-        com.ruoyi.onvif.domain.OnvifDevice returnOnvifDevice = new com.ruoyi.onvif.domain.OnvifDevice();
+    public com.ruoyi.onvif.api.domain.OnvifDevice verifyOnvifDeviceLogin(WSOnvifDevice onvifDevice) {
+        com.ruoyi.onvif.api.domain.OnvifDevice returnOnvifDevice = new com.ruoyi.onvif.api.domain.OnvifDevice();
 
         // WS-Usemame token
         if (AuthTypeEnum.WS_USERNAME_TOKEN.getCode().equals(onvifDevice.getAuth())) {
@@ -208,7 +208,7 @@ public class OnvifServiceImpl implements IOnvifService {
     public ArrayList<WSDiscoveryDevice> getOnvifDeviceList() {
         Map<Object, Object> rawMap = redisTemplate.opsForHash().entries(ONVIF_DEVICES);
         ArrayList<WSDiscoveryDevice> deviceList = new ArrayList<>();
-        if(rawMap.size() == 0){
+        if (rawMap.size() == 0) {
             return deviceList;
         }
 

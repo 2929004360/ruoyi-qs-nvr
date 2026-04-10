@@ -1,10 +1,8 @@
 package com.ruoyi.onvif.controller;
 
-import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.web.domain.AjaxResult;
-import com.ruoyi.common.security.annotation.InnerAuth;
-import com.ruoyi.onvif.domain.OnvifDevice;
-import com.ruoyi.onvif.domain.WSOnvifDevice;
+import com.ruoyi.onvif.api.domain.OnvifDevice;
+import com.ruoyi.onvif.api.domain.WSOnvifDevice;
 import com.ruoyi.onvif.service.IOnvifService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

@@ -217,4 +217,9 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
         }
         return MediaInfo.getInstance(zlmResult.getData(), mediaServer, userSetting.getServerId());
     }
+
+    @Override
+    public void closeStreams(ZlmMediaServer mediaServer, String app, String stream) {
+        zlmresTfulUtils.closeStreams(mediaServer, app, stream);
+    }
 }

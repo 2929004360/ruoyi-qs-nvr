@@ -53,6 +53,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<QsDevice> getQsDeviceInfo(Long id, String inner) {
                 return R.fail("获取视频监控设备详细信息失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<QsDevice> task(String inner) {
+                return R.fail("设备状态任务失败:" + throwable.getMessage());
+            }
         };
     }
 }

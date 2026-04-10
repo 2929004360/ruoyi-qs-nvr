@@ -1,4 +1,4 @@
-package com.ruoyi.onvif.domain;
+package com.ruoyi.onvif.api.domain;
 
 import lombok.Data;
 

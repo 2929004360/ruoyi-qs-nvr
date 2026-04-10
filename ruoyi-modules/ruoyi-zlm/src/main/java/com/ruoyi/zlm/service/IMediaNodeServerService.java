@@ -32,4 +32,6 @@ public interface IMediaNodeServerService {
     void closeRtpServer(ZlmMediaServer mediaServer, String streamId, CommonCallback<Boolean> callback);
 
     MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream);
+
+    void closeStreams(ZlmMediaServer mediaServer, String app, String stream);
 }
