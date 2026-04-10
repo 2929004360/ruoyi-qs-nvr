@@ -2,6 +2,7 @@ package com.ruoyi.zlm.hook;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.ruoyi.zlm.api.config.ZLMServerConfig;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import com.ruoyi.zlm.api.hook.OnStreamChangedHookParam;
 import com.ruoyi.zlm.api.utils.MediaServerUtils;
@@ -9,6 +10,10 @@ import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.event.MediaArrivalEvent;
 import com.ruoyi.zlm.event.MediaDepartureEvent;
 import com.ruoyi.zlm.hook.event.HookZlmServerKeepaliveEvent;
+import com.ruoyi.zlm.hook.event.HookZlmServerStartEvent;
+import com.ruoyi.zlm.mediaServer.MediaNotFoundEvent;
+import com.ruoyi.zlm.mediaServer.MediaRecordMp4Event;
+import com.ruoyi.zlm.mediaServer.MediaSendRtpStoppedEvent;
 import com.ruoyi.zlm.service.IMediaServerService;
 import com.ruoyi.zlm.service.IMediaService;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -98,7 +103,7 @@ public class ZLMHttpHookListener {
             HookResultForOnPublish successResult = HookResultForOnPublish.getInstance(resultForOnPublish);
             log.info("[ZLM HOOK]推流鉴权 响应：{}->{}->>>>{}", param.getMediaServerId(), param, successResult);
             return successResult;
-        }else {
+        } else {
             HookResultForOnPublish fail = HookResultForOnPublish.Fail();
             log.info("[ZLM HOOK]推流鉴权 响应：{}->{}->>>>{}", param.getMediaServerId(), param, fail);
             return fail;
@@ -182,6 +187,13 @@ public class ZLMHttpHookListener {
     @PostMapping(value = "/on_stream_not_found", produces = "application/json;charset=UTF-8")
     public HookResult onStreamNotFound(@RequestBody OnStreamNotFoundHookParam param) {
         log.info("[ZLM HOOK] 流未找到：{}->{}->{}/{}", param.getMediaServerId(), param.getSchema(), param.getApp(), param.getStream());
+
+        ZlmMediaServer mediaServer = mediaServerService.getOne(param.getMediaServerId());
+        if (!userSetting.getAutoApplyPlay() || mediaServer == null) {
+            return HookResult.SUCCESS();
+        }
+        MediaNotFoundEvent mediaNotFoundEvent = MediaNotFoundEvent.getInstance(this, param, mediaServer);
+        applicationEventPublisher.publishEvent(mediaNotFoundEvent);
         return HookResult.SUCCESS();
     }
 
@@ -191,7 +203,21 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_server_started", produces = "application/json;charset=UTF-8")
     public HookResult onServerStarted(HttpServletRequest request, @RequestBody JSONObject jsonObject) {
-        log.info("[ZLM HOOK] 服务器启动：{}->{}", jsonObject.get("mediaServerId"), jsonObject.get("serverStartTime"));
+        jsonObject.put("ip", request.getRemoteAddr());
+        ZLMServerConfig zlmServerConfig = JSON.to(ZLMServerConfig.class, jsonObject);
+        zlmServerConfig.setIp(request.getRemoteAddr());
+        log.info("[ZLM HOOK] zlm 启动 " + zlmServerConfig.getGeneralMediaServerId());
+        try {
+            HookZlmServerStartEvent event = new HookZlmServerStartEvent(this);
+            ZlmMediaServer mediaServerItem = mediaServerService.getOne(zlmServerConfig.getMediaServerId());
+            if (mediaServerItem != null) {
+                event.setMediaServerItem(mediaServerItem);
+                applicationEventPublisher.publishEvent(event);
+            }
+        }catch (Exception e) {
+            log.info("[ZLM-HOOK-ZLM启动] 发送通知失败 ", e);
+        }
+
         return HookResult.SUCCESS();
     }
 
@@ -201,7 +227,23 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_send_rtp_stopped", produces = "application/json;charset=UTF-8")
     public HookResult onSendRtpStopped(HttpServletRequest request, @RequestBody OnSendRtpStoppedHookParam param) {
-        log.info("[ZLM HOOK] 发送rtp(startSendRtp)被动关闭时回调：{}->{}->{}/{}", param.getMediaServerId(), param.getStream(), param.getApp(), param.getStream());
+        log.info("[ZLM HOOK] rtp发送关闭：{}->{}/{}", param.getMediaServerId(), param.getApp(), param.getStream());
+
+        // 查找对应的上级推流，发送停止
+        if (!"rtp".equals(param.getApp())) {
+            return HookResult.SUCCESS();
+        }
+        try {
+            MediaSendRtpStoppedEvent event = new MediaSendRtpStoppedEvent(this);
+            ZlmMediaServer mediaServerItem = mediaServerService.getOne(param.getMediaServerId());
+            if (mediaServerItem != null) {
+                event.setMediaServer(mediaServerItem);
+                applicationEventPublisher.publishEvent(event);
+            }
+        } catch (Exception e) {
+            log.info("[ZLM-HOOK-rtp发送关闭] 发送通知失败 ", e);
+        }
+
         return HookResult.SUCCESS();
     }
 
@@ -211,7 +253,20 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_rtp_server_timeout", produces = "application/json;charset=UTF-8")
     public HookResult onRtpServerTimeout(@RequestBody OnRtpServerTimeoutHookParam param) {
-        log.info("[ZLM HOOK] rtpServer收流超时：{}->{}", param.getMediaServerId(), param.getStream_id());
+        log.info("[ZLM HOOK] rtpServer收流超时：{}->{}({})", param.getMediaServerId(), param.getStream_id(), param.getSsrc());
+
+        try {
+//            MediaRtpServerTimeoutEvent event = new MediaRtpServerTimeoutEvent(this);
+//            ZlmMediaServer mediaServerItem = mediaServerService.getOne(param.getMediaServerId());
+//            if (mediaServerItem != null) {
+//                event.setMediaServer(mediaServerItem);
+//                event.setApp("rtp");
+//                applicationEventPublisher.publishEvent(event);
+//            }
+        } catch (Exception e) {
+            log.info("[ZLM-HOOK-rtpServer收流超时] 发送通知失败 ", e);
+        }
+
         return HookResult.SUCCESS();
     }
 
@@ -221,7 +276,19 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_record_mp4", produces = "application/json;charset=UTF-8")
     public HookResult onRecordMp4(HttpServletRequest request, @RequestBody OnRecordMp4HookParam param) {
-        log.info("[ZLM HOOK] 录像完成事件：{}->{}->{}/{}", param.getMediaServerId(), param.getStream(), param.getApp(), param.getStream());
+        log.info("[ZLM HOOK] 录像完成：时长: {}, {}->{}", param.getTime_len(), param.getMediaServerId(), param.getFile_path());
+
+        try {
+            ZlmMediaServer mediaServerItem = mediaServerService.getOne(param.getMediaServerId());
+            if (mediaServerItem != null) {
+                MediaRecordMp4Event event = MediaRecordMp4Event.getInstance(this, param, mediaServerItem);
+                event.setMediaServer(mediaServerItem);
+                applicationEventPublisher.publishEvent(event);
+            }
+        } catch (Exception e) {
+            log.info("[ZLM-HOOK-rtpServer收流超时] 发送通知失败 ", e);
+        }
+
         return HookResult.SUCCESS();
     }
 }

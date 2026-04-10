@@ -34,4 +34,6 @@ public interface IMediaNodeServerService {
     MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream);
 
     void closeStreams(ZlmMediaServer mediaServer, String app, String stream);
+
+    ZlmMediaServer checkMediaServer(String ip, int port, String secret);
 }

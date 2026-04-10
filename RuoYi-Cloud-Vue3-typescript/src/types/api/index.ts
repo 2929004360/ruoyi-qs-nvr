@@ -33,3 +33,4 @@ export * from "./qs/haikang-isup";
 export * from "./qs/zlm";
 export * from "./qs/dahua";
 export * from "./qs/onvif";
+export * from "./qs/cloudRecord";

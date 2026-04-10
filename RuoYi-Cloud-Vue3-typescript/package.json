@@ -35,7 +35,9 @@
     "vue-cropper": "1.1.1",
     "vue-router": "4.6.4",
     "vue-clipboard3": "^2.0.0",
-    "vuedraggable": "4.1.0"
+    "vuedraggable": "4.1.0",
+    "moment": "^2.30.1",
+    "moment-duration-format": "^2.3.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",

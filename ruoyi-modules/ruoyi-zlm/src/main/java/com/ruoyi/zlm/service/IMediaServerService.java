@@ -203,4 +203,23 @@ public interface IMediaServerService {
      * @param id 设备id
      */
     void closeStreams(Long id);
+
+    /**
+     * 获取流媒体服务器列表
+     *
+     * @return
+     */
+    List<ZlmMediaServer> getAll();
+
+    /**
+     * 测试流媒体服务
+     *
+     * @param ip     流媒体服务IP
+     * @param port   流媒体服务HTT端口
+     * @param secret 流媒体服务secret
+     * @param type   流媒体服务类型
+     * @return
+     */
+    ZlmMediaServer checkMediaServer(String ip, int port, String secret, String type);
+
 }

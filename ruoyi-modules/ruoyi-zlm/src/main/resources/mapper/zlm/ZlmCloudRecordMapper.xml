@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.zlm.mapper.ZlmCloudRecordMapper">
+
+    <resultMap type="ZlmCloudRecord" id="ZlmCloudRecordResult">
+        <result property="id"    column="id"    />
+        <result property="app"    column="app"    />
+        <result property="stream"    column="stream"    />
+        <result property="callId"    column="call_id"    />
+        <result property="startTime"    column="start_time"    />
+        <result property="endTime"    column="end_time"    />
+        <result property="mediaServerId"    column="media_server_id"    />
+        <result property="serverId"    column="server_id"    />
+        <result property="fileName"    column="file_name"    />
+        <result property="folder"    column="folder"    />
+        <result property="filePath"    column="file_path"    />
+        <result property="collect"    column="collect"    />
+        <result property="fileSize"    column="file_size"    />
+        <result property="timeLen"    column="time_len"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectZlmCloudRecordVo">
+        select id, app, stream, call_id, start_time, end_time, media_server_id, server_id, file_name, folder, file_path, collect, file_size, time_len, create_time, update_time from zlm_cloud_record
+    </sql>
+
+    <select id="selectZlmCloudRecordList" parameterType="ZlmCloudRecord" resultMap="ZlmCloudRecordResult">
+        <include refid="selectZlmCloudRecordVo"/>
+        <where>
+            <if test="app != null  and app != ''"> and app = #{app}</if>
+            <if test="stream != null  and stream != ''"> and stream = #{stream}</if>
+            <if test="callId != null  and callId != ''"> and call_id = #{callId}</if>
+            <if test="startTime != null "> and start_time = #{startTime}</if>
+            <if test="endTime != null "> and end_time = #{endTime}</if>
+            <if test="mediaServerId != null  and mediaServerId != ''"> and media_server_id = #{mediaServerId}</if>
+            <if test="serverId != null  and serverId != ''"> and server_id = #{serverId}</if>
+            <if test="fileName != null  and fileName != ''"> and file_name like concat('%', #{fileName}, '%')</if>
+            <if test="folder != null  and folder != ''"> and folder = #{folder}</if>
+            <if test="filePath != null  and filePath != ''"> and file_path = #{filePath}</if>
+            <if test="collect != null "> and collect = #{collect}</if>
+            <if test="fileSize != null "> and file_size = #{fileSize}</if>
+            <if test="timeLen != null "> and time_len = #{timeLen}</if>
+        </where>
+    </select>
+
+    <select id="selectZlmCloudRecordById" parameterType="Long" resultMap="ZlmCloudRecordResult">
+        <include refid="selectZlmCloudRecordVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertZlmCloudRecord" parameterType="ZlmCloudRecord" useGeneratedKeys="true" keyProperty="id">
+        insert into zlm_cloud_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="app != null">app,</if>
+            <if test="stream != null">stream,</if>
+            <if test="callId != null">call_id,</if>
+            <if test="startTime != null">start_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="mediaServerId != null">media_server_id,</if>
+            <if test="serverId != null">server_id,</if>
+            <if test="fileName != null">file_name,</if>
+            <if test="folder != null">folder,</if>
+            <if test="filePath != null">file_path,</if>
+            <if test="collect != null">collect,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="timeLen != null">time_len,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="app != null">#{app},</if>
+            <if test="stream != null">#{stream},</if>
+            <if test="callId != null">#{callId},</if>
+            <if test="startTime != null">#{startTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="mediaServerId != null">#{mediaServerId},</if>
+            <if test="serverId != null">#{serverId},</if>
+            <if test="fileName != null">#{fileName},</if>
+            <if test="folder != null">#{folder},</if>
+            <if test="filePath != null">#{filePath},</if>
+            <if test="collect != null">#{collect},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="timeLen != null">#{timeLen},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateZlmCloudRecord" parameterType="ZlmCloudRecord">
+        update zlm_cloud_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="app != null">app = #{app},</if>
+            <if test="stream != null">stream = #{stream},</if>
+            <if test="callId != null">call_id = #{callId},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="mediaServerId != null">media_server_id = #{mediaServerId},</if>
+            <if test="serverId != null">server_id = #{serverId},</if>
+            <if test="fileName != null">file_name = #{fileName},</if>
+            <if test="folder != null">folder = #{folder},</if>
+            <if test="filePath != null">file_path = #{filePath},</if>
+            <if test="collect != null">collect = #{collect},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="timeLen != null">time_len = #{timeLen},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZlmCloudRecordById" parameterType="Long">
+        delete from zlm_cloud_record where id = #{id}
+    </delete>
+
+    <delete id="deleteZlmCloudRecordByIds" parameterType="String">
+        delete from zlm_cloud_record where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

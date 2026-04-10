@@ -231,4 +231,9 @@
         <include refid="selectZlmMediaServerVo"/>
         where status = 'ON'
     </select>
+
+    <select id="queryOneByHostAndPort" resultMap="ZlmMediaServerResult">
+        <include refid="selectZlmMediaServerVo"/>
+        WHERE ip=#{ip} and http_port=#{port} and server_id = #{serverId}
+    </select>
 </mapper>

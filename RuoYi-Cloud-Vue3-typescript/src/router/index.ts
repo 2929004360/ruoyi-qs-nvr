@@ -163,7 +163,38 @@ export const dynamicRoutes = [
         meta: { title: '修改生成配置', activeMenu: '/tool/gen' }
       }
     ]
-  }
+  },
+
+  {
+    path: '/mediaServer/addMediaServer',
+    component: Layout,
+    hidden: true,
+    permissions: ['zlm:server:add'],
+    children: [
+      {
+        noCache: true,
+        path: 'index',
+        component: () => import('@/views/zlm/mediaServer/addMediaServer'),
+        name: 'AddMediaServer',
+        meta: { title: '添加媒体服务器', activeMenu: '/mediaServer' }
+      }
+    ]
+  },
+  {
+    path: '/mediaServer/updateMediaServer',
+    component: Layout,
+    hidden: true,
+    permissions: ['zlm:server:edit'],
+    children: [
+      {
+        noCache: true,
+        path: 'index',
+        component: () => import('@/views/zlm/mediaServer/updateMediaServer'),
+        name: 'UpdateMediaServer',
+        meta: { title: '修改媒体服务器', activeMenu: '/mediaServer' }
+      }
+    ]
+  },
 ]
 
 const router = createRouter({

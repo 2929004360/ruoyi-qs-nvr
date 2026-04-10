@@ -8,18 +8,21 @@ import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.InviteErrorCode;
 import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.domain.Snap;
+import com.ruoyi.zlm.mediaServer.MediaServerChangeEvent;
 import com.ruoyi.zlm.service.ErrorCallback;
 import com.ruoyi.zlm.service.IMediaServerService;
 import com.ruoyi.zlm.utils.ZLMRESTfulUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 
 /**
  * zlm 接口
@@ -42,6 +45,9 @@ public class ZlmController {
 
     @Autowired
     private UserSetting userSetting;
+
+    @Autowired
+    private ApplicationEventPublisher applicationEventPublisher;
 
 
     /**
@@ -257,4 +263,78 @@ public class ZlmController {
         return AjaxResult.success();
     }
 
+    /**
+     * 获取流媒体服务器列表
+     *
+     * @return
+     */
+    @GetMapping(value = "/list")
+    public AjaxResult getMediaServerList() {
+        List<ZlmMediaServer> list = mediaServerService.getAll();
+        return AjaxResult.success(list);
+    }
+
+    /**
+     * 移除流媒体服务
+     *
+     * @param id 流媒体ID
+     */
+    @DeleteMapping(value = "/delete")
+    public AjaxResult deleteMediaServer(@RequestParam String id) {
+        ZlmMediaServer mediaServer = mediaServerService.getOne(id);
+        if (mediaServer == null) {
+            throw new RuntimeException("流媒体不存在");
+        }
+        mediaServerService.delete(mediaServer);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 保存流媒体服务
+     *
+     * @param mediaServer 流媒体信息
+     */
+    @PostMapping(value = "/save")
+    public AjaxResult saveMediaServer(@RequestBody ZlmMediaServer mediaServer) {
+        ZlmMediaServer mediaServerItemInDatabase = mediaServerService.getOneFromDatabase(mediaServer.getId());
+
+        if (mediaServerItemInDatabase != null) {
+            mediaServerService.update(mediaServer);
+        } else {
+            mediaServerService.add(mediaServer);
+            // 发送事件
+            MediaServerChangeEvent event = new MediaServerChangeEvent(this);
+            event.setMediaServerItemList(mediaServer);
+            applicationEventPublisher.publishEvent(event);
+        }
+
+        return AjaxResult.success();
+    }
+
+    /**
+     * 测试流媒体服务
+     *
+     * @param ip     流媒体服务IP
+     * @param port   流媒体服务HTT端口
+     * @param secret 流媒体服务secret
+     * @param type   流媒体服务类型
+     * @return
+     */
+    @GetMapping(value = "/check")
+    public AjaxResult checkMediaServer(@RequestParam String ip, @RequestParam int port, @RequestParam String secret, @RequestParam String type) {
+        ZlmMediaServer mediaServer = mediaServerService.checkMediaServer(ip, port, secret, type);
+        return AjaxResult.success(mediaServer);
+    }
+
+    /**
+     * 获取流媒体服务
+     *
+     * @param id 流媒体服务ID
+     * @return
+     */
+    @GetMapping(value = "/one/{id}")
+    public AjaxResult getMediaServer(@PathVariable String id) {
+        ZlmMediaServer mediaServer = mediaServerService.getOne(id);
+        return AjaxResult.success(mediaServer);
+    }
 }

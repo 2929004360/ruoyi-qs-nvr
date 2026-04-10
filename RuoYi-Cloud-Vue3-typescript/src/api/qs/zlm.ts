@@ -1,8 +1,9 @@
 import request from '@/utils/request'
-import {PullConfig, RTPServerParam, Snap, StreamContent} from "@/types/api";
+import {MediaServer, PullConfig, RTPServerParam, Snap, StreamContent} from "@/types/api";
+import {AjaxResult} from "@/types";
 
 // 拉流播放
-export function streamPullPlay(data: PullConfig): Promise<StreamContent> {
+export function streamPullPlay(data: PullConfig): Promise<AjaxResult<StreamContent>> {
     return request({
         url: '/zlm/streamPullPlay',
         method: 'post',
@@ -32,7 +33,7 @@ export function getSnap(data: Snap) {
 }
 
 // rtp播放
-export function rtpPlay(data: RTPServerParam) : Promise<StreamContent>{
+export function rtpPlay(data: RTPServerParam): Promise<AjaxResult<StreamContent>> {
     return request({
         url: '/zlm/rtpPlay',
         method: 'post',
@@ -48,5 +49,53 @@ export function stopRtpPlay(data: RTPServerParam) {
         method: 'post',
         data,
         timeout: 20000
+    })
+}
+
+
+// 获取流媒体服务器列表
+export function getMediaServerList(): Promise<AjaxResult<MediaServer[]>> {
+    return request({
+        url: '/zlm/list',
+        method: 'get',
+    })
+}
+
+// 移除流媒体服务
+export function delMediaServer(id: string) {
+    return request({
+        url: '/zlm/delete/' + id,
+        method: 'delete',
+    })
+}
+
+// 保存流媒体服务
+export function saveMediaServer(data: MediaServer) {
+    return request({
+        url: '/zlm/save',
+        method: 'post',
+        data
+    })
+}
+
+// 测试流媒体服务
+export function checkMediaServer(ip: string, port: number, secret: string, type: string) {
+    return request({
+        url: '/zlm/check',
+        method: 'get',
+        params: {
+            ip,
+            port,
+            secret,
+            type,
+        }
+    })
+}
+
+// 获取流媒体服务
+export function getMediaServer(id: string): Promise<AjaxResult<MediaServer>> {
+    return request({
+        url: '/zlm/one/' + id,
+        method: 'get',
     })
 }

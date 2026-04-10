@@ -1,7 +1,9 @@
 package com.ruoyi.zlm.service.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.ruoyi.zlm.api.config.ZLMServerConfig;
 import com.ruoyi.zlm.api.domain.MediaInfo;
 import com.ruoyi.zlm.api.domain.StreamInfo;
 import com.ruoyi.zlm.api.domain.StreamPullPlay;
@@ -221,5 +223,39 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
     @Override
     public void closeStreams(ZlmMediaServer mediaServer, String app, String stream) {
         zlmresTfulUtils.closeStreams(mediaServer, app, stream);
+    }
+
+    @Override
+    public ZlmMediaServer checkMediaServer(String ip, int port, String secret) {
+        ZlmMediaServer mediaServer = new ZlmMediaServer();
+        mediaServer.setServerId(userSetting.getServerId());
+        mediaServer.setIp(ip);
+        mediaServer.setHttpPort(port);
+        mediaServer.setSecret(secret);
+        ZLMResult<List<JSONObject>> mediaServerConfigResult = zlmresTfulUtils.getMediaServerConfig(mediaServer);
+        if (mediaServerConfigResult == null) {
+            throw new RuntimeException( "连接失败");
+        }
+        List<JSONObject> configList = mediaServerConfigResult.getData();
+        if (configList == null) {
+            throw new RuntimeException("读取配置失败");
+        }
+        ZLMServerConfig zlmServerConfig = JSON.parseObject(JSON.toJSONString(configList.get(0)), ZLMServerConfig.class);
+        if (zlmServerConfig == null) {
+            throw new RuntimeException("读取配置失败");
+        }
+        mediaServer.setId(zlmServerConfig.getGeneralMediaServerId());
+        mediaServer.setHttpSslPort(zlmServerConfig.getHttpSSLport());
+        mediaServer.setRtmpPort(zlmServerConfig.getRtmpPort());
+        mediaServer.setRtmpSslPort(zlmServerConfig.getRtmpSslPort());
+        mediaServer.setRtspPort(zlmServerConfig.getRtspPort());
+        mediaServer.setRtspSslPort(zlmServerConfig.getRtspSSlport());
+        mediaServer.setRtpProxyPort(zlmServerConfig.getRtpProxyPort());
+        mediaServer.setStreamIp(ip);
+
+        mediaServer.setHookIp("127.0.0.1");
+        mediaServer.setSdpIp(ip);
+        mediaServer.setType("zlm");
+        return mediaServer;
     }
 }

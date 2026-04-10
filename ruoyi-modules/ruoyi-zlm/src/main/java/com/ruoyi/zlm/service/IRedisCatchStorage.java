@@ -2,6 +2,7 @@ package com.ruoyi.zlm.service;
 
 import com.ruoyi.zlm.api.domain.MediaInfo;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.domain.StreamAuthorityInfo;
 
 public interface IRedisCatchStorage {
 
@@ -32,4 +33,12 @@ public interface IRedisCatchStorage {
      * @return
      */
     MediaInfo getStreamInfo(String app, String streamId, String mediaServerId);
+
+    /**
+     * 获取推流的鉴权信息
+     * @param app 应用名
+     * @param stream 流
+     * @return
+     */
+    StreamAuthorityInfo getStreamAuthorityInfo(String app, String stream);
 }

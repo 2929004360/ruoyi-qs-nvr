@@ -1,8 +1,9 @@
 import request from '@/utils/request'
 import {OnvifDevice, WSDiscoveryDevice, WSOnvifDevice} from "@/types/api";
+import {AjaxResult} from "@/types";
 
 // 获取onvif设备列表
-export function getOnvifDeviceList(): Promise<WSDiscoveryDevice[]> {
+export function getOnvifDeviceList(): Promise<AjaxResult<WSDiscoveryDevice[]>> {
     return request({
         url: '/onvif/device/getOnvifDeviceList',
         method: 'get',
@@ -11,7 +12,7 @@ export function getOnvifDeviceList(): Promise<WSDiscoveryDevice[]> {
 }
 
 // 验证登录onvif设备
-export function onvifLogin(data: WSOnvifDevice): Promise<OnvifDevice> {
+export function onvifLogin(data: WSOnvifDevice): Promise<AjaxResult<OnvifDevice>> {
     return request({
         url: '/onvif/device/login',
         method: 'post',

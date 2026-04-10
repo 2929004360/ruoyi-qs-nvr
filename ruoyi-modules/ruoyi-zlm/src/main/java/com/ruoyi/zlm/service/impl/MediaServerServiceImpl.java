@@ -21,9 +21,7 @@ import com.ruoyi.zlm.config.DynamicTask;
 import com.ruoyi.zlm.config.MediaConfig;
 import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.constants.VideoManagerConstants;
-import com.ruoyi.zlm.domain.InviteInfo;
-import com.ruoyi.zlm.domain.SSRCInfo;
-import com.ruoyi.zlm.domain.Snap;
+import com.ruoyi.zlm.domain.*;
 import com.ruoyi.zlm.domain.dto.ZLMResult;
 import com.ruoyi.zlm.event.MediaArrivalEvent;
 import com.ruoyi.zlm.event.MediaDepartureEvent;
@@ -31,14 +29,12 @@ import com.ruoyi.zlm.hook.Hook;
 import com.ruoyi.zlm.hook.HookSubscribe;
 import com.ruoyi.zlm.hook.HookType;
 import com.ruoyi.zlm.mapper.MediaServerMapper;
-import com.ruoyi.zlm.mediaServer.MediaNotFoundEvent;
-import com.ruoyi.zlm.mediaServer.MediaServerDeleteEvent;
-import com.ruoyi.zlm.mediaServer.MediaServerOfflineEvent;
-import com.ruoyi.zlm.mediaServer.MediaServerOnlineEvent;
+import com.ruoyi.zlm.mediaServer.*;
 import com.ruoyi.zlm.service.*;
 import com.ruoyi.zlm.session.SSRCFactory;
 import com.ruoyi.zlm.utils.ZLMRESTfulUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -120,6 +116,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
     @Autowired
     private RemoteDaHuaService remoteDaHuaService;
+
+    @Autowired
+    private IZlmCloudRecordService zlmCloudRecordService;
 
     @Value("${file.domain}")
     private String fileDomain;
@@ -243,6 +242,41 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
         String key = VideoManagerConstants.ONLINE_MEDIA_SERVERS_PREFIX + userSetting.getServerId();
         redisTemplate.opsForZSet().remove(key, event.getMediaServer().getId());
+    }
+
+    /**
+     * 流录制完成
+     *
+     * @param event
+     */
+    @Async("taskExecutor")
+    @EventListener
+    public void onApplicationEvent(MediaRecordMp4Event event) {
+        CloudRecordItem cloudRecordItem = CloudRecordItem.getInstance(event);
+        cloudRecordItem.setServerId(userSetting.getServerId());
+        if (ObjectUtils.isEmpty(cloudRecordItem.getCallId())) {
+            StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(event.getApp(), event.getStream());
+            if (streamAuthorityInfo != null) {
+                cloudRecordItem.setCallId(streamAuthorityInfo.getCallId());
+            }
+        }
+        log.info("[添加录像记录] {}/{}, callId: {}, 内容：{}", event.getApp(), event.getStream(), cloudRecordItem.getCallId(), event.getRecordInfo());
+
+        ZlmCloudRecord zlmCloudRecord = new ZlmCloudRecord();
+        zlmCloudRecord.setApp(cloudRecordItem.getApp());
+        zlmCloudRecord.setStream(cloudRecordItem.getStream());
+        zlmCloudRecord.setCallId(cloudRecordItem.getCallId());
+        zlmCloudRecord.setServerId(cloudRecordItem.getServerId());
+        zlmCloudRecord.setStartTime(cloudRecordItem.getStartTime());
+        zlmCloudRecord.setEndTime(cloudRecordItem.getEndTime());
+        zlmCloudRecord.setFilePath(cloudRecordItem.getFilePath());
+        zlmCloudRecord.setMediaServerId(cloudRecordItem.getMediaServerId());
+        zlmCloudRecord.setFileName(cloudRecordItem.getFileName());
+        zlmCloudRecord.setFolder(cloudRecordItem.getFolder());
+        zlmCloudRecord.setCollect(cloudRecordItem.getCollect());
+        zlmCloudRecord.setFileSize(cloudRecordItem.getFileSize());
+        zlmCloudRecord.setTimeLen(cloudRecordItem.getTimeLen());
+        zlmCloudRecordService.insertZlmCloudRecord(zlmCloudRecord);
     }
 
     public void addCount(String mediaServerId) {
@@ -708,7 +742,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
             callback.run(InviteErrorCode.FAIL.getCode(), "设备不存在", null);
             return;
         }
-        play(mediaServer, rtpServerParam, r.getData(), null, userSetting.getRecordSip(), callback);
+        play(mediaServer, rtpServerParam, r.getData(), null, callback);
     }
 
     /**
@@ -722,7 +756,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
      * @param callback       回调
      * @return
      */
-    private SSRCInfo play(ZlmMediaServer mediaServer, RTPServerParam rtpServerParam, QsDevice device, String ssrc, Boolean record, ErrorCallback<StreamInfo> callback) {
+    private SSRCInfo play(ZlmMediaServer mediaServer, RTPServerParam rtpServerParam, QsDevice device, String ssrc, ErrorCallback<StreamInfo> callback) {
         // 获取点播的状态信息
         InviteInfo inviteInfoInCatch = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getChannel());
         if (inviteInfoInCatch != null) {
@@ -848,11 +882,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
         log.info("[点播开始] 设备编号: {}, 通道编号: {}, 收流端口： {}, 流ID：{}, SSRC: {}", device.getId().toString(), device.getChannel(), ssrcInfo.getPort(), ssrcInfo.getStream(), ssrcInfo.getSsrc());
 
         InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getChannel(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), "TCP-ACTIVE", InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
-        if (record != null) {
-            inviteInfo.setRecord(record);
-        } else {
-            inviteInfo.setRecord(userSetting.getRecordSip());
+
+        if("1".equals(device.getEnableMp4())){
+            inviteInfo.setRecord(true);
         }
+
         inviteStreamService.updateInviteInfo(inviteInfo);
 
         // 播放海康sdk
@@ -1024,6 +1058,45 @@ public class MediaServerServiceImpl implements IMediaServerService {
         mediaNodeServerService.closeStreams(mediaServer, "video_file", device.getStreamKey());
     }
 
+    /**
+     * 获取流媒体服务器列表
+     *
+     * @return
+     */
+    @Override
+    public List<ZlmMediaServer> getAll() {
+        return mediaServerMapper.queryAll(userSetting.getServerId());
+    }
+
+    /**
+     * 测试流媒体服务
+     *
+     * @param ip     流媒体服务IP
+     * @param port   流媒体服务HTT端口
+     * @param secret 流媒体服务secret
+     * @param type   流媒体服务类型
+     * @return
+     */
+    @Override
+    public ZlmMediaServer checkMediaServer(String ip, int port, String secret, String type) {
+        if (mediaServerMapper.queryOneByHostAndPort(ip, port, userSetting.getServerId()) != null) {
+            throw new RuntimeException("此连接已存在");
+        }
+
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(type);
+        if (mediaNodeServerService == null) {
+            log.info("[closeRTPServer] 失败, mediaServer的类型： {}，未找到对应的实现类", type);
+            return null;
+        }
+        ZlmMediaServer mediaServer = mediaNodeServerService.checkMediaServer(ip, port, secret);
+        if (mediaServer != null) {
+            if (mediaServerMapper.queryOne(mediaServer.getId(), userSetting.getServerId()) != null) {
+                throw new RuntimeException("媒体服务ID [" + mediaServer.getId() + " ] 已存在，请修改媒体服务器配置");
+            }
+        }
+        return mediaServer;
+    }
+
     private void loadMP4File(ZlmMediaServer mediaServer, String app, String stream, Long id, String videoPath, ErrorCallback<StreamInfo> callback) {
         IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
         if (mediaNodeServerService == null) {
@@ -1042,7 +1115,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
             StreamInfo streamInfo = getStreamInfoByAppAndStream(mediaServer, app, stream, hookData.getMediaInfo());
             if (callback != null) {
                 callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), streamInfo);
-                
+
                 QsDevice qsDevice = new QsDevice();
                 qsDevice.setId(id);
                 qsDevice.setStreamKey(stream);
