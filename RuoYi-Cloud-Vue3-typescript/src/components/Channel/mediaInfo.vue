@@ -38,8 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import {getServerMediaInfo} from "../../api/wvp/device.js";
+import {onMounted, onUnmounted, ref} from 'vue';
+import {getMediaInfo} from "@/api/qs/zlm";
 
 // 定义 Props
 const props = defineProps({
@@ -62,13 +62,8 @@ const info = ref({});
 const task = ref(null);
 
 // 获取媒体信息
-const getMediaInfo = async () => {
-  const params = {
-    app: props.app,
-    stream: props.stream,
-    mediaServerId: props.mediaServerId
-  }
-  const res= await getServerMediaInfo(params);
+const getMediaInfoFun = async () => {
+  const res = await getMediaInfo(props.app, props.stream, props.mediaServerId);
   info.value = res.data;
 };
 
@@ -100,7 +95,7 @@ const formatAliveSecond = () => {
 
 // 启动定时任务
 const startTask = () => {
-  task.value = setInterval(getMediaInfo, 1000);
+  task.value = setInterval(getMediaInfoFun, 1000);
 };
 
 // 停止定时任务
@@ -113,7 +108,7 @@ const stopTask = () => {
 
 // 生命周期钩子
 onMounted(() => {
-  getMediaInfo(); // 初始化时获取数据
+  getMediaInfoFun(); // 初始化时获取数据
   startTask(); // 启动定时任务
 });
 

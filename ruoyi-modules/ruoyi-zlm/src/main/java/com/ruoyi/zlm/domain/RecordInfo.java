@@ -1,5 +1,6 @@
 package com.ruoyi.zlm.domain;
 
+import com.ruoyi.zlm.api.domain.ZlmCloudRecord;
 import com.ruoyi.zlm.hook.OnRecordMp4ABLHookParam;
 import com.ruoyi.zlm.hook.OnRecordMp4HookParam;
 import com.ruoyi.zlm.utils.DateUtil;
@@ -60,6 +61,19 @@ public class RecordInfo {
         recordInfo.setFilePath(cloudRecordItem.getFilePath());
         return recordInfo;
     }
+
+    public static RecordInfo getInstance(ZlmCloudRecord zlmCloudRecord) {
+        RecordInfo recordInfo = new RecordInfo();
+        recordInfo.setApp(zlmCloudRecord.getApp());
+        recordInfo.setStream(zlmCloudRecord.getStream());
+        recordInfo.setFileName(zlmCloudRecord.getFileName());
+        recordInfo.setStartTime(zlmCloudRecord.getStartTime());
+        recordInfo.setTimeLen(zlmCloudRecord.getTimeLen());
+        recordInfo.setFileSize(zlmCloudRecord.getFileSize());
+        recordInfo.setFilePath(zlmCloudRecord.getFilePath());
+        return recordInfo;
+    }
+
 
     @Override
     public String toString() {

@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import {MediaServer, PullConfig, RTPServerParam, Snap, StreamContent} from "@/types/api";
+import {MediaInfo, MediaServer, PullConfig, RTPServerParam, Snap, StreamContent} from "@/types/api";
 import {AjaxResult} from "@/types";
 
 // 拉流播放
@@ -97,5 +97,18 @@ export function getMediaServer(id: string): Promise<AjaxResult<MediaServer>> {
     return request({
         url: '/zlm/one/' + id,
         method: 'get',
+    })
+}
+
+// 获取流信息
+export function getMediaInfo(app: string, stream: string, mediaServerId: string): Promise<AjaxResult<MediaInfo>> {
+    return request({
+        url: '/zlm/media_info',
+        method: 'get',
+        params: {
+            app,
+            stream,
+            mediaServerId,
+        }
     })
 }

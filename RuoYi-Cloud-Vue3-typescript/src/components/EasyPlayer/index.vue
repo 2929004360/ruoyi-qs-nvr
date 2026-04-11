@@ -6,6 +6,9 @@
 </template>
 
 <script setup lang="ts">
+
+const emit = defineEmits(['error'])
+
 const props = defineProps({
   // 视频地址
   videoUrl: {
@@ -261,7 +264,8 @@ const playCreate = () => {
 
   // 播放异常
   easyplayer.value.on('error', function (data) {
-    console.log('error', data)
+    emit('error');
+
   })
 
   play(props.videoUrl)

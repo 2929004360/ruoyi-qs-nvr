@@ -1,10 +1,8 @@
 package com.ruoyi.zlm.service;
 
-import com.ruoyi.zlm.api.domain.StreamPullPlay;
-import com.ruoyi.zlm.api.domain.MediaInfo;
-import com.ruoyi.zlm.api.domain.StreamInfo;
-import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.CommonCallback;
+import com.ruoyi.zlm.domain.RecordInfo;
 
 import java.util.List;
 
@@ -36,4 +34,12 @@ public interface IMediaNodeServerService {
     void closeStreams(ZlmMediaServer mediaServer, String app, String stream);
 
     ZlmMediaServer checkMediaServer(String ip, int port, String secret);
+
+    boolean deleteRecordDirectory(ZlmMediaServer mediaServer, String app, String stream, String date, String fileName);
+
+    DownloadFileInfo getDownloadFilePath(ZlmMediaServer mediaServer, RecordInfo recordInfo);
+
+    void seekRecordStamp(ZlmMediaServer mediaServer, String app, String stream, Double stamp, String schema);
+
+    void setRecordSpeed(ZlmMediaServer mediaServer, String app, String stream, Integer speed, String schema);
 }

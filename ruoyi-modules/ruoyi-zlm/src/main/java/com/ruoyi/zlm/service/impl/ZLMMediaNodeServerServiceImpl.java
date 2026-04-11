@@ -4,12 +4,10 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.zlm.api.config.ZLMServerConfig;
-import com.ruoyi.zlm.api.domain.MediaInfo;
-import com.ruoyi.zlm.api.domain.StreamInfo;
-import com.ruoyi.zlm.api.domain.StreamPullPlay;
-import com.ruoyi.zlm.api.domain.ZlmMediaServer;
+import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.CommonCallback;
 import com.ruoyi.zlm.config.UserSetting;
+import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.dto.FlagData;
 import com.ruoyi.zlm.domain.dto.StreamProxyResult;
 import com.ruoyi.zlm.domain.dto.ZLMResult;
@@ -202,7 +200,7 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
                     callback.run(zlmResult.getHit() >= 1);
                 }
                 return;
-            }else {
+            } else {
                 log.error("关闭RTP Server 失败: " + zlmResult.getMsg());
             }
             if (callback != null) {
@@ -214,7 +212,7 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
     @Override
     public MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream) {
         ZLMResult<JSONObject> zlmResult = zlmresTfulUtils.getMediaInfo(mediaServer, app, "rtsp", stream);
-        if (zlmResult.getCode() != 0 || zlmResult.getData() == null || zlmResult.getData().getString("app") == null ) {
+        if (zlmResult.getCode() != 0 || zlmResult.getData() == null || zlmResult.getData().getString("app") == null) {
             return null;
         }
         return MediaInfo.getInstance(zlmResult.getData(), mediaServer, userSetting.getServerId());
@@ -234,7 +232,7 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
         mediaServer.setSecret(secret);
         ZLMResult<List<JSONObject>> mediaServerConfigResult = zlmresTfulUtils.getMediaServerConfig(mediaServer);
         if (mediaServerConfigResult == null) {
-            throw new RuntimeException( "连接失败");
+            throw new RuntimeException("连接失败");
         }
         List<JSONObject> configList = mediaServerConfigResult.getData();
         if (configList == null) {
@@ -257,5 +255,66 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
         mediaServer.setSdpIp(ip);
         mediaServer.setType("zlm");
         return mediaServer;
+    }
+
+    @Override
+    public boolean deleteRecordDirectory(ZlmMediaServer mediaServer, String app, String stream, String date, String fileName) {
+        log.info("[zlm-deleteRecordDirectory] 删除磁盘文件, server: {} {}:{}->{}/{}", mediaServer.getId(), app, stream, date, fileName);
+        ZLMResult<?> zlmResult = zlmresTfulUtils.deleteRecordDirectory(mediaServer, app,
+                stream, date, fileName);
+        if (zlmResult.getCode() == 0) {
+            return true;
+        } else {
+            log.info("[zlm-deleteRecordDirectory] 删除磁盘文件错误, server: {} {}:{}->{}/{}, 结果： {}", mediaServer.getId(), app, stream, date, fileName, zlmResult);
+            throw new RuntimeException("删除磁盘文件失败");
+        }
+    }
+
+    @Override
+    public DownloadFileInfo getDownloadFilePath(ZlmMediaServer mediaServerItem, RecordInfo recordInfo) {
+
+        // 将filePath作为独立参数传入，避免%符号解析问题
+        String pathTemplate = "%s://%s:%s/index/api/downloadFile?file_path=%s";
+
+        DownloadFileInfo info = new DownloadFileInfo();
+
+        // filePath作为第4个参数
+        info.setHttpPath(String.format(pathTemplate,
+                "http",
+                mediaServerItem.getStreamIp(),
+                mediaServerItem.getHttpPort(),
+                recordInfo.getFilePath()));
+
+        // 同样作为第4个参数
+        if (mediaServerItem.getHttpSslPort() > 0) {
+            info.setHttpsPath(String.format(pathTemplate,
+                    "https",
+                    mediaServerItem.getStreamIp(),
+                    mediaServerItem.getHttpSslPort(),
+                    recordInfo.getFilePath()));
+        }
+        return info;
+    }
+
+    @Override
+    public void seekRecordStamp(ZlmMediaServer mediaServer, String app, String stream, Double stamp, String schema) {
+        ZLMResult<?> zlmResult = zlmresTfulUtils.seekRecordStamp(mediaServer, app, stream, stamp, schema);
+        if (zlmResult == null) {
+            throw new RuntimeException("请求失败");
+        }
+        if (zlmResult.getCode() != 0) {
+            throw new RuntimeException(zlmResult.getMsg());
+        }
+    }
+
+    @Override
+    public void setRecordSpeed(ZlmMediaServer mediaServer, String app, String stream, Integer speed, String schema) {
+        ZLMResult<?> zlmResult = zlmresTfulUtils.setRecordSpeed(mediaServer, app, stream, speed, schema);
+        if (zlmResult == null) {
+            throw new RuntimeException("请求失败");
+        }
+        if (zlmResult.getCode() != 0) {
+            throw new RuntimeException(zlmResult.getMsg());
+        }
     }
 }

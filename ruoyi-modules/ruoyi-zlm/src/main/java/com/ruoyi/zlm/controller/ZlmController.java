@@ -337,4 +337,21 @@ public class ZlmController {
         ZlmMediaServer mediaServer = mediaServerService.getOne(id);
         return AjaxResult.success(mediaServer);
     }
+
+    /**
+     * 获取流信息
+     *
+     * @param app           应用名
+     * @param stream        流ID
+     * @param mediaServerId 流媒体ID
+     * @return
+     */
+    @GetMapping(value = "/media_info")
+    public AjaxResult getMediaInfo(String app, String stream, String mediaServerId) {
+        ZlmMediaServer mediaServer = mediaServerService.getOne(mediaServerId);
+        if (mediaServer == null) {
+            throw new RuntimeException("流媒体不存在");
+        }
+        return AjaxResult.success(mediaServerService.getMediaInfo(mediaServer, app, stream));
+    }
 }

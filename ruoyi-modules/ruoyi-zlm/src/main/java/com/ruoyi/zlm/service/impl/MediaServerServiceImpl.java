@@ -883,7 +883,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getChannel(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), "TCP-ACTIVE", InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
 
-        if("1".equals(device.getEnableMp4())){
+        if ("1".equals(device.getEnableMp4())) {
             inviteInfo.setRecord(true);
         }
 
@@ -1095,6 +1095,99 @@ public class MediaServerServiceImpl implements IMediaServerService {
             }
         }
         return mediaServer;
+    }
+
+    /**
+     * 获取流信息
+     *
+     * @param app         应用名
+     * @param stream      流ID
+     * @param mediaServer 媒体服务器
+     * @return
+     */
+    @Override
+    public MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[getMediaInfo] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            return null;
+        }
+        return mediaNodeServerService.getMediaInfo(mediaServer, app, stream);
+    }
+
+    /**
+     * 删除录制文件
+     *
+     * @param mediaServer
+     * @param app
+     * @param stream
+     * @param date
+     * @param fileName
+     * @return
+     */
+    @Override
+    public boolean deleteRecordDirectory(ZlmMediaServer mediaServer, String app, String stream, String date, String fileName) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[stopSendRtp] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            return false;
+        }
+        return mediaNodeServerService.deleteRecordDirectory(mediaServer, app, stream, date, fileName);
+    }
+
+    /**
+     * 获取下载文件路径
+     *
+     * @param mediaServer
+     * @param recordInfo
+     * @return
+     */
+    @Override
+    public DownloadFileInfo getDownloadFilePath(ZlmMediaServer mediaServer, RecordInfo recordInfo) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[setRecordSpeed] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            throw new RuntimeException("未找到mediaServer对应的实现类");
+        }
+        return mediaNodeServerService.getDownloadFilePath(mediaServer, recordInfo);
+    }
+
+    /**
+     * 设置录像播放速度
+     *
+     * @param mediaServer 使用的节点
+     * @param app         应用名
+     * @param stream      流id
+     * @param stamp       播放速度
+     * @param schema      播放协议
+     */
+    @Override
+    public void seekRecordStamp(ZlmMediaServer mediaServer, String app, String stream, Double stamp, String schema) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[seekRecordStamp] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            throw new RuntimeException("未找到mediaServer对应的实现类");
+        }
+        mediaNodeServerService.seekRecordStamp(mediaServer, app, stream, stamp, schema);
+    }
+
+    /**
+     * 定位录像播放到制定位置
+     *
+     * @param mediaServer 使用的节点
+     * @param app         应用名
+     * @param stream      流ID
+     * @param speed       要定位的时间位置，从录像开始的时间算起
+     * @param schema      播放协议
+     */
+    @Override
+    public void setRecordSpeed(ZlmMediaServer mediaServer, String app, String stream, Integer speed, String schema) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[setRecordSpeed] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            throw new RuntimeException("未找到mediaServer对应的实现类");
+        }
+        mediaNodeServerService.setRecordSpeed(mediaServer, app, stream, speed, schema);
     }
 
     private void loadMP4File(ZlmMediaServer mediaServer, String app, String stream, Long id, String videoPath, ErrorCallback<StreamInfo> callback) {

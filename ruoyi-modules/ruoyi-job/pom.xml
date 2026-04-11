@@ -100,6 +100,12 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-onvif</artifactId>
         </dependency>
+
+        <!-- zlm 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-zlm</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

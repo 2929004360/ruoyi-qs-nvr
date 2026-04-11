@@ -12,17 +12,26 @@ import com.ruoyi.zlm.api.domain.StreamInfo;
 import com.ruoyi.zlm.api.domain.ZlmCloudRecord;
 import com.ruoyi.zlm.common.InviteErrorCode;
 import com.ruoyi.zlm.config.UserSetting;
+import com.ruoyi.zlm.domain.CloudRecordUrl;
 import com.ruoyi.zlm.service.ErrorCallback;
 import com.ruoyi.zlm.service.IZlmCloudRecordService;
+import com.ruoyi.zlm.utils.HttpUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * 云端录像Controller
@@ -64,7 +73,8 @@ public class ZlmCloudRecordController extends BaseController {
     @Log(title = "云端录像", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
-        return toAjax(zlmCloudRecordService.deleteZlmCloudRecordByIds(ids));
+        zlmCloudRecordService.deleteZlmCloudRecordByIds(ids);
+        return success();
     }
 
     /**
@@ -132,6 +142,106 @@ public class ZlmCloudRecordController extends BaseController {
     @GetMapping("/closeStreams/{id}")
     public AjaxResult closeStreams(@PathVariable Long id) {
         zlmCloudRecordService.closeStreams(id);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 下载指定录像文件的压缩包
+     *
+     * @param response HttpServletResponse
+     * @param ids      云端录像id数组
+     */
+    @GetMapping("/download/zip")
+    public void downloadZipFileFromUrl(HttpServletResponse response, Long[] ids) {
+        log.info("[下载指定录像文件的压缩包] 查询 ids->{}", ids);
+        List<Long> arrayList = new ArrayList<>(List.of(ids));
+        List<CloudRecordUrl> cloudRecordItemList = zlmCloudRecordService.getUrlListByIds(arrayList);
+        if (ObjectUtils.isEmpty(cloudRecordItemList)) {
+            log.warn("[下载指定录像文件的压缩包] 未找到录像文件，ids->{}", ids);
+            return;
+        }
+
+        // 设置响应头
+        response.setContentType("application/zip");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=record_" + System.currentTimeMillis() + ".zip");
+
+        try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream())) {
+            for (CloudRecordUrl recordUrl : cloudRecordItemList) {
+                try {
+                    zos.putNextEntry(new ZipEntry(recordUrl.getFileName()));
+                    boolean downloadSuccess = HttpUtils.downLoadFile(recordUrl.getDownloadUrl(), zos);
+                    if (!downloadSuccess) {
+                        log.warn("[下载指定录像文件的压缩包] 下载文件失败: {}", recordUrl.getDownloadUrl());
+                        zos.closeEntry();
+                        continue;
+                    }
+
+                    try (FileInputStream fis = new FileInputStream(recordUrl.getFilePath())) {
+                        byte[] buf = new byte[8192]; // 8KB 缓冲区，提高性能
+                        int len;
+                        while ((len = fis.read(buf)) != -1) {
+                            zos.write(buf, 0, len);
+                        }
+                    }
+
+                    zos.closeEntry();
+                } catch (Exception e) {
+                    log.error("[下载指定录像文件的压缩包] 处理文件失败: {}, 错误: {}", recordUrl.getFileName(), e.getMessage());
+                    // 继续处理下一个文件
+                }
+            }
+        } catch (IOException e) {
+            log.error("[下载指定录像文件的压缩包] 创建压缩包失败，查询 ids->{}", ids, e);
+        }
+    }
+
+    /**
+     * 设置录像播放速度
+     *
+     * @param mediaServerId 使用的节点Id
+     * @param app           应用名
+     * @param stream        流id
+     * @param speed         播放速度
+     * @param schema        播放协议
+     */
+    @GetMapping("/speed")
+    public AjaxResult setRecordSpeed(
+            @RequestParam(required = true) String mediaServerId,
+            @RequestParam(required = true) String app,
+            @RequestParam(required = true) String stream,
+            @RequestParam(required = true) Integer speed,
+            @RequestParam(required = false) String schema
+    ) {
+        if (schema == null) {
+            schema = "ts";
+        }
+
+        zlmCloudRecordService.setRecordSpeed(mediaServerId, app, stream, speed, schema);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 定位录像播放到制定位置
+     *
+     * @param mediaServerId 使用的节点Id
+     * @param app           应用名
+     * @param stream        流ID
+     * @param seek          要定位的时间位置，从录像开始的时间算起
+     * @param schema        播放协议
+     */
+    @GetMapping("/seek")
+    public AjaxResult seekRecord(
+            @RequestParam(required = true) String mediaServerId,
+            @RequestParam(required = true) String app,
+            @RequestParam(required = true) String stream,
+            @RequestParam(required = true) Double stamp,
+            @RequestParam(required = false) String schema
+    ) {
+        if (schema == null) {
+            schema = "ts";
+        }
+        zlmCloudRecordService.seekRecord(mediaServerId, app, stream, stamp, schema);
         return AjaxResult.success();
     }
 }

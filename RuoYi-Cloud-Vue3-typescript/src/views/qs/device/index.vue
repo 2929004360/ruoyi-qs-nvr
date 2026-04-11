@@ -438,17 +438,8 @@
       <el-tabs v-model="tabActiveName"
                type="card"
                :stretch="true"
-               style="margin-top: 10px;"
-               v-if="
-               deviceRow.type === '1'
-               || deviceRow.type === '2'
-               || deviceRow.type === '3'
-               || deviceRow.type === '5'
-               || deviceRow.type === '4'
-               || deviceRow.type === '7'
-               || deviceRow.type === '8'
-               || deviceRow.type === '9'
-">
+               v-if="easyPlayerOpen"
+               style="margin-top: 10px;">
         <el-tab-pane label="实时视频" name="media">
           <el-row :gutter="10">
             <el-col :span="3"><span style="width: 80px; line-height: 40px; text-align: right;">播放地址：</span></el-col>
@@ -482,10 +473,10 @@
             </el-col>
           </el-row>
         </el-tab-pane>
-        <!--        <el-tab-pane label="编码信息" name="codec">-->
-        <!--          <MediaInfo v-if="tabActiveName === 'codec' && streamInfo" ref="mediaInfo" :app="streamInfo.app"-->
-        <!--                     :stream="streamInfo.stream" :mediaServerId="streamInfo.mediaServerId"></MediaInfo>-->
-        <!--        </el-tab-pane>-->
+        <el-tab-pane label="编码信息" name="codec">
+          <MediaInfo v-if="tabActiveName === 'codec' && streamInfo" ref="mediaInfo" :app="streamInfo.app"
+                     :stream="streamInfo.stream" :mediaServerId="streamInfo.mediaServerId"></MediaInfo>
+        </el-tab-pane>
       </el-tabs>
     </el-dialog>
 
@@ -512,6 +503,7 @@ import {listDaHusDevice} from "@/api/qs/dahua";
 import {rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
+import MediaInfo from "@/components/Channel/mediaInfo.vue";
 import {getOnvifDeviceList, onvifLogin} from "@/api/qs/onvif";
 
 const {toClipboard} = useClipboard()

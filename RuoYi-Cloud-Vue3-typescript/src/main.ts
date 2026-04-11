@@ -9,6 +9,8 @@ import locale from 'element-plus/es/locale/lang/zh-cn'
 
 import '@/assets/styles/index.scss' // global css
 
+import '@/assets/styles/index.scss' // global css
+import '@/assets/css/iconfont.css' // global css
 import App from './App.vue'
 import store from './store'
 import router from './router'

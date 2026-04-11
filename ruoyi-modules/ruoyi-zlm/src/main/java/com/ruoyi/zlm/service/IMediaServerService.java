@@ -1,6 +1,7 @@
 package com.ruoyi.zlm.service;
 
 import com.ruoyi.zlm.api.domain.*;
+import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.Snap;
 
 import java.util.List;
@@ -191,8 +192,8 @@ public interface IMediaServerService {
     /**
      * 加载文件形成播放地址
      *
-     * @param id 设备id
-     * @param callback   回调
+     * @param id       设备id
+     * @param callback 回调
      * @return
      */
     void loadRecord(Long id, ErrorCallback<StreamInfo> callback);
@@ -222,4 +223,56 @@ public interface IMediaServerService {
      */
     ZlmMediaServer checkMediaServer(String ip, int port, String secret, String type);
 
+    /**
+     * 获取流信息
+     *
+     * @param app         应用名
+     * @param stream      流ID
+     * @param mediaServer 媒体服务器
+     * @return
+     */
+    MediaInfo getMediaInfo(ZlmMediaServer mediaServer, String app, String stream);
+
+    /**
+     * 删除录制文件
+     *
+     * @param mediaServer
+     * @param app
+     * @param stream
+     * @param date
+     * @param fileName
+     * @return
+     */
+    boolean deleteRecordDirectory(ZlmMediaServer mediaServer, String app, String stream, String date, String fileName);
+
+    /**
+     * 获取下载文件路径
+     *
+     * @param mediaServer
+     * @param recordInfo
+     * @return
+     */
+    DownloadFileInfo getDownloadFilePath(ZlmMediaServer mediaServer, RecordInfo recordInfo);
+
+    /**
+     * 设置录像播放速度
+     *
+     * @param mediaServer 使用的节点
+     * @param app         应用名
+     * @param stream      流id
+     * @param stamp       播放速度
+     * @param schema      播放协议
+     */
+    void seekRecordStamp(ZlmMediaServer mediaServer, String app, String stream, Double stamp, String schema);
+
+    /**
+     * 定位录像播放到制定位置
+     *
+     * @param mediaServer 使用的节点
+     * @param app         应用名
+     * @param stream      流ID
+     * @param speed       要定位的时间位置，从录像开始的时间算起
+     * @param schema      播放协议
+     */
+    void setRecordSpeed(ZlmMediaServer mediaServer, String app, String stream, Integer speed, String schema);
 }

@@ -5,50 +5,79 @@
 <mapper namespace="com.ruoyi.zlm.mapper.ZlmCloudRecordMapper">
 
     <resultMap type="ZlmCloudRecord" id="ZlmCloudRecordResult">
-        <result property="id"    column="id"    />
-        <result property="app"    column="app"    />
-        <result property="stream"    column="stream"    />
-        <result property="callId"    column="call_id"    />
-        <result property="startTime"    column="start_time"    />
-        <result property="endTime"    column="end_time"    />
-        <result property="mediaServerId"    column="media_server_id"    />
-        <result property="serverId"    column="server_id"    />
-        <result property="fileName"    column="file_name"    />
-        <result property="folder"    column="folder"    />
-        <result property="filePath"    column="file_path"    />
-        <result property="collect"    column="collect"    />
-        <result property="fileSize"    column="file_size"    />
-        <result property="timeLen"    column="time_len"    />
-        <result property="createTime"    column="create_time"    />
-        <result property="updateTime"    column="update_time"    />
+        <result property="id" column="id"/>
+        <result property="app" column="app"/>
+        <result property="stream" column="stream"/>
+        <result property="callId" column="call_id"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="mediaServerId" column="media_server_id"/>
+        <result property="serverId" column="server_id"/>
+        <result property="fileName" column="file_name"/>
+        <result property="folder" column="folder"/>
+        <result property="filePath" column="file_path"/>
+        <result property="collect" column="collect"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="timeLen" column="time_len"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
     </resultMap>
 
     <sql id="selectZlmCloudRecordVo">
-        select id, app, stream, call_id, start_time, end_time, media_server_id, server_id, file_name, folder, file_path, collect, file_size, time_len, create_time, update_time from zlm_cloud_record
+        select id,
+               app,
+               stream,
+               call_id,
+               start_time,
+               end_time,
+               media_server_id,
+               server_id,
+               file_name,
+               folder,
+               file_path,
+               collect,
+               file_size,
+               time_len,
+               create_time,
+               update_time
+        from zlm_cloud_record
     </sql>
 
     <select id="selectZlmCloudRecordList" parameterType="ZlmCloudRecord" resultMap="ZlmCloudRecordResult">
         <include refid="selectZlmCloudRecordVo"/>
         <where>
-            <if test="app != null  and app != ''"> and app = #{app}</if>
-            <if test="stream != null  and stream != ''"> and stream = #{stream}</if>
-            <if test="callId != null  and callId != ''"> and call_id = #{callId}</if>
-            <if test="startTime != null "> and start_time = #{startTime}</if>
-            <if test="endTime != null "> and end_time = #{endTime}</if>
-            <if test="mediaServerId != null  and mediaServerId != ''"> and media_server_id = #{mediaServerId}</if>
-            <if test="serverId != null  and serverId != ''"> and server_id = #{serverId}</if>
-            <if test="fileName != null  and fileName != ''"> and file_name like concat('%', #{fileName}, '%')</if>
-            <if test="folder != null  and folder != ''"> and folder = #{folder}</if>
-            <if test="filePath != null  and filePath != ''"> and file_path = #{filePath}</if>
-            <if test="collect != null "> and collect = #{collect}</if>
-            <if test="fileSize != null "> and file_size = #{fileSize}</if>
-            <if test="timeLen != null "> and time_len = #{timeLen}</if>
+            <if test="app != null  and app != ''">and app = #{app}</if>
+            <if test="stream != null  and stream != ''">and stream = #{stream}</if>
+            <if test="callId != null  and callId != ''">and call_id = #{callId}</if>
+            <if test="startTime != null ">and start_time = #{startTime}</if>
+            <if test="endTime != null ">and end_time = #{endTime}</if>
+            <if test="mediaServerId != null  and mediaServerId != ''">and media_server_id = #{mediaServerId}</if>
+            <if test="serverId != null  and serverId != ''">and server_id = #{serverId}</if>
+            <if test="fileName != null  and fileName != ''">and file_name like concat('%', #{fileName}, '%')</if>
+            <if test="folder != null  and folder != ''">and folder = #{folder}</if>
+            <if test="filePath != null  and filePath != ''">and file_path = #{filePath}</if>
+            <if test="collect != null ">and collect = #{collect}</if>
+            <if test="fileSize != null ">and file_size = #{fileSize}</if>
+            <if test="timeLen != null ">and time_len = #{timeLen}</if>
         </where>
     </select>
 
     <select id="selectZlmCloudRecordById" parameterType="Long" resultMap="ZlmCloudRecordResult">
         <include refid="selectZlmCloudRecordVo"/>
         where id = #{id}
+    </select>
+
+    <select id="queryZlmCloudRecordByIds" resultMap="ZlmCloudRecordResult">
+        <include refid="selectZlmCloudRecordVo"/>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="queryCloudRecordListForDelete" resultMap="ZlmCloudRecordResult">
+        <include refid="selectZlmCloudRecordVo"/>
+        where collect = false and end_time &lt;= #{endTimeStamp} and media_server_id = #{mediaServerId}
     </select>
 
     <insert id="insertZlmCloudRecord" parameterType="ZlmCloudRecord" useGeneratedKeys="true" keyProperty="id">
@@ -110,10 +139,6 @@
         </trim>
         where id = #{id}
     </update>
-
-    <delete id="deleteZlmCloudRecordById" parameterType="Long">
-        delete from zlm_cloud_record where id = #{id}
-    </delete>
 
     <delete id="deleteZlmCloudRecordByIds" parameterType="String">
         delete from zlm_cloud_record where id in
