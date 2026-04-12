@@ -71,7 +71,7 @@
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
-    <el-table v-loading="loading" :data="cloudRecordList" @selection-change="handleSelectionChange">
+    <el-table v-loading="loading" :data="cloudRecordList" @selection-change="handleSelectionChange" border>
       <el-table-column type="selection" width="55" align="center"/>
       <el-table-column label="编号" align="center" prop="id" width="80"/>
       <el-table-column label="应用名" align="center" prop="app" width="100"/>
@@ -94,7 +94,7 @@
           {{ formatBytes(scope.row.fileSize) }}
         </template>
       </el-table-column>
-      <el-table-column label="时长" align="center">
+      <el-table-column label="时长" align="center" width="150px">
         <template v-slot:default="scope">
           <el-tag>{{ formatTime(scope.row.timeLen) }}</el-tag>
         </template>
@@ -280,7 +280,7 @@ import useClipboard from "vue-clipboard3";
 import screenfull from 'screenfull'
 import moment from 'moment'
 import EasyPlayer from "@/components/EasyPlayer";
-import type {CloudRecordQueryParams, ZlmCloudRecord} from "@/types/api/zlm/cloudRecord"
+import type {CloudRecordQueryParams, ZlmCloudRecord} from "@/types/api/qs/cloudRecord"
 import {
   closeStreams,
   delCloudRecord,

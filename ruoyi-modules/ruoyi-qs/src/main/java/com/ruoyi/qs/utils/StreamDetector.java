@@ -1,4 +1,4 @@
-package com.ruoyi.qs.task;
+package com.ruoyi.qs.utils;
 
 import com.ruoyi.qs.api.domain.QsDevice;
 import lombok.Data;

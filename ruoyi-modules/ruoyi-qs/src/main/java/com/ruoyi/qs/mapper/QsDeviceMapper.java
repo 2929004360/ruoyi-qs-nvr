@@ -1,7 +1,6 @@
 package com.ruoyi.qs.mapper;
 
 import com.ruoyi.qs.api.domain.QsDevice;
-import com.ruoyi.qs.task.StreamDetector;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -69,7 +68,7 @@ public interface QsDeviceMapper {
      * @param status 状态
      * @return
      */
-    int updateQsDeviceStatus(@Param("id") Long id,@Param("status") String status);
+    int updateQsDeviceStatus(@Param("id") Long id, @Param("status") String status);
 
     /**
      * 更新设备在线状态
@@ -78,7 +77,7 @@ public interface QsDeviceMapper {
      * @param deviceStatus    设备状态
      * @return
      */
-    Boolean updateQsDeviceStatusList(@Param("list") Set<Long> onlineDeviceSet,@Param("deviceStatus") String deviceStatus);
+    Boolean updateQsDeviceStatusList(@Param("list") Set<Long> onlineDeviceSet, @Param("deviceStatus") String deviceStatus);
 
     /**
      * 更具流id获取视频监控设备
@@ -106,4 +105,49 @@ public interface QsDeviceMapper {
      * @param newQsDeviceList
      */
     void updateAllQsDeviceStreamUrls(List<QsDevice> newQsDeviceList);
+
+    /**
+     * 获取计划记录对应的视频监控设备
+     *
+     * @param qsDevice 视频监控设备
+     * @return
+     */
+    List<QsDevice> listPlanRecordQsDevice(QsDevice qsDevice);
+
+    /**
+     * 录制计划关联所有设备
+     *
+     * @param planId
+     */
+    void linkAll(Long planId);
+
+    /**
+     * 录制计划取消关联所有设备
+     *
+     * @param planId
+     */
+    void cleanAll(Long planId);
+
+    /**
+     * 设备关联录制计划
+     *
+     * @param deviceIds
+     * @param planId
+     */
+    void link(@Param("deviceIds") List<Long> deviceIds, @Param("planId") Long planId);
+
+    /**
+     * 清理设备计划id
+     *
+     * @param planId 设备id
+     */
+    void cleanRecordPlanId(Long planId);
+
+    /**
+     * 根据设备id集合查询设备信息
+     *
+     * @param startDeviceIdList 设备id集合
+     * @return
+     */
+    List<QsDevice> queryByIds(@Param("startDeviceIdList") List<Long> startDeviceIdList);
 }

@@ -35,6 +35,7 @@
         <result property="flvType" column="flv_type"/>
         <result property="onvifAuth" column="onvif_auth"/>
         <result property="onvifHostName" column="onvif_host_name"/>
+        <result property="recordPlanId" column="record_plan_id"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -73,6 +74,7 @@
                flv_type,
                onvif_auth,
                onvif_host_name,
+               record_plan_id,
                create_by,
                create_time,
                update_by,
@@ -136,6 +138,7 @@
             <if test="flvType != null">flv_type,</if>
             <if test="onvifAuth != null">onvif_auth,</if>
             <if test="onvifHostName != null">onvif_host_name,</if>
+            <if test="recordPlanId != null">record_plan_id,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -172,6 +175,7 @@
             <if test="flvType != null">#{flvType},</if>
             <if test="onvifAuth != null">#{onvifAuth},</if>
             <if test="onvifHostName != null">#{onvifHostName},</if>
+            <if test="recordPlanId != null">#{recordPlanId},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -212,6 +216,7 @@
             <if test="flvType != null">flv_type = #{flvType},</if>
             <if test="onvifAuth != null">onvif_auth = #{onvifAuth},</if>
             <if test="onvifHostName != null">onvif_host_name = #{onvifHostName},</if>
+            <if test="recordPlanId != null">record_plan_id = #{recordPlanId},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -252,11 +257,62 @@
         </foreach>
     </update>
 
+    <update id="linkAll" parameterType="java.lang.Long">
+        UPDATE qs_device
+        set record_plan_id = #{planId}
+    </update>
+
+    <update id="cleanAll" parameterType="java.lang.Long">
+        UPDATE qs_device
+        set record_plan_id = null
+        where record_plan_id = #{planId}
+    </update>
+
+    <update id="link">
+        UPDATE qs_device
+        set record_plan_id = #{planId}
+        where
+        <foreach collection="deviceIds" item="id" separator="or">
+            id = #{id}
+        </foreach>
+    </update>
+
+    <update id="cleanRecordPlanId" parameterType="java.lang.Long">
+        UPDATE qs_device
+        set record_plan_id = null
+        where record_plan_id = #{planId}
+    </update>
+
     <select id="fetchAllQsDeviceStreamUrls" resultMap="QsDeviceResult">
         select id,
                live_address
         from qs_device
-        where type in ('1','2','3','4','6')
+        where type in ('1', '2', '3', '4', '6')
+    </select>
+    <select id="listPlanRecordQsDevice" parameterType="QsDevice" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        <where>
+            <if test="deviceName != null  and deviceName != ''">and device_name like concat('%', #{deviceName}, '%')
+            </if>
+            <if test="type != null  and type != ''">and type = #{type}</if>
+            <if test="status != null  and status != ''">and status = #{status}</if>
+            <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
+
+            <if test="recordPlanId != null">
+                and record_plan_id = #{recordPlanId}
+            </if>
+            <if test="recordPlanId == null">
+                and record_plan_id is null
+            </if>
+        </where>
+    </select>
+
+    <select id="queryByIds" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        where id in
+        <foreach item="id" collection="startDeviceIdList" open="(" separator="," close=")">
+            #{id}
+        </foreach>
     </select>
 
     <delete id="deleteQsDeviceById" parameterType="Long">

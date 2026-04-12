@@ -13,7 +13,7 @@ public class InviteInfo {
 
     private String deviceId;
 
-    private Integer channelId;
+    private Long channelId;
 
     private String stream;
 
@@ -44,7 +44,7 @@ public class InviteInfo {
     private String endTime;
 
 
-    public static InviteInfo getInviteInfo(String deviceId, Integer channelId, String stream, SSRCInfo ssrcInfo, String mediaServerId,
+    public static InviteInfo getInviteInfo(String deviceId, Long channelId, String stream, SSRCInfo ssrcInfo, String mediaServerId,
                                            String receiveIp, Integer receivePort, String streamMode,
                                            InviteSessionType type, InviteSessionStatus status, Boolean record) {
         InviteInfo inviteInfo = new InviteInfo();

@@ -1,5 +1,6 @@
 import request from '@/utils/request'
 import type { AjaxResult, TableDataInfo, DeviceQueryParams, QsDevice } from '@/types'
+import {RecordPlanParam} from "@/types/api";
 
 // 查询视频监控设备列表
 export function listDevice(query: DeviceQueryParams): Promise<TableDataInfo<QsDevice[]>> {
@@ -63,5 +64,23 @@ export function getVideoSnapshot(id: number) {
   return request({
     url: '/qs/device/getVideoSnapshot/' + id,
     method: 'put'
+  })
+}
+
+// 获取计划记录对应的视频监控设备
+export function listPlanRecord(query:QsDevice) : Promise<TableDataInfo<QsDevice[]>>{
+  return request({
+    url: '/qs/device/listPlanRecord',
+    method: 'get',
+    params: query
+  })
+}
+
+// 设备关联录制计划
+export function link(data: RecordPlanParam) : Promise<AjaxResult>{
+  return request({
+    url: '/qs/device/link',
+    method: 'post',
+    data: data
   })
 }

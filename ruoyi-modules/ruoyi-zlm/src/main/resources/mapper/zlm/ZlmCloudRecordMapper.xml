@@ -54,11 +54,7 @@
             <if test="mediaServerId != null  and mediaServerId != ''">and media_server_id = #{mediaServerId}</if>
             <if test="serverId != null  and serverId != ''">and server_id = #{serverId}</if>
             <if test="fileName != null  and fileName != ''">and file_name like concat('%', #{fileName}, '%')</if>
-            <if test="folder != null  and folder != ''">and folder = #{folder}</if>
-            <if test="filePath != null  and filePath != ''">and file_path = #{filePath}</if>
             <if test="collect != null ">and collect = #{collect}</if>
-            <if test="fileSize != null ">and file_size = #{fileSize}</if>
-            <if test="timeLen != null ">and time_len = #{timeLen}</if>
         </where>
     </select>
 

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.zlm.mapper.ZlmRecordPlanItemMapper">
+
+    <resultMap type="ZlmRecordPlanItem" id="ZlmRecordPlanItemResult">
+        <result property="id" column="id"/>
+        <result property="start" column="start"/>
+        <result property="stop" column="stop"/>
+        <result property="weekDay" column="week_day"/>
+        <result property="planId" column="plan_id"/>
+    </resultMap>
+
+    <sql id="selectZlmRecordPlanItemVo">
+        select id, start, stop, week_day, plan_id
+        from zlm_record_plan_item
+    </sql>
+
+    <select id="selectZlmRecordPlanItemList" parameterType="ZlmRecordPlanItem" resultMap="ZlmRecordPlanItemResult">
+        <include refid="selectZlmRecordPlanItemVo"/>
+        <where>
+            <if test="start != null ">and start = #{start}</if>
+            <if test="stop != null ">and stop = #{stop}</if>
+            <if test="weekDay != null ">and week_day = #{weekDay}</if>
+            <if test="planId != null ">and plan_id = #{planId}</if>
+        </where>
+    </select>
+
+    <select id="selectZlmRecordPlanItemById" parameterType="Long" resultMap="ZlmRecordPlanItemResult">
+        <include refid="selectZlmRecordPlanItemVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="getItemList" resultMap="ZlmRecordPlanItemResult"
+            parameterType="java.lang.Long">
+        <include refid="selectZlmRecordPlanItemVo"/>
+        where plan_id = #{planId}
+    </select>
+
+    <insert id="insertZlmRecordPlanItem" parameterType="ZlmRecordPlanItem" useGeneratedKeys="true" keyProperty="id">
+        insert into zlm_record_plan_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="start != null">start,</if>
+            <if test="stop != null">stop,</if>
+            <if test="weekDay != null">week_day,</if>
+            <if test="planId != null">plan_id,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="start != null">#{start},</if>
+            <if test="stop != null">#{stop},</if>
+            <if test="weekDay != null">#{weekDay},</if>
+            <if test="planId != null">#{planId},</if>
+        </trim>
+    </insert>
+
+    <insert id="batchAddItem">
+        insert into zlm_record_plan_item(start,stop,week_day,plan_id)
+        values
+        <foreach collection="planItemList" item="item" index="index" separator=",">
+            (#{item.start},#{item.stop},#{item.weekDay},#{planId})
+        </foreach>
+    </insert>
+
+    <update id="updateZlmRecordPlanItem" parameterType="ZlmRecordPlanItem">
+        update zlm_record_plan_item
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="start != null">start = #{start},</if>
+            <if test="stop != null">stop = #{stop},</if>
+            <if test="weekDay != null">week_day = #{weekDay},</if>
+            <if test="planId != null">plan_id = #{planId},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteZlmRecordPlanItemById" parameterType="Long">
+        delete
+        from zlm_record_plan_item
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteZlmRecordPlanItemByIds" parameterType="String">
+        delete from zlm_record_plan_item where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="cleanItems" parameterType="java.lang.Long">
+        delete from zlm_record_plan_item where plan_id = #{planId}
+    </delete>
+</mapper>

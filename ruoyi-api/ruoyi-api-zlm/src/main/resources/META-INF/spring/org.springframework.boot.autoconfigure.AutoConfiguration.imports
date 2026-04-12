@@ -1,2 +1,3 @@
 com.ruoyi.zlm.api.factory.RemoteZlmFallbackFactory
 com.ruoyi.zlm.api.factory.RemoteZlmCloudRecordFallbackFactory
+com.ruoyi.zlm.api.factory.RemoteZlmRecordPlanFallbackFactory

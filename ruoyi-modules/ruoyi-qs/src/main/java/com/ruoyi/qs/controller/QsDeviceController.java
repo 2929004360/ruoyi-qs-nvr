@@ -8,6 +8,7 @@ import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.security.annotation.RequiresPermissions;
 import com.ruoyi.common.security.utils.SecurityUtils;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.domain.RecordPlanParam;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.utils.VideoSnapshotUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +44,6 @@ public class QsDeviceController extends BaseController {
     /**
      * 查询视频监控设备列表
      */
-    @RequiresPermissions("qs:device:list")
     @GetMapping("/list")
     public TableDataInfo list(QsDevice qsDevice) {
         startPage();
@@ -54,7 +54,6 @@ public class QsDeviceController extends BaseController {
     /**
      * 获取视频监控设备详细信息
      */
-    @RequiresPermissions("qs:device:query")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") Long id) {
         return success(qsDeviceService.selectQsDeviceById(id));
@@ -63,7 +62,6 @@ public class QsDeviceController extends BaseController {
     /**
      * 新增视频监控设备
      */
-    @RequiresPermissions("qs:device:add")
     @Log(title = "视频监控设备", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody QsDevice qsDevice) {
@@ -73,7 +71,6 @@ public class QsDeviceController extends BaseController {
     /**
      * 修改视频监控设备
      */
-    @RequiresPermissions("qs:device:edit")
     @Log(title = "视频监控设备", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody QsDevice qsDevice) {
@@ -83,7 +80,6 @@ public class QsDeviceController extends BaseController {
     /**
      * 删除视频监控设备
      */
-    @RequiresPermissions("qs:device:remove")
     @Log(title = "视频监控设备", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
@@ -93,12 +89,47 @@ public class QsDeviceController extends BaseController {
     /**
      * 状态修改
      */
-    @RequiresPermissions("qs:device:edit")
     @Log(title = "视频监控设备", businessType = BusinessType.UPDATE)
     @PutMapping("/changeStatus")
     public AjaxResult changeStatus(@RequestBody QsDevice qsDevice) {
         qsDevice.setUpdateBy(SecurityUtils.getUsername());
         return toAjax(qsDeviceService.updateQsDeviceStatus(qsDevice));
+    }
+
+    /**
+     * 获取计划记录对应的视频监控设备
+     */
+    @GetMapping("/listPlanRecord")
+    public TableDataInfo listPlanRecordQsDevice(QsDevice qsDevice) {
+        startPage();
+        List<QsDevice> list = qsDeviceService.listPlanRecordQsDevice(qsDevice);
+        return getDataTable(list);
+    }
+
+    /**
+     * 设备关联录制计划
+     *
+     * @param param
+     * @return
+     */
+    @PostMapping("/link")
+    public AjaxResult link(@RequestBody RecordPlanParam param) {
+        if (param.getAllLink() != null) {
+            if (param.getAllLink()) {
+                qsDeviceService.linkAll(param.getPlanId());
+            } else {
+                qsDeviceService.cleanAll(param.getPlanId());
+            }
+            return success();
+        }
+
+        if (param.getDeviceIds() == null) {
+            throw new RuntimeException("设备ID不可都为NULL");
+        }
+
+        qsDeviceService.link(param.getDeviceIds(), param.getPlanId());
+
+        return success();
     }
 
     /**

@@ -1,8 +1,6 @@
 package com.ruoyi.qs.service;
 
-import com.ruoyi.common.core.domain.R;
 import com.ruoyi.qs.api.domain.QsDevice;
-import com.ruoyi.qs.task.StreamDetector;
 
 import java.util.List;
 import java.util.Set;
@@ -119,4 +117,49 @@ public interface IQsDeviceService
      * 任务
      */
     void task();
+
+    /**
+     * 获取计划记录对应的视频监控设备
+     *
+     * @param qsDevice 视频监控设备
+     * @return
+     */
+    List<QsDevice> listPlanRecordQsDevice(QsDevice qsDevice);
+
+    /**
+     * 录制计划关联所有设备
+     *
+     * @param planId
+     */
+    void linkAll(Long planId);
+
+    /**
+     * 录制计划取消关联所有设备
+     *
+     * @param planId
+     */
+    void cleanAll(Long planId);
+
+    /**
+     * 设备关联录制计划
+     *
+     * @param deviceIds
+     * @param planId
+     */
+    void link(List<Long> deviceIds, Long planId);
+
+    /**
+     * 清理设备计划id
+     *
+     * @param planId 设备id
+     */
+    void cleanRecordPlanId(Long planId);
+
+    /**
+     * 根据设备id集合查询设备信息
+     *
+     * @param startDeviceIdList 设备id集合
+     * @return
+     */
+    List<QsDevice> queryByIds(List<Long> startDeviceIdList);
 }

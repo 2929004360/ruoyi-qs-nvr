@@ -14,7 +14,7 @@ import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.service.IQsDeviceService;
-import com.ruoyi.qs.task.StreamDetector;
+import com.ruoyi.qs.utils.StreamDetector;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -429,6 +429,69 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         if (newQsDeviceList.size() > 0) {
             updateAllQsDeviceStreamUrls(newQsDeviceList);
         }
+    }
+
+    /**
+     * 获取计划记录对应的视频监控设备
+     *
+     * @param qsDevice 视频监控设备
+     * @return
+     */
+    @Override
+    public List<QsDevice> listPlanRecordQsDevice(QsDevice qsDevice) {
+        return qsDeviceMapper.listPlanRecordQsDevice(qsDevice);
+    }
+
+    /**
+     * 设备关联录制计划
+     *
+     * @param deviceIds
+     * @param planId
+     */
+    @Override
+    public void link(List<Long> deviceIds, Long planId) {
+        qsDeviceMapper.link(deviceIds,planId);
+    }
+
+    /**
+     * 清理设备计划id
+     *
+     * @param planId 设备id
+     */
+    @Override
+    public void cleanRecordPlanId(Long planId) {
+        qsDeviceMapper.cleanRecordPlanId(planId);
+    }
+
+    /**
+     * 根据设备id集合查询设备信息
+     *
+     * @param startDeviceIdList 设备id集合
+     * @return
+     */
+    @Override
+    public List<QsDevice> queryByIds(List<Long> startDeviceIdList) {
+        return  qsDeviceMapper.queryByIds(startDeviceIdList);
+    }
+
+    /**
+     * 录制计划关联所有设备
+     *
+     * @param planId
+     */
+    @Override
+    public void linkAll(Long planId) {
+        qsDeviceMapper.linkAll(planId);
+    }
+
+    /**
+     * 录制计划取消关联所有设备
+     *
+     * @param planId
+     */
+    @Override
+    public void cleanAll(Long planId) {
+        qsDeviceMapper.cleanAll(planId);
     }
 
     /**

@@ -107,4 +107,7 @@ public class QsDevice extends BaseEntity
 
     /** onvif 主机名 */
     private String onvifHostName;
+
+    /** 录制计划id */
+    private String recordPlanId;
 }

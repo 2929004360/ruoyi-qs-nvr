@@ -83,4 +83,31 @@ public class QsDeviceApiController {
         qsDeviceService.task();
         return R.ok();
     }
+
+    /**
+     * 清理设备计划id
+     *
+     * @param planId 设备id
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/cleanRecordPlanId/{planId}")
+    public R<Void> cleanRecordPlanId(@PathVariable Long planId) {
+        qsDeviceService.cleanRecordPlanId(planId);
+        return R.ok();
+    }
+
+    /**
+     * 根据设备id集合查询设备信息
+     *
+     * @param startDeviceIdList 设备id集合
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/queryByIds/{startDeviceIdList}")
+    public R<List<QsDevice>> queryByIds(@PathVariable List<Long> startDeviceIdList) {
+        List<QsDevice> deviceList = qsDeviceService.queryByIds(startDeviceIdList);
+        return R.ok(deviceList);
+    }
+
 }

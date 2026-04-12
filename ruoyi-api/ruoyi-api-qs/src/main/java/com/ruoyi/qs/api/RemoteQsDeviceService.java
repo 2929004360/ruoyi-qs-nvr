@@ -82,4 +82,23 @@ public interface RemoteQsDeviceService {
      */
     @GetMapping("/api/device/task")
     R<QsDevice> task(@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 清理设备计划id
+     *
+     * @param planId 设备id
+     * @param inner 请求来源
+     */
+    @GetMapping("/api/device/cleanRecordPlanId/{planId}")
+    R<Void> cleanRecordPlanId(@PathVariable Long planId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 根据设备id集合查询设备信息
+     *
+     * @param startDeviceIdList 设备id集合
+     * @param inner 请求来源
+     * @return
+     */
+    @GetMapping("/api/device/queryByIds/{startDeviceIdList}")
+    R<List<QsDevice>> queryByIds(@PathVariable List<Long> startDeviceIdList,@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

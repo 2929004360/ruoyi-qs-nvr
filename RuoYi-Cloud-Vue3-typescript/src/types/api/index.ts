@@ -34,3 +34,5 @@ export * from "./qs/zlm";
 export * from "./qs/dahua";
 export * from "./qs/onvif";
 export * from "./qs/cloudRecord";
+export * from "./qs/recordPlan";
+export * from "./qs/recordPlanItem";

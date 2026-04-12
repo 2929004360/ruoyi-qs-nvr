@@ -58,6 +58,16 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<QsDevice> task(String inner) {
                 return R.fail("设备状态任务失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Void> cleanRecordPlanId(Long planId, String inner) {
+                return R.fail("设备清理设备计划id失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<List<QsDevice>> queryByIds(List<Long> startDeviceIdList, String inner) {
+                return R.fail("根据设备id集合查询设备信息失败:" + throwable.getMessage());
+            }
         };
     }
 }

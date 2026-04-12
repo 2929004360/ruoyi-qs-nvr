@@ -128,7 +128,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
     @Override
-    public InviteInfo getInviteInfo(InviteSessionType type, Integer channelId, String stream) {
+    public InviteInfo getInviteInfo(InviteSessionType type, Long channelId, String stream) {
         String key = VideoManagerConstants.INVITE_PREFIX;
         String keyPattern = (type != null ? type : "*") +
                 ":" + (channelId != null ? channelId : "*") +
@@ -162,7 +162,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
     @Override
-    public InviteInfo getInviteInfoByDeviceAndChannel(InviteSessionType type, Integer channelId) {
+    public InviteInfo getInviteInfoByDeviceAndChannel(InviteSessionType type, Long channelId) {
         return getInviteInfo(type, channelId, null);
     }
 
@@ -172,7 +172,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
     @Override
-    public void removeInviteInfo(InviteSessionType type, Integer channelId, String stream) {
+    public void removeInviteInfo(InviteSessionType type, Long channelId, String stream) {
         String key = VideoManagerConstants.INVITE_PREFIX;
         if (type == null && channelId == null && stream == null) {
             redisTemplate.opsForHash().delete(key);
@@ -188,7 +188,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
     @Override
-    public void removeInviteInfoByDeviceAndChannel(InviteSessionType inviteSessionType, Integer channelId) {
+    public void removeInviteInfoByDeviceAndChannel(InviteSessionType inviteSessionType, Long channelId) {
         removeInviteInfo(inviteSessionType, channelId, null);
     }
 
@@ -198,14 +198,14 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
     @Override
-    public void once(InviteSessionType type, Integer channelId, String stream, ErrorCallback<StreamInfo> callback) {
+    public void once(InviteSessionType type, Long channelId, String stream, ErrorCallback<StreamInfo> callback) {
         String key = buildKey(type, channelId, stream);
         List<ErrorCallback<StreamInfo>> callbacks = inviteErrorCallbackMap.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
         callbacks.add(callback);
 
     }
 
-    private String buildKey(InviteSessionType type, Integer channelId, String stream) {
+    private String buildKey(InviteSessionType type, Long channelId, String stream) {
         String key = type + ":" + channelId;
         // 如果ssrc未null那么可以实现一个通道只能一次操作，ssrc不为null则可以支持一个通道多次invite
         if (stream != null) {
@@ -249,7 +249,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
     @Override
-    public void call(InviteSessionType type, Integer channelId, String stream, int code, String msg, StreamInfo data) {
+    public void call(InviteSessionType type, Long channelId, String stream, int code, String msg, StreamInfo data) {
         String key = buildSubStreamKey(type, channelId, stream);
         List<ErrorCallback<StreamInfo>> callbacks = inviteErrorCallbackMap.get(key);
         if (callbacks == null || callbacks.isEmpty()) {
@@ -264,7 +264,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
     }
 
 
-    private String buildSubStreamKey(InviteSessionType type, Integer channelId, String stream) {
+    private String buildSubStreamKey(InviteSessionType type, Long channelId, String stream) {
         String key = type + ":" + channelId;
         if (stream != null) {
             key += (":" + stream);

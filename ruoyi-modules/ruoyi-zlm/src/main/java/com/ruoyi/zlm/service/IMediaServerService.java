@@ -1,5 +1,6 @@
 package com.ruoyi.zlm.service;
 
+import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.Snap;
@@ -275,4 +276,22 @@ public interface IMediaServerService {
      * @param schema      播放协议
      */
     void setRecordSpeed(ZlmMediaServer mediaServer, String app, String stream, Integer speed, String schema);
+
+    /**
+     * 关闭流
+     *
+     * @param mediaServer 媒体服务器
+     * @param app         应用名
+     * @param stream      流ID
+     */
+    void closeStreams(ZlmMediaServer mediaServer, String app, String stream);
+
+    /**
+     * 开始播放
+     *
+     * @param device 设备信息
+     * @param record 是否录制
+     * @param callback 回调
+     */
+    void play(QsDevice device, Boolean record, ErrorCallback<StreamInfo> callback);
 }
