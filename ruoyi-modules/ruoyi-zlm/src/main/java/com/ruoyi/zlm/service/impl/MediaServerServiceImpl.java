@@ -838,9 +838,12 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
                     InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
 
-                    inviteInfo.setStatus(InviteSessionStatus.ok);
-                    inviteInfo.setStreamInfo(streamInfo);
-                    inviteStreamService.updateInviteInfo(inviteInfo);
+                    if (inviteInfo != null) {
+                        inviteInfo.setStatus(InviteSessionStatus.ok);
+                        inviteInfo.setStreamInfo(streamInfo);
+                        inviteStreamService.updateInviteInfo(inviteInfo);
+                    }
+
 
                     String filePath = snapOnPlay(streamInfo.getMediaServer(), streamInfo.getApp(), streamInfo.getStream());
                     QsDevice qsDevice = new QsDevice();
@@ -1057,7 +1060,10 @@ public class MediaServerServiceImpl implements IMediaServerService {
             log.info("[closeStreams] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
             return;
         }
+        // 停止录像
+        mediaNodeServerService.stopRecord(mediaServer, "video_file", device.getStreamKey());
         mediaNodeServerService.closeStreams(mediaServer, "video_file", device.getStreamKey());
+
     }
 
     /**
@@ -1247,10 +1253,69 @@ public class MediaServerServiceImpl implements IMediaServerService {
             play(mediaServer, rtpServerParam, device, null, callback);
         }
 
+        // rtsp/rtmp/flv/hls/onvif
+        if (LiveStreamType.RTSP.getCode().equals(device.getType())
+                || LiveStreamType.RTMP.getCode().equals(device.getType())
+                || LiveStreamType.FLV.getCode().equals(device.getType())
+                || LiveStreamType.HLS.getCode().equals(device.getType())
+                || LiveStreamType.ONVIF.getCode().equals(device.getType())
+        ) {
+            StreamPullPlay streamPullPlay = new StreamPullPlay();
+            streamPullPlay.setDeviceId(device.getId());
+            streamPullPlay.setStream(device.getDeviceCode());
+            streamPullPlay.setUrl(device.getLiveAddress());
+            streamPullPlay.setEnable_mp4("1".equals(device.getEnableMp4()));
+            streamPullPlay.setEnable_audio("1".equals(device.getEnableAudio()));
+            streamPullPlay.setRtp_type("1");
+            streamPullPlay.setTimeOut(10);
 
-//        StreamPullPlay streamPullPlay = new StreamPullPlay();
-//        streamPullPlay(streamPullPlay, callback);
+            if (LiveStreamType.RTSP.getCode().equals(device.getType())) {
+                streamPullPlay.setApp("rtsp");
+            } else if (LiveStreamType.RTMP.getCode().equals(device.getType())) {
+                streamPullPlay.setApp("rtmp");
+            } else if (LiveStreamType.FLV.getCode().equals(device.getType())) {
+                streamPullPlay.setApp("flv");
+                if ("ws".equals(device.getFlvType())) {
+                    streamPullPlay.setUrl(convertWsToHttp(device.getLiveAddress()));
+                }
+            } else if (LiveStreamType.HLS.getCode().equals(device.getType())) {
+                streamPullPlay.setApp("hls");
+            } else if (LiveStreamType.ONVIF.getCode().equals(device.getType())) {
+                streamPullPlay.setApp("onvif");
+            }
 
+            streamPullPlay(streamPullPlay, callback);
+        }
+
+        // 视频文件
+        if (LiveStreamType.VIDEO_FILE.getCode().equals(device.getType())) {
+            loadRecord(device.getId(), callback);
+        }
+    }
+
+    /**
+     * 将 WebSocket 协议地址转换为 HTTP 协议地址
+     * ws:// -> http://
+     * wss:// -> https://
+     *
+     * @param wsUrl 输入的 WebSocket 地址
+     * @return 转换后的 HTTP 地址
+     */
+    public static String convertWsToHttp(String wsUrl) {
+        // 1. 空值检查
+        if (wsUrl == null || wsUrl.isEmpty()) {
+            return wsUrl;
+        }
+
+        // 2. 判断并替换协议
+        if (wsUrl.startsWith("wss://")) {
+            return wsUrl.replace("wss://", "https://");
+        } else if (wsUrl.startsWith("ws://")) {
+            return wsUrl.replace("ws://", "http://");
+        }
+
+        // 3. 如果已经是 http/https 或其他格式，直接返回
+        return wsUrl;
     }
 
     private void loadMP4File(ZlmMediaServer mediaServer, String app, String stream, Long id, String videoPath, ErrorCallback<StreamInfo> callback) {
@@ -1282,6 +1347,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
                     log.error("更新设备失败");
                     callback.run(InviteErrorCode.FAIL.getCode(), "更新设备失败", null);
                 }
+
+                // 开启录像
+                mediaNodeServerService.startRecord(mediaServer, app, stream);
             }
         });
 

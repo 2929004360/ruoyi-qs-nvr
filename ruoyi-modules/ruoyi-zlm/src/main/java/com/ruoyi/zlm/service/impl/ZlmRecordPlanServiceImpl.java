@@ -4,12 +4,14 @@ import com.google.common.base.Joiner;
 import com.ruoyi.common.core.constant.HttpStatus;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.MediaInfo;
 import com.ruoyi.zlm.api.domain.RTPServerParam;
 import com.ruoyi.zlm.api.domain.StreamInfo;
+import com.ruoyi.zlm.api.domain.StreamPullPlay;
 import com.ruoyi.zlm.common.InviteErrorCode;
 import com.ruoyi.zlm.domain.ZlmRecordPlan;
 import com.ruoyi.zlm.domain.ZlmRecordPlanItem;
@@ -81,6 +83,11 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
 
         if (device == null) {
             log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备不存在, id: {}", deviceId);
+            return;
+        }
+
+        if("OFFLINE".equals(device.getDeviceStatus())){
+            log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备不在线, id: {}", deviceId);
             return;
         }
         // 开启点播,
@@ -235,6 +242,10 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
                 if (!deviceList.isEmpty()) {
                     // 查找是否已经开启录像, 如果没有则开启录像
                     for (QsDevice device : deviceList) {
+                        if("OFFLINE".equals(device.getDeviceStatus())){
+                            log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备不在线, id: {}", device.getId());
+                            return;
+                        }
                         // 开启点播,
                         devicePlayService.play(device, true, ((code, msg, streamInfo) -> {
                             if (code == InviteErrorCode.SUCCESS.getCode() && streamInfo != null) {
@@ -279,12 +290,38 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
                         throw new RuntimeException("设备不存在");
                     }
 
-                    RTPServerParam rtpServerParam = new RTPServerParam();
-                    rtpServerParam.setType(device.getType());
-                    rtpServerParam.setStreamId(device.getDeviceCode());
-                    rtpServerParam.setId(device.getId());
 
-                    mediaServerService.stopRtpPlay(rtpServerParam);
+                    // 播放海康sdk/播放海康isup/播放大华sdk
+                    if (LiveStreamType.HIK_SDK.getCode().equals(device.getType())
+                            || LiveStreamType.HIK_ISUP.getCode().equals(device.getType())
+                            || LiveStreamType.DAHUA_SDK.getCode().equals(device.getType())
+                    ) {
+                        RTPServerParam rtpServerParam = new RTPServerParam();
+                        rtpServerParam.setType(device.getType());
+                        rtpServerParam.setStreamId(device.getDeviceCode());
+                        rtpServerParam.setId(device.getId());
+
+                        mediaServerService.stopRtpPlay(rtpServerParam);
+                    }
+
+                    // rtsp/rtmp/flv/hls/onvif
+                    if (LiveStreamType.RTSP.getCode().equals(device.getType())
+                            || LiveStreamType.RTMP.getCode().equals(device.getType())
+                            || LiveStreamType.FLV.getCode().equals(device.getType())
+                            || LiveStreamType.HLS.getCode().equals(device.getType())
+                            || LiveStreamType.ONVIF.getCode().equals(device.getType())
+                    ) {
+                        StreamPullPlay streamPullPlay = new StreamPullPlay();
+                        streamPullPlay.setDeviceId(device.getId());
+                        streamPullPlay.setMediaServerId(device.getMediaServerId());
+                        streamPullPlay.setStreamKey(device.getStreamKey());
+                        mediaServerService.stopStreamPullPlay(streamPullPlay);
+                    }
+
+                    // 视频文件
+                    if (LiveStreamType.VIDEO_FILE.getCode().equals(device.getType())) {
+                        mediaServerService.closeStreams(device.getId());
+                    }
                     log.info("[录制计划] 停止, 设备ID: {}", deviceId);
                 }
             } catch (Exception e) {

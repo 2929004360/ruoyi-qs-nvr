@@ -13,6 +13,7 @@ import com.ruoyi.zlm.hook.event.HookZlmServerKeepaliveEvent;
 import com.ruoyi.zlm.hook.event.HookZlmServerStartEvent;
 import com.ruoyi.zlm.mediaServer.MediaNotFoundEvent;
 import com.ruoyi.zlm.mediaServer.MediaRecordMp4Event;
+import com.ruoyi.zlm.mediaServer.MediaRtpServerTimeoutEvent;
 import com.ruoyi.zlm.mediaServer.MediaSendRtpStoppedEvent;
 import com.ruoyi.zlm.service.IMediaServerService;
 import com.ruoyi.zlm.service.IMediaService;
@@ -214,7 +215,7 @@ public class ZLMHttpHookListener {
                 event.setMediaServerItem(mediaServerItem);
                 applicationEventPublisher.publishEvent(event);
             }
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.info("[ZLM-HOOK-ZLM启动] 发送通知失败 ", e);
         }
 
@@ -253,16 +254,16 @@ public class ZLMHttpHookListener {
     @ResponseBody
     @PostMapping(value = "/on_rtp_server_timeout", produces = "application/json;charset=UTF-8")
     public HookResult onRtpServerTimeout(@RequestBody OnRtpServerTimeoutHookParam param) {
-        log.info("[ZLM HOOK] rtpServer收流超时：{}->{}({})", param.getMediaServerId(), param.getStream_id(), param.getSsrc());
+        log.info("[ZLM HOOK] rtpServer收流超时：{}->{}->{}({})", param.getMediaServerId(), param.getStream_id(), param.getApp(), param.getSsrc());
 
         try {
-//            MediaRtpServerTimeoutEvent event = new MediaRtpServerTimeoutEvent(this);
-//            ZlmMediaServer mediaServerItem = mediaServerService.getOne(param.getMediaServerId());
-//            if (mediaServerItem != null) {
-//                event.setMediaServer(mediaServerItem);
-//                event.setApp("rtp");
-//                applicationEventPublisher.publishEvent(event);
-//            }
+            MediaRtpServerTimeoutEvent event = new MediaRtpServerTimeoutEvent(this);
+            ZlmMediaServer mediaServerItem = mediaServerService.getOne(param.getMediaServerId());
+            if (mediaServerItem != null) {
+                event.setMediaServer(mediaServerItem);
+                event.setApp(param.getApp());
+                applicationEventPublisher.publishEvent(event);
+            }
         } catch (Exception e) {
             log.info("[ZLM-HOOK-rtpServer收流超时] 发送通知失败 ", e);
         }

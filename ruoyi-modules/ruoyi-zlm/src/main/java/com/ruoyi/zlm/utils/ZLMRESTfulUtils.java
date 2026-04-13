@@ -822,4 +822,64 @@ public class ZLMRESTfulUtils {
             }
         }
     }
+
+    public ZLMResult<?> startRecord(ZlmMediaServer mediaServer, String app, String stream) {
+        Map<String, Object> param = new HashMap<>(1);
+        param.put("vhost", "__defaultVhost__");
+        param.put("app", app);
+        param.put("stream", stream);
+        param.put("type", "1");
+
+        String response = sendPost(mediaServer, "startRecord", param, null);
+        if (response == null) {
+            return ZLMResult.getFailForMediaServer();
+        } else {
+            ZLMResult<?> zlmResult = JSON.parseObject(response, ZLMResult.class);
+            if (zlmResult == null) {
+                return ZLMResult.getFailForMediaServer();
+            } else {
+                return zlmResult;
+            }
+        }
+    }
+
+    public ZLMResult<?> stopRecord(ZlmMediaServer mediaServer, String app, String stream) {
+        Map<String, Object> param = new HashMap<>(1);
+        param.put("vhost", "__defaultVhost__");
+        param.put("app", app);
+        param.put("stream", stream);
+        param.put("type", "1");
+
+        String response = sendPost(mediaServer, "stopRecord", param, null);
+        if (response == null) {
+            return ZLMResult.getFailForMediaServer();
+        } else {
+            ZLMResult<?> zlmResult = JSON.parseObject(response, ZLMResult.class);
+            if (zlmResult == null) {
+                return ZLMResult.getFailForMediaServer();
+            } else {
+                return zlmResult;
+            }
+        }
+    }
+
+    public ZLMResult<?> isRecording(ZlmMediaServer mediaServer, String app, String stream) {
+        Map<String, Object> param = new HashMap<>(1);
+        param.put("vhost", "__defaultVhost__");
+        param.put("app", app);
+        param.put("stream", stream);
+        param.put("type", "1");
+
+        String response = sendPost(mediaServer, "stopRecord", param, null);
+        if (response == null) {
+            return ZLMResult.getFailForMediaServer();
+        } else {
+            ZLMResult<?> zlmResult = JSON.parseObject(response, ZLMResult.class);
+            if (zlmResult == null) {
+                return ZLMResult.getFailForMediaServer();
+            } else {
+                return zlmResult;
+            }
+        }
+    }
 }

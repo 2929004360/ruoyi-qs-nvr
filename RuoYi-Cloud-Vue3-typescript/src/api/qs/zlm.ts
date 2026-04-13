@@ -112,3 +112,19 @@ export function getMediaInfo(app: string, stream: string, mediaServerId: string)
         }
     })
 }
+
+// 加载文件形成播放地址
+export function loadRecord(id: string): Promise<AjaxResult<StreamContent>> {
+    return request({
+        url: '/zlm/loadRecord/' + id,
+        method: 'get',
+    })
+}
+
+// 关闭流文件形成播放地址
+export function closeStreams(id: string): Promise<AjaxResult> {
+    return request({
+        url: '/zlm/closeStreams/' + id,
+        method: 'get',
+    })
+}

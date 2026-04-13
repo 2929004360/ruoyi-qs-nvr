@@ -13,6 +13,8 @@ public class OnRtpServerTimeoutHookParam extends HookParam {
     private boolean re_use_port;
     private String ssrc;
 
+    private String app;
+
     public int getLocal_port() {
         return local_port;
     }
@@ -53,6 +55,14 @@ public class OnRtpServerTimeoutHookParam extends HookParam {
         this.ssrc = ssrc;
     }
 
+    public String getApp() {
+        return app;
+    }
+
+    public void setApp(String app) {
+        this.app = app;
+    }
+
     @Override
     public String toString() {
         return "OnRtpServerTimeoutHookParam{" +
@@ -61,6 +71,7 @@ public class OnRtpServerTimeoutHookParam extends HookParam {
                 ", tcpMode=" + tcpMode +
                 ", re_use_port=" + re_use_port +
                 ", ssrc='" + ssrc + '\'' +
+                ", app='" + app + '\'' +
                 '}';
     }
 }

@@ -317,4 +317,26 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
             throw new RuntimeException(zlmResult.getMsg());
         }
     }
+
+    @Override
+    public void startRecord(ZlmMediaServer mediaServer, String app, String stream) {
+        ZLMResult<?> zlmResult = zlmresTfulUtils.startRecord(mediaServer, app, stream);
+        if (zlmResult == null) {
+            throw new RuntimeException("请求失败");
+        }
+        if (zlmResult.getCode() != 0) {
+            throw new RuntimeException(zlmResult.getMsg());
+        }
+    }
+
+    @Override
+    public void stopRecord(ZlmMediaServer mediaServer, String app, String stream) {
+        ZLMResult<?> zlmResult = zlmresTfulUtils.stopRecord(mediaServer, app, stream);
+        if (zlmResult == null) {
+            throw new RuntimeException("请求失败");
+        }
+        if (zlmResult.getCode() != 0) {
+            throw new RuntimeException(zlmResult.getMsg());
+        }
+    }
 }

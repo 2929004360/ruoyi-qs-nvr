@@ -126,7 +126,7 @@
         </template>
       </el-table-column>
       <el-table-column label="备注" align="center" prop="remark" width="180"/>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="150" fixed="right">
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200" fixed="right">
         <template #default="scope">
           <el-button link
                      type="primary"
@@ -138,16 +138,7 @@
             播放
           </el-button>
           <el-button link
-                     v-if="scope.row.streamStatus === '1'
-                     && (scope.row.type === '1'
-                     || scope.row.type === '2'
-                     || scope.row.type === '3'
-                     || scope.row.type === '4'
-                     || scope.row.type === '5'
-                     || scope.row.type === '7'
-                     || scope.row.type === '8'
-                     || scope.row.type === '9'
-                     )"
+                     v-if="scope.row.streamStatus === '1'"
                      type="danger"
                      icon="SwitchButton"
                      @click="handleStopPlay(scope.row)"
@@ -494,7 +485,7 @@ import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
 import {HaikangIsupDevice, PullConfig, RTPServerParam, WSDiscoveryDevice, WSOnvifDevice} from "@/types/api";
 import {DaHuaDevice} from "@/types/api/qs/dahua";
 import {listDaHusDevice} from "@/api/qs/dahua";
-import {rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
+import {closeStreams, loadRecord, rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
 import MediaInfo from "@/components/Channel/mediaInfo.vue";
@@ -978,19 +969,32 @@ const handlePlay = (row: QsDevice) => {
       row.loading = false
     })
   } else if (row.type === '6') {
-    nextTick(async () => {
-      wsUrl.value = row.liveAddress
-      quality.value = []
-      defaultQuality.value = ''
-      isPtz.value = false
-      isQuality.value = false
-      isLive.value = false
-      deviceRow.value = row
+    loadRecord(row.id).then(async (res: any) => {
+      await nextTick(async () => {
+        if (location.protocol === "https:") {
+          flvUrl.value = res.data.https_flv;
+          rtcUrl.value = res.data.rtcs;
+          wsUrl.value = res.data.wss_flv;
+        } else {
+          flvUrl.value = res.data.flv;
+          rtcUrl.value = res.data.rtc;
+          wsUrl.value = res.data.ws_flv;
+        }
+
+        streamInfo.value = res.data;
+        quality.value = []
+        defaultQuality.value = ''
+        isPtz.value = false
+        isQuality.value = false
+        isLive.value = true
+        deviceRow.value = row
+        row.loading = false
+        easyPlayerOpen.value = true
+
+        getVideoSnapshot(row.id);
+      })
+    }).catch((err) => {
       row.loading = false
-      easyPlayerOpen.value = true
-
-
-      getVideoSnapshot(row.id);
     })
   } else if (row.type === '7' || row.type === '8' || row.type === '9') {
     let data = {
@@ -1073,6 +1077,11 @@ const handleStopPlay = (row: QsDevice) => {
       streamKey: row.streamKey,
     }
     stopStreamPullPlay(data).then((res) => {
+      getList()
+      proxy.$modal.msgSuccess("停止播放成功");
+    })
+  } else if(row.type === '6'){
+    closeStreams(row.id).then((res) => {
       getList()
       proxy.$modal.msgSuccess("停止播放成功");
     })

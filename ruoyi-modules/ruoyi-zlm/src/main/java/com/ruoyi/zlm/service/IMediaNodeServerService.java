@@ -42,4 +42,8 @@ public interface IMediaNodeServerService {
     void seekRecordStamp(ZlmMediaServer mediaServer, String app, String stream, Double stamp, String schema);
 
     void setRecordSpeed(ZlmMediaServer mediaServer, String app, String stream, Integer speed, String schema);
+
+    void startRecord(ZlmMediaServer mediaServer, String app, String stream);
+
+    void stopRecord(ZlmMediaServer mediaServer, String app, String stream);
 }
