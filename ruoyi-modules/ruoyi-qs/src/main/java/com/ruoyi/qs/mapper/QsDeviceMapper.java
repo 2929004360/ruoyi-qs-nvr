@@ -150,4 +150,12 @@ public interface QsDeviceMapper {
      * @return
      */
     List<QsDevice> queryByIds(@Param("startDeviceIdList") List<Long> startDeviceIdList);
+
+    /**
+     * 根据计划id查询设备数量
+     *
+     * @param planId 设备id
+     * @return
+     */
+    Integer countRecordPlanDevice(Long planId);
 }

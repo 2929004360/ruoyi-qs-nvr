@@ -86,7 +86,7 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
             return;
         }
 
-        if("OFFLINE".equals(device.getDeviceStatus())){
+        if ("OFFLINE".equals(device.getDeviceStatus())) {
             log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备不在线, id: {}", deviceId);
             return;
         }
@@ -140,7 +140,16 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
      */
     @Override
     public List<ZlmRecordPlan> selectZlmRecordPlanList(ZlmRecordPlan zlmRecordPlan) {
-        return zlmRecordPlanMapper.selectZlmRecordPlanList(zlmRecordPlan);
+        List<ZlmRecordPlan> zlmRecordPlans = zlmRecordPlanMapper.selectZlmRecordPlanList(zlmRecordPlan);
+        for (ZlmRecordPlan recordPlan : zlmRecordPlans) {
+            R<Integer> r = remoteQsDeviceService.countRecordPlanDevice(recordPlan.getId(), SecurityConstants.INNER);
+            if (r.getCode() != HttpStatus.SUCCESS) {
+                throw new RuntimeException("删除录像计划失败");
+            }
+            recordPlan.setChannelCount(r.getData());
+
+        }
+        return zlmRecordPlans;
     }
 
     /**
@@ -242,7 +251,7 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
                 if (!deviceList.isEmpty()) {
                     // 查找是否已经开启录像, 如果没有则开启录像
                     for (QsDevice device : deviceList) {
-                        if("OFFLINE".equals(device.getDeviceStatus())){
+                        if ("OFFLINE".equals(device.getDeviceStatus())) {
                             log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备不在线, id: {}", device.getId());
                             return;
                         }

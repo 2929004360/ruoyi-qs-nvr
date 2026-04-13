@@ -68,6 +68,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<List<QsDevice>> queryByIds(List<Long> startDeviceIdList, String inner) {
                 return R.fail("根据设备id集合查询设备信息失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Integer> countRecordPlanDevice(Long planId, String inner) {
+                return R.fail("根据计划id查询设备数量失败:" + throwable.getMessage());
+            }
         };
     }
 }

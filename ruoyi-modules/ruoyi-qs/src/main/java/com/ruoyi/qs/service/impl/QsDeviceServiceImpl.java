@@ -450,7 +450,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
      */
     @Override
     public void link(List<Long> deviceIds, Long planId) {
-        qsDeviceMapper.link(deviceIds,planId);
+        qsDeviceMapper.link(deviceIds, planId);
     }
 
     /**
@@ -471,7 +471,18 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
      */
     @Override
     public List<QsDevice> queryByIds(List<Long> startDeviceIdList) {
-        return  qsDeviceMapper.queryByIds(startDeviceIdList);
+        return qsDeviceMapper.queryByIds(startDeviceIdList);
+    }
+
+    /**
+     * 根据计划id查询设备数量
+     *
+     * @param planId 设备id
+     * @return
+     */
+    @Override
+    public Integer countRecordPlanDevice(Long planId) {
+        return qsDeviceMapper.countRecordPlanDevice(planId);
     }
 
     /**

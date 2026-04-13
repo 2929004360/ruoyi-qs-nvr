@@ -315,6 +315,10 @@
         </foreach>
     </select>
 
+    <select id="countRecordPlanDevice" resultType="java.lang.Integer" parameterType="java.lang.Long">
+        select count(1) from qs_device where record_plan_id = #{planId}
+    </select>
+
     <delete id="deleteQsDeviceById" parameterType="Long">
         delete
         from qs_device

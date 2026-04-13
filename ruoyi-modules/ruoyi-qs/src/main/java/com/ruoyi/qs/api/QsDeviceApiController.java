@@ -110,4 +110,16 @@ public class QsDeviceApiController {
         return R.ok(deviceList);
     }
 
+    /**
+     * 根据计划id查询设备数量
+     *
+     * @param planId 设备id
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/countRecordPlanDevice/{planId}")
+    public R<Integer> countRecordPlanDevice(@PathVariable Long planId) {
+        Integer i = qsDeviceService.countRecordPlanDevice(planId);
+        return R.ok(i);
+    }
 }

@@ -59,12 +59,6 @@
       <el-table-column label="编号" align="center" prop="id" width="100"/>
       <el-table-column label="计划名称" align="center" prop="name"/>
       <el-table-column prop="channelCount" label="关联通道" align="center"/>
-      <el-table-column label="定时截图" align="center" prop="snap">
-        <template #default="scope">
-          <el-tag type="primary" v-if="scope.row.snap === 'ENABLE'">启用</el-tag>
-          <el-tag type="primary" v-if="scope.row.snap === 'DEACTIVATE'">停用</el-tag>
-        </template>
-      </el-table-column>
       <el-table-column label="状态" align="center" prop="status">
         <template #default="scope">
           <el-tag type="primary" v-if="scope.row.snap === 'ENABLE'">启用</el-tag>
@@ -95,12 +89,6 @@
       <el-form ref="recordPlanRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="计划名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入计划名称"/>
-        </el-form-item>
-        <el-form-item label="定时截图" prop="snap">
-          <el-radio-group v-model="form.snap">
-            <el-radio value="ENABLE">启用</el-radio>
-            <el-radio value="DEACTIVATE">禁用</el-radio>
-          </el-radio-group>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
