@@ -12,15 +12,22 @@ import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.domain.QsGroup;
+import com.ruoyi.qs.domain.QsGroupTree;
+import com.ruoyi.qs.domain.QsRegion;
+import com.ruoyi.qs.domain.QsRegionTree;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
+import com.ruoyi.qs.mapper.QsRegionMapper;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.utils.StreamDetector;
 import com.ruoyi.zlm.api.RemoteZlmService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.ObjectUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -36,6 +43,7 @@ import java.util.regex.Pattern;
  * @author fengcheng
  * @date 2026-03-27
  */
+@Slf4j
 @Service
 @Transactional(rollbackFor = Exception.class)
 public class QsDeviceServiceImpl implements IQsDeviceService {
@@ -56,6 +64,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
     @Autowired
     private ThreadPoolTaskExecutor taskExecutor;
+
+    @Autowired
+    private QsRegionMapper qsRegionMapper;
 
     /**
      * 查询视频监控设备
@@ -483,6 +494,202 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     @Override
     public Integer countRecordPlanDevice(Long planId) {
         return qsDeviceMapper.countRecordPlanDevice(planId);
+    }
+
+    /**
+     * 根据行政区划编码更新设备行政区划编码
+     *
+     * @param oldCivilCode 旧的行政区划编码
+     * @param newCivilCode 新的行政区划编码
+     */
+    @Override
+    public void updateCivilCode(String oldCivilCode, String newCivilCode) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByCivilCode(oldCivilCode);
+        if (deviceList.isEmpty()) {
+            return;
+        }
+        int result = qsDeviceMapper.updateCivilCodeByDeviceList(newCivilCode, deviceList);
+    }
+
+    /**
+     * 根据行政区划编码删除设备
+     *
+     * @param allChildren 所有子节点
+     */
+    @Override
+    public void removeCivilCode(List<QsRegion> allChildren) {
+        qsDeviceMapper.removeCivilCode(allChildren);
+    }
+
+    /**
+     * 根据设备id查询设备关联的行政区划树
+     *
+     * @param deviceId 区域国标编号
+     * @return
+     */
+    @Override
+    public List<QsRegionTree> queryForRegionTreeByCivilCode(String deviceId) {
+        return qsDeviceMapper.queryForRegionTreeByCivilCode(deviceId);
+    }
+
+    /**
+     * 根据业务分组更新设备业务分组
+     *
+     * @param oldBusinessGroup
+     * @param newBusinessGroup
+     */
+    @Override
+    public void updateBusinessGroup(String oldBusinessGroup, String newBusinessGroup) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByBusinessGroup(oldBusinessGroup);
+        if (deviceList.isEmpty()) {
+            log.info("[更新业务分组] 发现未关联任何设备： {}", oldBusinessGroup);
+            return;
+        }
+        int result = qsDeviceMapper.updateBusinessGroupBydeviceList(newBusinessGroup, deviceList);
+    }
+
+    /**
+     * 根据业务分组更新设备
+     *
+     * @param oldParentId
+     * @param newParentId
+     */
+    @Override
+    public void updateParentIdGroup(String oldParentId, String newParentId) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByParentId(oldParentId);
+        if (deviceList.isEmpty()) {
+            return;
+        }
+        int result = qsDeviceMapper.updateParentIdByDeviceList(newParentId, deviceList);
+    }
+
+    /**
+     * 根据业务分组删除设备
+     *
+     * @param businessGroup
+     */
+    @Override
+    public void removeParentIdByBusinessGroup(String businessGroup) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByBusinessGroup(businessGroup);
+        if (deviceList.isEmpty()) {
+            return;
+        }
+        int result = qsDeviceMapper.removeParentIdByDevices(deviceList);
+    }
+
+    /**
+     * 根据业务分组删除设备
+     *
+     * @param groupList
+     */
+    @Override
+    public void removeParentIdByGroupList(List<QsGroup> groupList) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByGroupList(groupList);
+        if (deviceList.isEmpty()) {
+            return;
+        }
+        qsDeviceMapper.removeParentIdByDevices(deviceList);
+    }
+
+    /**
+     * 根据业务分组查询设备关联的业务分组树
+     *
+     * @param query
+     * @param parent
+     * @return
+     */
+    @Override
+    public List<QsGroupTree> queryForGroupTreeByParentId(String query, String parent) {
+        return qsDeviceMapper.queryForGroupTreeByParentId(query, parent);
+    }
+
+    /**
+     * 根据行政区域获取视频监控设备列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    @Override
+    public List<QsDevice> queryListByCivilCode(QsDevice qsDevice) {
+        return qsDeviceMapper.queryListByCivilCode(qsDevice);
+    }
+
+    /**
+     * 根据行政区划编码添加设备
+     *
+     * @param civilCode
+     * @param deviceIds
+     */
+    @Override
+    public void addDeviceToRegion(String civilCode, List<Long> deviceIds) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByIds(deviceIds);
+        if (deviceList.isEmpty()) {
+            throw new RuntimeException("所有设备Id不存在");
+        }
+        for (QsDevice device : deviceList) {
+            device.setGbCivilCode(civilCode);
+        }
+        int result = qsDeviceMapper.updateRegion(civilCode, deviceList);
+    }
+
+    /**
+     * 设备删除行政区划
+     *
+     * @param civilCode
+     * @param deviceIds
+     */
+    @Override
+    public void deleteDeviceToRegion(String civilCode, List<Long> deviceIds) {
+        if (!ObjectUtils.isEmpty(civilCode)) {
+            deleteToRegionByCivilCode(civilCode);
+        }
+        if (!ObjectUtils.isEmpty(deviceIds)) {
+            deleteToRegionByChannelIds(deviceIds);
+        }
+    }
+
+    /**
+     * 存在行政区划但无法挂载的通道列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    @Override
+    public List<QsDevice> queryListByCivilCodeForUnusual(QsDevice qsDevice) {
+        return qsDeviceMapper.queryListByCivilCodeForUnusual(qsDevice);
+    }
+
+    /**
+     * 清除存在行政区划但无法挂载的设备列表
+     *
+     * @param all
+     * @param deviceIds
+     */
+    @Override
+    public void clearDeviceCivilCode(Boolean all, List<Long> deviceIds) {
+        List<Long> deviceIdsForClear;
+        if (all != null && all) {
+            deviceIdsForClear = qsDeviceMapper.queryAllForUnusualCivilCode();
+        }else {
+            deviceIdsForClear = deviceIds;
+        }
+        qsDeviceMapper.removeCivilCodeByDeviceIds(deviceIdsForClear);
+    }
+
+    private void deleteToRegionByChannelIds(List<Long> deviceIds) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByIds(deviceIds);
+        if (deviceList.isEmpty()) {
+            throw new RuntimeException("所有通道Id不存在");
+        }
+        int result = qsDeviceMapper.removeCivilCodeByDeletes(deviceList);
+    }
+
+    private void deleteToRegionByCivilCode(String civilCode) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByCivilCode(civilCode);
+        if (deviceList.isEmpty()) {
+            throw new RuntimeException("所有设备Id不存在");
+        }
+        int result = qsDeviceMapper.removeCivilCodeByDeletes(deviceList);
     }
 
     /**

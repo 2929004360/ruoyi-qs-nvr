@@ -8,11 +8,14 @@ import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.security.annotation.RequiresPermissions;
 import com.ruoyi.common.security.utils.SecurityUtils;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.domain.DeviceToRegionParam;
 import com.ruoyi.qs.domain.RecordPlanParam;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.utils.VideoSnapshotUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -48,6 +51,16 @@ public class QsDeviceController extends BaseController {
     public TableDataInfo list(QsDevice qsDevice) {
         startPage();
         List<QsDevice> list = qsDeviceService.selectQsDeviceList(qsDevice);
+        return getDataTable(list);
+    }
+
+    /**
+     * 根据行政区域获取视频监控设备列表
+     */
+    @GetMapping("/queryListByCivilCode")
+    public TableDataInfo queryListByCivilCode(QsDevice qsDevice) {
+        startPage();
+        List<QsDevice> list = qsDeviceService.queryListByCivilCode(qsDevice);
         return getDataTable(list);
     }
 
@@ -129,6 +142,54 @@ public class QsDeviceController extends BaseController {
 
         qsDeviceService.link(param.getDeviceIds(), param.getPlanId());
 
+        return success();
+    }
+
+
+    /**
+     * 设备设置行政区划
+     *
+     * @param param
+     */
+    @PostMapping("/region/add")
+    public AjaxResult addChannelToRegion(@RequestBody DeviceToRegionParam param) {
+        Assert.notEmpty(param.getDeviceIds(), "设备ID不可为空");
+        Assert.hasLength(param.getCivilCode(), "未添加行政区划");
+        qsDeviceService.addDeviceToRegion(param.getCivilCode(), param.getDeviceIds());
+        return success();
+    }
+
+    /**
+     * 设备删除行政区划
+     *
+     * @param param
+     */
+    @PostMapping("/region/delete")
+    public AjaxResult deleteDeviceToRegion(@RequestBody DeviceToRegionParam param) {
+        Assert.isTrue(!param.getDeviceIds().isEmpty() || !ObjectUtils.isEmpty(param.getCivilCode()), "参数异常");
+        qsDeviceService.deleteDeviceToRegion(param.getCivilCode(), param.getDeviceIds());
+        return success();
+    }
+
+
+    /**
+     * 存在行政区划但无法挂载的通道列表
+     */
+    @GetMapping("/civilCode/unusual/list")
+    public TableDataInfo queryListByCivilCodeForUnusual(QsDevice qsDevice) {
+        startPage();
+        List<QsDevice> list = qsDeviceService.queryListByCivilCodeForUnusual(qsDevice);
+        return getDataTable(list);
+    }
+
+    /**
+     * 清除存在行政区划但无法挂载的设备列表
+     *
+     * @param param
+     */
+    @PostMapping("/civilCode/unusual/clear")
+    public AjaxResult clearDeviceCivilCode(@RequestBody DeviceToRegionParam param) {
+        qsDeviceService.clearDeviceCivilCode(param.getAll(), param.getDeviceIds());
         return success();
     }
 

@@ -89,6 +89,12 @@
             <artifactId>ruoyi-api-zlm</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.4.8-jre</version>
+        </dependency>
+
         <!--JavaCV相关依赖-->
         <dependency>
             <groupId>org.bytedeco</groupId>

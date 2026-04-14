@@ -36,3 +36,4 @@ export * from "./qs/onvif";
 export * from "./qs/cloudRecord";
 export * from "./qs/recordPlan";
 export * from "./qs/recordPlanItem";
+export * from "./qs/region";

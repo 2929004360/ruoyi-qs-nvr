@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsRegionMapper">
+
+    <resultMap type="QsRegion" id="QsRegionResult">
+        <result property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="parentDeviceId" column="parent_device_id"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <resultMap type="QsRegionTree" id="QsRegionTreeResult">
+        <result property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="parentDeviceId" column="parent_device_id"/>
+        <result property="status" column="status"/>
+        <result property="isLeaf" column="is_leaf"/>
+        <result property="type" column="type"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+
+    <sql id="selectQsRegionVo">
+        select id,
+               device_id,
+               name,
+               parent_id,
+               parent_device_id,
+               create_time,
+               update_time
+        from qs_common_region
+    </sql>
+
+    <insert id="add" parameterType="QsRegion" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO qs_common_region (device_id, name, parent_id, parent_device_id, create_time, update_time)
+        VALUES (#{deviceId}, #{name}, #{parentId}, #{parentDeviceId}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="updateChild">
+        UPDATE qs_common_region
+        SET parent_device_id = #{parentDeviceId}
+        WHERE parent_id = #{parentId}
+    </update>
+
+    <update id="update">
+        UPDATE qs_common_region
+        SET update_time = #{updateTime},
+            device_id = #{deviceId},
+            name = #{name},
+            parent_id = #{parentId},
+            parent_device_id = #{parentDeviceId}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="batchDelete">
+         DELETE FROM qs_common_region
+         WHERE id IN
+         <foreach item="item" collection="allChildren" open="(" separator="," close=")">
+            #{item.id}
+         </foreach>
+    </delete>
+
+    <select id="queryOne" resultMap="QsRegionResult">
+        <include refid="selectQsRegionVo"/>
+        WHERE id = #{id}
+    </select>
+
+    <select id="queryByDeviceId" resultMap="QsRegionResult">
+        <include refid="selectQsRegionVo"/>
+        WHERE device_id = #{deviceId}
+    </select>
+    <select id="getChildren" parameterType="java.lang.Integer">
+        <include refid="selectQsRegionVo"/>
+         WHERE parent_id = #{parentId} ORDER BY id
+    </select>
+
+    <select id="queryForTree" resultMap="QsRegionTreeResult" parameterType="java.lang.Integer">
+        SELECT
+        *,
+        concat('region', id) as tree_id,
+        0 as type,
+        'ON' as status,
+        false as is_leaf
+        FROM qs_common_region
+        WHERE
+        <if test="parentId != null">
+            parent_id = #{parentId}
+        </if>
+        <if test="parentId == null">
+            parent_id is null
+        </if>
+    </select>
+
+    <select id="queryForDevice" resultMap="QsRegionTreeResult">
+        SELECT
+            id,
+            id AS tree_id,
+            longitude AS longitude,
+            latitude  AS latitude,
+            device_name AS name,
+            device_status AS status,
+            type,
+            flv_type
+        FROM
+            qs_device
+        WHERE
+
+            ( gb_civil_code IS NOT NULL AND TRIM( gb_civil_code ) != '' )
+
+          AND (
+            (
+                    ( longitude IS NOT NULL AND TRIM( longitude ) != '' )
+                    OR ( latitude IS NOT NULL AND TRIM( latitude ) != '' )
+                )
+            )
+    </select>
+    <select id="query" resultMap="QsRegionResult">
+        <include refid="selectQsRegionVo"/>
+        <where>
+            <if test="query != null">
+                AND (device_id LIKE concat('%', #{query}, '%') escape '/' OR name LIKE concat('%', #{query}, '%') escape '/')
+            </if>
+            <if test="parentId != null">
+                AND parent_device_id = #{parentId}
+            </if>
+        </where>
+        ORDER BY id
+    </select>
+</mapper>

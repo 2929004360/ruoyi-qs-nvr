@@ -36,11 +36,52 @@
         <result property="onvifAuth" column="onvif_auth"/>
         <result property="onvifHostName" column="onvif_host_name"/>
         <result property="recordPlanId" column="record_plan_id"/>
+        <result property="gbCivilCode" column="gb_civil_code"/>
+        <result property="gbBusinessGroupId" column="gb_business_group_id"/>
+        <result property="gbParentId" column="gb_parent_id"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
         <result property="remark" column="remark"/>
+    </resultMap>
+
+    <resultMap type="QsRegionTree" id="QsRegionTreeResult">
+        <result property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="parentDeviceId" column="parent_device_id"/>
+        <result property="status" column="status"/>
+        <result property="isLeaf" column="is_leaf"/>
+        <result property="type" column="type"/>
+        <result property="treeId" column="tree_id"/>
+        <result property="longitude" column="longitude"/>
+        <result property="latitude" column="latitude"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <resultMap type="QsGroupTree" id="QsGroupTreeResult">
+        <id property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="parentDeviceId" column="parent_device_id"/>
+        <result property="businessGroup" column="business_group"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="civilCode" column="civil_code"/>
+        <result property="alias" column="alias"/>
+        <result property="treeId" column="tree_id"/>
+        <result property="isLeaf" column="is_leaf"/>
+        <result property="type" column="type"/>
+        <result property="status" column="status"/>
+        <result property="longitude" column="longitude"/>
+        <result property="latitude" column="latitude"/>
+        <result property="manufacturer" column="manufacturer"/>
+        <result property="address" column="address"/>
+        <result property="ptzType" column="ptz_type"/>
     </resultMap>
 
     <sql id="selectQsDeviceVo">
@@ -75,6 +116,9 @@
                onvif_auth,
                onvif_host_name,
                record_plan_id,
+               gb_civil_code,
+               gb_business_group_id,
+               gb_parent_id,
                create_by,
                create_time,
                update_by,
@@ -92,6 +136,7 @@
             <if test="type != null  and type != ''">and type = #{type}</if>
             <if test="status != null  and status != ''">and status = #{status}</if>
             <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
+            <if test="gbCivilCode != null  and gbCivilCode != ''">and gb_civil_code = #{gbCivilCode}</if>
         </where>
     </select>
 
@@ -139,6 +184,9 @@
             <if test="onvifAuth != null">onvif_auth,</if>
             <if test="onvifHostName != null">onvif_host_name,</if>
             <if test="recordPlanId != null">record_plan_id,</if>
+            <if test="gbCivilCode != null">gb_civil_code,</if>
+            <if test="gbBusinessGroupId != null">gb_business_group_id,</if>
+            <if test="gbParentId != null">gb_parent_id,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -176,6 +224,9 @@
             <if test="onvifAuth != null">#{onvifAuth},</if>
             <if test="onvifHostName != null">#{onvifHostName},</if>
             <if test="recordPlanId != null">#{recordPlanId},</if>
+            <if test="gbCivilCode != null">#{gbCivilCode},</if>
+            <if test="gbBusinessGroupId != null">#{gbBusinessGroupId},</if>
+            <if test="gbParentId != null">#{gbParentId},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -217,6 +268,9 @@
             <if test="onvifAuth != null">onvif_auth = #{onvifAuth},</if>
             <if test="onvifHostName != null">onvif_host_name = #{onvifHostName},</if>
             <if test="recordPlanId != null">record_plan_id = #{recordPlanId},</if>
+            <if test="gbCivilCode != null">gb_civil_code = #{gbCivilCode},</if>
+            <if test="gbBusinessGroupId != null">gb_business_group_id = #{gbBusinessGroupId},</if>
+            <if test="gbParentId != null">gb_parent_id = #{gbParentId},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -283,6 +337,70 @@
         where record_plan_id = #{planId}
     </update>
 
+    <update id="updateCivilCodeByDeviceList">
+        UPDATE qs_device
+        SET gb_civil_code = #{civilCode}
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="updateBusinessGroupBydeviceList">
+        UPDATE qs_device
+        SET gb_business_group_id = #{businessGroup}
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="updateParentIdByDeviceList">
+        UPDATE qs_device
+        SET gb_parent_id = #{parentId}
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="removeParentIdByDevices">
+        UPDATE qs_device
+        SET gb_parent_id = null,
+        gb_business_group_id = null
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="updateRegion">
+        UPDATE qs_device
+        SET gb_civil_code = #{civilCode}
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="removeCivilCodeByDeletes">
+        UPDATE qs_device
+        SET gb_civil_code = null
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="removeCivilCodeByDeviceIds">
+        UPDATE qs_device
+        SET gb_civil_code = null
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </update>
+
     <select id="fetchAllQsDeviceStreamUrls" resultMap="QsDeviceResult">
         select id,
                live_address
@@ -316,7 +434,104 @@
     </select>
 
     <select id="countRecordPlanDevice" resultType="java.lang.Integer" parameterType="java.lang.Long">
-        select count(1) from qs_device where record_plan_id = #{planId}
+        select count(1)
+        from qs_device
+        where record_plan_id = #{planId}
+    </select>
+
+    <select id="queryByCivilCode" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        where gb_civil_code = #{civilCode}
+    </select>
+
+    <select id="queryForRegionTreeByCivilCode" resultMap="QsRegionTreeResult"
+            parameterType="java.lang.String">
+        SELECT id            as tree_id,
+               device_name   as name,
+               device_status as status,
+               true          as is_leaf,
+               longitude     as longitude,
+               1             as type,
+               latitude      as latitude
+        FROM qs_device
+        WHERE gb_civil_code = #{deviceId}
+    </select>
+
+    <select id="queryByBusinessGroup" resultMap="QsRegionTreeResult" parameterType="java.lang.String">
+        <include refid="selectQsDeviceVo"/>
+        where gb_business_group_id= #{businessGroup}
+    </select>
+
+    <select id="queryByParentId" resultMap="QsDeviceResult"
+            parameterType="java.lang.String">
+        <include refid="selectQsDeviceVo"/>
+        where gb_parent_id = #{parentId}
+    </select>
+
+    <select id="queryByGroupList" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        where
+        gb_parent_id in
+        <foreach collection="groupList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </select>
+
+    <select id="queryForGroupTreeByParentId" resultMap="QsGroupTreeResult">
+        SELECT id as tree_id,
+        device_name as name,
+        device_status as status,
+        true as is_leaf,
+        longitude as longitude,
+        1 as type,
+        latitude as latitude
+        FROM qs_device
+        WHERE gb_parent_id = #{parent}
+        <if test="query != null and query != ''">
+            AND device_name LIKE concat('%', #{query}, '%'))
+        </if>
+    </select>
+
+    <select id="queryListByCivilCode" parameterType="QsDevice" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        <where>
+            <if test="deviceName != null  and deviceName != ''">and device_name like concat('%', #{deviceName}, '%')
+            </if>
+            <if test="ipAddress != null  and ipAddress != ''">and ip_address like concat('%', #{ipAddress}, '%')</if>
+            <if test="type != null  and type != ''">and type = #{type}</if>
+            <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
+            <if test="gbCivilCode != null  and gbCivilCode != ''">and gb_civil_code = #{gbCivilCode}</if>
+            <if test="gbCivilCode == null  or gbCivilCode ==''">
+                AND gb_civil_code is null
+            </if>
+        </where>
+    </select>
+
+    <select id="queryListByCivilCodeForUnusual" parameterType="QsDevice" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        d
+        LEFT JOIN (
+        SELECT wcr.device_id FROM qs_common_region wcr
+        ) temp ON temp.device_id = d.gb_civil_code
+        WHERE d.gb_civil_code IS NOT NULL
+        AND temp.device_id IS NULL
+
+        <if test="deviceName != null  and deviceName != ''">and d.device_name like concat('%', #{deviceName}, '%')
+        </if>
+        <if test="ipAddress != null  and ipAddress != ''">and d.ip_address like concat('%', #{ipAddress}, '%')</if>
+        <if test="type != null  and type != ''">and d.type = #{type}</if>
+        <if test="deviceStatus != null  and deviceStatus != ''">and d.device_status = #{deviceStatus}</if>
+    </select>
+
+    <select id="queryAllForUnusualCivilCode" resultType="java.lang.Long">
+        SELECT
+            d.id
+        FROM
+            qs_device d
+                LEFT JOIN ( SELECT wcr.device_id FROM qs_common_region wcr ) temp ON temp.device_id = d.gb_civil_code
+        WHERE
+            d.gb_civil_code IS NOT NULL
+          AND temp.device_id IS NULL
     </select>
 
     <delete id="deleteQsDeviceById" parameterType="Long">
@@ -329,6 +544,15 @@
         delete from qs_device where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
+        </foreach>
+    </delete>
+
+    <delete id="removeCivilCode">
+        UPDATE qs_device
+        SET gb_civil_code = null
+        WHERE gb_civil_code IN
+        <foreach collection="allChildren" item="item" open="(" separator="," close=")">
+            #{item.deviceId}
         </foreach>
     </delete>
 </mapper>

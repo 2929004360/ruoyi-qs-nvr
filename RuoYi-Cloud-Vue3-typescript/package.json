@@ -38,7 +38,8 @@
     "vuedraggable": "4.1.0",
     "moment": "^2.30.1",
     "moment-duration-format": "^2.3.2",
-    "screenfull": "^6.0.2"
+    "screenfull": "^6.0.2",
+    "@imengyu/vue3-context-menu": "^1.5.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",

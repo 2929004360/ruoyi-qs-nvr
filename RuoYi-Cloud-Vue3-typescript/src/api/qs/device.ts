@@ -11,6 +11,15 @@ export function listDevice(query: DeviceQueryParams): Promise<TableDataInfo<QsDe
   })
 }
 
+// 根据行政区域获取视频监控设备列表
+export function queryListByCivilCode(query: DeviceQueryParams): Promise<TableDataInfo<QsDevice[]>> {
+  return request({
+    url: '/qs/device/queryListByCivilCode',
+    method: 'get',
+    params: query
+  })
+}
+
 // 查询视频监控设备详细
 export function getDevice(id: number): Promise<AjaxResult<QsDevice>> {
   return request({
@@ -80,6 +89,42 @@ export function listPlanRecord(query:QsDevice) : Promise<TableDataInfo<QsDevice[
 export function link(data: RecordPlanParam) : Promise<AjaxResult>{
   return request({
     url: '/qs/device/link',
+    method: 'post',
+    data: data
+  })
+}
+
+// 添加行政区划通道
+export function addDeviceToRegion(data) : Promise<AjaxResult>{
+  return request({
+    url: `/qs/device/region/add`,
+    method: 'post',
+    data: data
+  })
+}
+
+// 删除行政区划通道
+export function deleteDeviceToRegion(data) : Promise<AjaxResult>{
+  return request({
+    url: `/qs/device/region/delete`,
+    method: 'post',
+    data: data
+  })
+}
+
+// 存在行政区划但无法挂载的通道列表
+export function getUnusualCivilCodeList(query) : Promise<TableDataInfo<QsDevice[]>>{
+  return request({
+    url: `/qs/device/civilCode/unusual/list`,
+    method: 'get',
+    params: query
+  })
+}
+
+// 清除存在行政区划但无法挂载的通道列表
+export function clearDeviceCivilCode(data) : Promise<AjaxResult>{
+  return request({
+    url: `/qs/device/civilCode/unusual/clear`,
     method: 'post',
     data: data
   })

@@ -20,6 +20,8 @@ import directive from './directive' // directive
 import plugins from './plugins' // plugins
 import { download } from '@/utils/request'
 
+import '@imengyu/vue3-context-menu/lib/vue3-context-menu.css'
+
 // svg图标
 import 'virtual:svg-icons-register'
 import SvgIcon from '@/components/SvgIcon/index.vue'

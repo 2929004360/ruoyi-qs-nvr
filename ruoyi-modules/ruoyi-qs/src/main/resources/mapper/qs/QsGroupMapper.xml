@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsGroupMapper">
+
+    <resultMap type="QsGroup" id="QsGroupResult">
+        <id property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="parentDeviceId" column="parent_device_id"/>
+        <result property="businessGroup" column="business_group"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="civilCode" column="civil_code"/>
+        <result property="alias" column="alias"/>
+    </resultMap>
+
+
+    <resultMap type="QsGroupTree" id="QsGroupTreeResult">
+        <id property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="parentDeviceId" column="parent_device_id"/>
+        <result property="businessGroup" column="business_group"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="civilCode" column="civil_code"/>
+        <result property="alias" column="alias"/>
+        <result property="treeId" column="tree_id"/>
+        <result property="isLeaf" column="is_leaf"/>
+        <result property="type" column="type"/>
+        <result property="status" column="status"/>
+        <result property="longitude" column="longitude"/>
+        <result property="latitude" column="latitude"/>
+        <result property="manufacturer" column="manufacturer"/>
+        <result property="address" column="address"/>
+        <result property="ptzType" column="ptz_type"/>
+    </resultMap>
+
+    <sql id="selectQsGroupVo">
+        select id,
+               device_id,
+               name,
+               parent_id,
+               parent_device_id,
+               business_group,
+               create_time,
+               update_time,
+               civil_code,
+               alias
+        from qs_common_group
+    </sql>
+
+    <insert id="addBusinessGroup" parameterType="QsGroup" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO qs_common_group
+        (device_id,
+         name,
+         parent_id,
+         business_group,
+         create_time,
+         update_time,
+         civil_code,
+         alias)
+        VALUES (#{deviceId},
+                #{name},
+                #{parentId},
+                #{businessGroup},
+                #{createTime},
+                #{updateTime},
+                #{civilCode},
+                #{alias})
+    </insert>
+
+    <insert id="add" parameterType="QsGroup" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO qs_common_group
+        (device_id,
+         name,
+         parent_id,
+         parent_device_id,
+         business_group,
+         create_time,
+         update_time,
+         civil_code,
+         alias)
+        VALUES (#{deviceId},
+                #{name},
+                #{parentId},
+                #{parentDeviceId},
+                #{businessGroup},
+                #{createTime},
+                #{updateTime},
+                #{civilCode},
+                #{alias})
+    </insert>
+
+    <update id="update" parameterType="QsGroup">
+        UPDATE qs_common_group
+        SET update_time      = #{updateTime},
+            device_id        = #{deviceId},
+            name             = #{name},
+            parent_id        = #{parentId},
+            parent_device_id = #{parentDeviceId},
+            business_group   = #{businessGroup},
+            civil_code       = #{civilCode},
+            alias            = #{alias}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateChild">
+        UPDATE qs_common_group
+        SET parent_device_id = #{group.deviceId},
+            business_group   = #{group.businessGroup}
+        WHERE parent_id = #{parentId}
+    </update>
+
+    <delete id="batchDelete">
+        DELETE FROM qs_common_group
+        WHERE id IN
+        <foreach collection="allChildren" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </delete>
+
+    <select id="queryInGroupListByDeviceId" resultMap="QsGroupResult">
+        <include refid="selectQsGroupVo"/>
+        WHERE device_id IN
+        <foreach collection="groupList" item="item" open="(" separator="," close=")">
+            #{item.deviceId}
+        </foreach>
+    </select>
+
+    <select id="queryBusinessGroup" resultMap="QsGroupResult" parameterType="java.lang.String">
+        <include refid="selectQsGroupVo"/>
+        WHERE device_id = #{businessGroup} and business_group = #{businessGroup}
+    </select>
+
+    <select id="queryOneByDeviceId" resultMap="QsGroupResult">
+        <include refid="selectQsGroupVo"/>
+        WHERE device_id = #{deviceId} and business_group = #{businessGroup}
+    </select>
+
+    <select id="queryOne" resultMap="QsGroupResult" parameterType="int">
+        <include refid="selectQsGroupVo"/>
+        WHERE id = #{id}
+    </select>
+
+    <select id="getChildren" resultMap="QsGroupResult" parameterType="int">
+        <include refid="selectQsGroupVo"/>
+        WHERE parent_id = #{parentId}
+    </select>
+
+    <select id="queryByBusinessGroup" resultMap="QsGroupResult"
+            parameterType="java.lang.String">
+        <include refid="selectQsGroupVo"/>
+        WHERE business_group = #{businessGroup}
+    </select>
+
+    <select id="queryForTree" resultMap="QsGroupTreeResult">
+        SELECT
+        *,
+        concat('group', id) as tree_id,
+        0 as type,
+        false as is_leaf,
+        'ON' as status
+        FROM qs_common_group
+        <where>
+            <if test="parentId != null">
+                AND parent_id = #{parentId}
+            </if>
+            <if test="parentId == null">
+                AND parent_id IS NULL
+            </if>
+            <if test="query != null">
+                AND (device_id LIKE concat('%', #{query}, '%') OR name LIKE concat('%', #{query}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="queryForDevice" resultMap="QsGroupTreeResult">
+        SELECT
+            id,
+            id AS tree_id,
+            longitude AS longitude,
+            latitude  AS latitude,
+            device_name AS name,
+            device_status AS status,
+            type,
+            flv_type
+        FROM qs_device
+        WHERE (gb_parent_id IS NOT NULL AND TRIM(gb_parent_id) != '')
+          AND (
+                (longitude IS NOT NULL AND TRIM(longitude) != '')
+                OR
+                (latitude IS NOT NULL AND TRIM(latitude) != '')
+            )
+    </select>
+
+    <select id="query" resultMap="QsGroupResult">
+        SELECT *
+        FROM qs_common_group
+        WHERE 1=1
+        <if test="query != null">
+            AND (device_id LIKE concat('%', #{query}, '%') OR name LIKE concat('%', #{query}, '%'))
+        </if>
+        <if test="parentId != null and businessGroupId != null">
+            AND parent_device_id = #{parentId} AND business_group = #{businessGroup}
+        </if>
+        ORDER BY id
+    </select>
+</mapper>

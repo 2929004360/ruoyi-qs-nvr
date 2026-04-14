@@ -1,21 +1,24 @@
 package com.ruoyi.qs.service;
 
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.domain.QsGroup;
+import com.ruoyi.qs.domain.QsGroupTree;
+import com.ruoyi.qs.domain.QsRegion;
+import com.ruoyi.qs.domain.QsRegionTree;
 
 import java.util.List;
 import java.util.Set;
 
 /**
  * 视频监控设备Service接口
- * 
+ *
  * @author fengcheng
  * @date 2026-03-27
  */
-public interface IQsDeviceService 
-{
+public interface IQsDeviceService {
     /**
      * 查询视频监控设备
-     * 
+     *
      * @param id 视频监控设备主键
      * @return 视频监控设备
      */
@@ -23,7 +26,7 @@ public interface IQsDeviceService
 
     /**
      * 查询视频监控设备列表
-     * 
+     *
      * @param qsDevice 视频监控设备
      * @return 视频监控设备集合
      */
@@ -31,7 +34,7 @@ public interface IQsDeviceService
 
     /**
      * 新增视频监控设备
-     * 
+     *
      * @param qsDevice 视频监控设备
      * @return 结果
      */
@@ -39,7 +42,7 @@ public interface IQsDeviceService
 
     /**
      * 修改视频监控设备
-     * 
+     *
      * @param qsDevice 视频监控设备
      * @return 结果
      */
@@ -47,7 +50,7 @@ public interface IQsDeviceService
 
     /**
      * 批量删除视频监控设备
-     * 
+     *
      * @param ids 需要删除的视频监控设备主键集合
      * @return 结果
      */
@@ -55,7 +58,7 @@ public interface IQsDeviceService
 
     /**
      * 删除视频监控设备信息
-     * 
+     *
      * @param id 视频监控设备主键
      * @return 结果
      */
@@ -170,4 +173,106 @@ public interface IQsDeviceService
      * @return
      */
     Integer countRecordPlanDevice(Long planId);
+
+    /**
+     * 根据行政区划编码更新设备行政区划编码
+     *
+     * @param oldCivilCode 旧的行政区划编码
+     * @param newCivilCode 新的行政区划编码
+     */
+    void updateCivilCode(String oldCivilCode, String newCivilCode);
+
+    /**
+     * 根据行政区划编码删除设备
+     *
+     * @param allChildren 所有子节点
+     */
+    void removeCivilCode(List<QsRegion> allChildren);
+
+    /**
+     * 根据设备id查询设备关联的行政区划树
+     *
+     * @param deviceId 区域国标编号
+     * @return
+     */
+    List<QsRegionTree> queryForRegionTreeByCivilCode(String deviceId);
+
+    /**
+     * 根据业务分组更新设备业务分组
+     *
+     * @param oldBusinessGroup
+     * @param newBusinessGroup
+     */
+    void updateBusinessGroup(String oldBusinessGroup, String newBusinessGroup);
+
+    /**
+     * 根据业务分组更新设备
+     *
+     * @param oldParentId
+     * @param newParentId
+     */
+    void updateParentIdGroup(String oldParentId, String newParentId);
+
+    /**
+     * 根据业务分组删除设备
+     *
+     * @param businessGroup
+     */
+    void removeParentIdByBusinessGroup(String businessGroup);
+
+    /**
+     * 根据业务分组删除设备
+     *
+     * @param groupList
+     */
+    void removeParentIdByGroupList(List<QsGroup> groupList);
+
+    /**
+     * 根据业务分组查询设备关联的业务分组树
+     *
+     * @param query
+     * @param parent
+     * @return
+     */
+    List<QsGroupTree> queryForGroupTreeByParentId(String query, String parent);
+
+    /**
+     * 根据行政区域获取视频监控设备列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    List<QsDevice> queryListByCivilCode(QsDevice qsDevice);
+
+    /**
+     * 根据行政区划编码添加设备
+     *
+     * @param civilCode
+     * @param deviceIds
+     */
+    void addDeviceToRegion(String civilCode, List<Long> deviceIds);
+
+    /**
+     * 设备删除行政区划
+     *
+     * @param civilCode
+     * @param deviceIds
+     */
+    void deleteDeviceToRegion(String civilCode, List<Long> deviceIds);
+
+    /**
+     * 存在行政区划但无法挂载的通道列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    List<QsDevice> queryListByCivilCodeForUnusual(QsDevice qsDevice);
+
+    /**
+     * 清除存在行政区划但无法挂载的设备列表
+     *
+     * @param all
+     * @param deviceIds
+     */
+    void clearDeviceCivilCode(Boolean all, List<Long> deviceIds);
 }

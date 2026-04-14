@@ -110,4 +110,13 @@ public class QsDevice extends BaseEntity
 
     /** 录制计划id */
     private String recordPlanId;
+
+    /** 国标-行政区域 */
+    private String gbCivilCode;
+
+    /** 国标-义务分组 */
+    private String gbBusinessGroupId;
+
+    /** 国标-父节点ID */
+    private String gbParentId;
 }
