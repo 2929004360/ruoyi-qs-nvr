@@ -58,7 +58,7 @@
       <el-table-column type="selection" width="55" align="center"/>
       <el-table-column label="编号" align="center" prop="id" width="100"/>
       <el-table-column label="计划名称" align="center" prop="name"/>
-      <el-table-column prop="channelCount" label="关联通道" align="center"/>
+      <el-table-column prop="channelCount" label="关联设备" align="center"/>
       <el-table-column label="状态" align="center" prop="status">
         <template #default="scope">
           <el-tag type="primary" v-if="scope.row.snap === 'ENABLE'">启用</el-tag>

@@ -83,7 +83,7 @@ export function queryForRegionQuery(query): Promise<AjaxResult<QsRegion[]>> {
  *
  * @param parent
  */
-export function getRegionAllChild(parent: String): Promise<AjaxResult<QsRegion[]>> {
+export function getAllChild(parent: String): Promise<AjaxResult<QsRegion[]>> {
     return request({
         url: '/qs/region/base/child/list',
         method: 'get',

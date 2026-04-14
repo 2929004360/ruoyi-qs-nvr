@@ -202,7 +202,7 @@ public interface QsDeviceMapper {
      * @param deviceList
      * @return
      */
-    int updateBusinessGroupBydeviceList(@Param("businessGroup") String businessGroup,@Param("deviceList") List<QsDevice> deviceList);
+    int updateBusinessGroupBydeviceList(@Param("businessGroup") String businessGroup, @Param("deviceList") List<QsDevice> deviceList);
 
     /**
      * 根据业务分组查询设备信息
@@ -227,7 +227,7 @@ public interface QsDeviceMapper {
      * @param deviceList
      * @return
      */
-    int updateParentIdByDeviceList(@Param("parentId") String parentId,@Param("deviceList") List<QsDevice> deviceList);
+    int updateParentIdByDeviceList(@Param("parentId") String parentId, @Param("deviceList") List<QsDevice> deviceList);
 
     /**
      * 根据通道id集合更新设备信息
@@ -252,7 +252,7 @@ public interface QsDeviceMapper {
      * @param parent
      * @return
      */
-    List<QsGroupTree> queryForGroupTreeByParentId(@Param("query") String query,@Param("parent") String parent);
+    List<QsGroupTree> queryForGroupTreeByParentId(@Param("query") String query, @Param("parent") String parent);
 
     /**
      * 根据行政区域获取视频监控设备列表
@@ -268,7 +268,7 @@ public interface QsDeviceMapper {
      * @param civilCode
      * @param deviceList
      */
-    int updateRegion(@Param("civilCode") String civilCode,@Param("deviceList") List<QsDevice> deviceList);
+    int updateRegion(@Param("civilCode") String civilCode, @Param("deviceList") List<QsDevice> deviceList);
 
     /**
      * 根据行政区划编码删除设备
@@ -299,4 +299,44 @@ public interface QsDeviceMapper {
      * @param deviceList
      */
     void removeCivilCodeByDeviceIds(@Param("deviceList") List<Long> deviceList);
+
+    /**
+     * 获取关联业务分组通道列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    List<QsDevice> queryListByParentId(QsDevice qsDevice);
+
+    /**
+     * 设备设置业务分组
+     *
+     * @param parentId
+     * @param businessGroup
+     * @param deviceList
+     * @return
+     */
+    int updateGroup(@Param("parentId") String parentId, @Param("businessGroup") String businessGroup, @Param("deviceList") List<QsDevice> deviceList);
+
+    /**
+     * 存在父节点编号但无法挂载的设备列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    List<QsDevice> queryListByParentForUnusual(QsDevice qsDevice);
+
+    /**
+     * 获取所有异常的父节点编号
+     *
+     * @return
+     */
+    List<Long> queryAllForUnusualParent();
+
+    /**
+     * 根据设备id集合更新父节点
+     *
+     * @param deviceIdsForClear
+     */
+    void removeParentIdByDeviceIds(@Param("deviceIdsForClear") List<Long> deviceIdsForClear);
 }

@@ -1,10 +1,7 @@
 package com.ruoyi.qs.service;
 
 import com.ruoyi.qs.api.domain.QsDevice;
-import com.ruoyi.qs.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
-import com.ruoyi.qs.domain.QsRegion;
-import com.ruoyi.qs.domain.QsRegionTree;
+import com.ruoyi.qs.domain.*;
 
 import java.util.List;
 import java.util.Set;
@@ -275,4 +272,67 @@ public interface IQsDeviceService {
      * @param deviceIds
      */
     void clearDeviceCivilCode(Boolean all, List<Long> deviceIds);
+
+    /**
+     * 获取编码列表
+     *
+     * @return
+     */
+    List<NetworkIdentificationType> getNetworkIdentificationTypeList();
+
+    /**
+     * 获取编码列表
+     *
+     * @return
+     */
+    List<DeviceType> getDeviceTypeList();
+
+    /**
+     * 获取行业编码列表
+     *
+     * @return
+     */
+    List<IndustryCodeType> getIndustryCodeList();
+
+    /**
+     * 获取关联业务分组通道列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    List<QsDevice> queryListByParentId(QsDevice qsDevice);
+
+    /**
+     * 设备设置业务分组
+     *
+     * @param parentId
+     * @param businessGroup
+     * @param deviceIds
+     */
+    void addChannelToGroup(String parentId, String businessGroup, List<Long> deviceIds);
+
+    /**
+     * 删除业务分组设备
+     *
+     * @param parentId
+     * @param businessGroup
+     * @param deviceIds
+     */
+    void deleteDeviceToGroup(String parentId, String businessGroup, List<Long> deviceIds);
+
+    /**
+     * 存在父节点编号但无法挂载的设备列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    List<QsDevice> queryListByParentForUnusual(QsDevice qsDevice);
+
+    /**
+     * 清除存在分组节点但无法挂载的设备列表
+     *
+     * @param all
+     * @param deviceIds
+     */
+    void clearDeviceParent(Boolean all, List<Long> deviceIds);
 }

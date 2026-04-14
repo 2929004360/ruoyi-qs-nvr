@@ -1,6 +1,6 @@
 import type { PageDomain, BaseEntity } from "../common";
 
-/** 录像计划管理通道配置分页查询参数 */
+/** 录像计划管理设备配置分页查询参数 */
 export interface RecordPlanItemQueryParams extends PageDomain {
   /** ${column.columnComment} */
   start?: number;
@@ -12,7 +12,7 @@ export interface RecordPlanItemQueryParams extends PageDomain {
   planId?: number;
 }
 
-/** 录像计划管理通道配置信息 */
+/** 录像计划管理设备配置信息 */
 export interface ZlmRecordPlanItem extends BaseEntity {
   /** ${column.columnComment} */
   id?: number;

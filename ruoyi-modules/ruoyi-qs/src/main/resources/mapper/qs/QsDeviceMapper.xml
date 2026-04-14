@@ -137,6 +137,7 @@
             <if test="status != null  and status != ''">and status = #{status}</if>
             <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
             <if test="gbCivilCode != null  and gbCivilCode != ''">and gb_civil_code = #{gbCivilCode}</if>
+            <if test="gbParentId != null  and gbParentId != ''">and gb_parent_id = #{gbParentId}</if>
         </where>
     </select>
 
@@ -401,6 +402,26 @@
         </foreach>
     </update>
 
+    <update id="updateGroup">
+        UPDATE qs_device
+        SET gb_parent_id = #{parentId},
+        gb_business_group_id = #{businessGroup}
+        WHERE id IN
+        <foreach collection="deviceList" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="removeParentIdByDeviceIds">
+        UPDATE qs_device
+        SET gb_parent_id = null,
+        gb_business_group_id = null
+        WHERE id IN
+        <foreach collection="deviceIdsForClear" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </update>
+
     <select id="fetchAllQsDeviceStreamUrls" resultMap="QsDeviceResult">
         select id,
                live_address
@@ -524,13 +545,50 @@
     </select>
 
     <select id="queryAllForUnusualCivilCode" resultType="java.lang.Long">
-        SELECT
-            d.id
-        FROM
-            qs_device d
-                LEFT JOIN ( SELECT wcr.device_id FROM qs_common_region wcr ) temp ON temp.device_id = d.gb_civil_code
-        WHERE
-            d.gb_civil_code IS NOT NULL
+        SELECT d.id
+        FROM qs_device d
+                 LEFT JOIN (SELECT wcr.device_id FROM qs_common_region wcr) temp ON temp.device_id = d.gb_civil_code
+        WHERE d.gb_civil_code IS NOT NULL
+          AND temp.device_id IS NULL
+    </select>
+
+    <select id="queryListByParentId" parameterType="QsDevice" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        <where>
+            <if test="deviceName != null  and deviceName != ''">and device_name like concat('%', #{deviceName}, '%')
+            </if>
+            <if test="ipAddress != null  and ipAddress != ''">and ip_address like concat('%', #{ipAddress}, '%')</if>
+            <if test="type != null  and type != ''">and type = #{type}</if>
+            <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
+            <if test="gbCivilCode != null  and gbCivilCode != ''">and gb_civil_code = #{gbCivilCode}</if>
+            <if test="gbParentId == null  or gbParentId ==''">
+                AND gb_parent_id is null
+            </if>
+        </where>
+    </select>
+
+    <select id="queryListByParentForUnusual" parameterType="QsDevice" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        d
+        LEFT JOIN (
+        SELECT wcg.device_id FROM qs_common_group wcg
+        ) temp ON temp.device_id = d.gb_parent_id
+        WHERE d.gb_parent_id IS NOT NULL
+        AND temp.device_id IS NULL
+
+        <if test="deviceName != null  and deviceName != ''">and d.device_name like concat('%', #{deviceName}, '%')
+        </if>
+        <if test="ipAddress != null  and ipAddress != ''">and d.ip_address like concat('%', #{ipAddress}, '%')</if>
+        <if test="type != null  and type != ''">and d.type = #{type}</if>
+        <if test="deviceStatus != null  and deviceStatus != ''">and d.device_status = #{deviceStatus}</if>
+    </select>
+
+    <select id="queryAllForUnusualParent" resultType="java.lang.Long">
+        SELECT d.id
+        FROM qs_device d
+                 LEFT JOIN (SELECT wcg.device_id
+                            FROM qs_common_group wcg) temp ON temp.device_id = d.gb_parent_id
+        WHERE d.gb_parent_id IS NOT NULL
           AND temp.device_id IS NULL
     </select>
 

@@ -8,8 +8,7 @@ import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.security.annotation.RequiresPermissions;
 import com.ruoyi.common.security.utils.SecurityUtils;
 import com.ruoyi.qs.api.domain.QsDevice;
-import com.ruoyi.qs.domain.DeviceToRegionParam;
-import com.ruoyi.qs.domain.RecordPlanParam;
+import com.ruoyi.qs.domain.*;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.utils.VideoSnapshotUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -173,7 +172,7 @@ public class QsDeviceController extends BaseController {
 
 
     /**
-     * 存在行政区划但无法挂载的通道列表
+     * 存在行政区划但无法挂载的设备列表
      */
     @GetMapping("/civilCode/unusual/list")
     public TableDataInfo queryListByCivilCodeForUnusual(QsDevice qsDevice) {
@@ -190,6 +189,96 @@ public class QsDeviceController extends BaseController {
     @PostMapping("/civilCode/unusual/clear")
     public AjaxResult clearDeviceCivilCode(@RequestBody DeviceToRegionParam param) {
         qsDeviceService.clearDeviceCivilCode(param.getAll(), param.getDeviceIds());
+        return success();
+    }
+
+    /**
+     * 获取编码列表
+     *
+     * @return
+     */
+    @GetMapping("/network/identification/list")
+    public AjaxResult getNetworkIdentificationTypeList() {
+        List<NetworkIdentificationType> list = qsDeviceService.getNetworkIdentificationTypeList();
+        return success(list);
+    }
+
+    /**
+     * 获取编码列表
+     *
+     * @return
+     */
+    @GetMapping("/type/list")
+    public AjaxResult getDeviceTypeList() {
+        List<DeviceType> list = qsDeviceService.getDeviceTypeList();
+        return success(list);
+    }
+
+    /**
+     * 获取行业编码列表
+     *
+     * @return
+     */
+    @GetMapping("/industry/list")
+    public AjaxResult getIndustryCodeList() {
+        List<IndustryCodeType> list = qsDeviceService.getIndustryCodeList();
+        return success(list);
+    }
+
+    /**
+     * 获取关联业务分组设备列表
+     */
+    @GetMapping("/parent/list")
+    public TableDataInfo queryListByParentId(QsDevice qsDevice) {
+        startPage();
+        List<QsDevice> list = qsDeviceService.queryListByParentId(qsDevice);
+        return getDataTable(list);
+    }
+
+    /**
+     * 设备设置业务分组
+     *
+     * @param param
+     */
+    @PostMapping("/group/add")
+    public AjaxResult addChannelToGroup(@RequestBody DeviceToGroupParam param) {
+        Assert.notEmpty(param.getDeviceIds(), "设备ID不可为空");
+        Assert.hasLength(param.getParentId(), "未添加上级分组编号");
+        Assert.hasLength(param.getBusinessGroup(), "未添加业务分组");
+        qsDeviceService.addChannelToGroup(param.getParentId(), param.getBusinessGroup(), param.getDeviceIds());
+        return success();
+    }
+
+    /**
+     * 删除业务分组设备
+     *
+     * @param param
+     */
+    @PostMapping("/group/delete")
+    public AjaxResult deleteDeviceToGroup(@RequestBody DeviceToGroupParam param) {
+        Assert.isTrue(!param.getDeviceIds().isEmpty() || (!ObjectUtils.isEmpty(param.getParentId()) && !ObjectUtils.isEmpty(param.getBusinessGroup())), "参数异常");
+        qsDeviceService.deleteDeviceToGroup(param.getParentId(), param.getBusinessGroup(), param.getDeviceIds());
+        return success();
+    }
+
+    /**
+     * 存在父节点编号但无法挂载的设备列表
+     */
+    @GetMapping("/parent/unusual/list")
+    public TableDataInfo queryListByParentForUnusual(QsDevice qsDevice) {
+        startPage();
+        List<QsDevice> list = qsDeviceService.queryListByParentForUnusual(qsDevice);
+        return getDataTable(list);
+    }
+
+    /**
+     * 清除存在分组节点但无法挂载的设备列表
+     *
+     * @param param
+     */
+    @PostMapping("/parent/unusual/clear")
+    public AjaxResult clearDeviceParent(@RequestBody DeviceToGroupParam param) {
+        qsDeviceService.clearDeviceParent(param.getAll(), param.getDeviceIds());
         return success();
     }
 

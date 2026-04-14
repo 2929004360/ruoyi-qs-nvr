@@ -286,7 +286,7 @@ import {
   addRegion,
   updateRegion,
   deleteRegion,
-  getRegionAllChild,
+  getAllChild,
   queryForRegionTree,
   queryForRegionQuery,
 } from "@/api/qs/region.js";
@@ -458,7 +458,7 @@ function resetRegion() {
 }
 
 function queryChildList(parent) {
-  getRegionAllChild({parent: parent,}).then((res) => {
+  getAllChild({parent: parent,}).then((res) => {
     regionList.value = res.data
   })
 }

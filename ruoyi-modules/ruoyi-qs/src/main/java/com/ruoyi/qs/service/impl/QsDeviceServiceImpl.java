@@ -12,10 +12,7 @@ import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.domain.QsDevice;
-import com.ruoyi.qs.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
-import com.ruoyi.qs.domain.QsRegion;
-import com.ruoyi.qs.domain.QsRegionTree;
+import com.ruoyi.qs.domain.*;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.mapper.QsRegionMapper;
 import com.ruoyi.qs.service.IQsDeviceService;
@@ -32,6 +29,7 @@ import org.springframework.util.ObjectUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -670,10 +668,129 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         List<Long> deviceIdsForClear;
         if (all != null && all) {
             deviceIdsForClear = qsDeviceMapper.queryAllForUnusualCivilCode();
-        }else {
+        } else {
             deviceIdsForClear = deviceIds;
         }
         qsDeviceMapper.removeCivilCodeByDeviceIds(deviceIdsForClear);
+    }
+
+    /**
+     * 获取编码列表
+     *
+     * @return
+     */
+    @Override
+    public List<NetworkIdentificationType> getNetworkIdentificationTypeList() {
+        NetworkIdentificationTypeEnum[] values = NetworkIdentificationTypeEnum.values();
+        List<NetworkIdentificationType> result = new ArrayList<>(values.length);
+        for (NetworkIdentificationTypeEnum value : values) {
+            result.add(NetworkIdentificationType.getInstance(value));
+        }
+        Collections.sort(result);
+        return result;
+    }
+
+    /**
+     * 获取编码列表
+     *
+     * @return
+     */
+    @Override
+    public List<DeviceType> getDeviceTypeList() {
+        DeviceTypeEnum[] values = DeviceTypeEnum.values();
+        List<DeviceType> result = new ArrayList<>(values.length);
+        for (DeviceTypeEnum value : values) {
+            result.add(DeviceType.getInstance(value));
+        }
+        Collections.sort(result);
+        return result;
+    }
+
+    /**
+     * 获取行业编码列表
+     *
+     * @return
+     */
+    @Override
+    public List<IndustryCodeType> getIndustryCodeList() {
+        IndustryCodeTypeEnum[] values = IndustryCodeTypeEnum.values();
+        List<IndustryCodeType> result = new ArrayList<>(values.length);
+        for (IndustryCodeTypeEnum value : values) {
+            result.add(IndustryCodeType.getInstance(value));
+        }
+        Collections.sort(result);
+        return result;
+    }
+
+    /**
+     * 获取关联业务分组通道列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    @Override
+    public List<QsDevice> queryListByParentId(QsDevice qsDevice) {
+        return qsDeviceMapper.queryListByParentId(qsDevice);
+    }
+
+    /**
+     * 设备设置业务分组
+     *
+     * @param parentId
+     * @param businessGroup
+     * @param deviceIds
+     */
+    @Override
+    public void addChannelToGroup(String parentId, String businessGroup, List<Long> deviceIds) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByIds(deviceIds);
+        if (deviceList.isEmpty()) {
+            throw new RuntimeException("所有设备Id不存在");
+        }
+        int result = qsDeviceMapper.updateGroup(parentId, businessGroup, deviceList);
+    }
+
+    /**
+     * 删除业务分组设备
+     *
+     * @param parentId
+     * @param businessGroup
+     * @param deviceIds
+     */
+    @Override
+    public void deleteDeviceToGroup(String parentId, String businessGroup, List<Long> deviceIds) {
+        List<QsDevice> deviceList = qsDeviceMapper.queryByIds(deviceIds);
+        if (deviceList.isEmpty()) {
+            throw new RuntimeException("所有通道Id不存在");
+        }
+        qsDeviceMapper.removeParentIdByDevices(deviceList);
+    }
+
+    /**
+     * 存在父节点编号但无法挂载的设备列表
+     *
+     * @param qsDevice
+     * @return
+     */
+    @Override
+    public List<QsDevice> queryListByParentForUnusual(QsDevice qsDevice) {
+        return qsDeviceMapper.queryListByParentForUnusual(qsDevice);
+    }
+
+    /**
+     * 清除存在分组节点但无法挂载的设备列表
+     *
+     * @param all
+     * @param deviceIds
+     */
+    @Override
+    public void clearDeviceParent(Boolean all, List<Long> deviceIds) {
+        List<Long> deviceIdsForClear;
+        if (all != null && all) {
+            deviceIdsForClear = qsDeviceMapper.queryAllForUnusualParent();
+        } else {
+            deviceIdsForClear = deviceIds;
+        }
+        qsDeviceMapper.removeParentIdByDeviceIds(deviceIdsForClear);
     }
 
     private void deleteToRegionByChannelIds(List<Long> deviceIds) {
