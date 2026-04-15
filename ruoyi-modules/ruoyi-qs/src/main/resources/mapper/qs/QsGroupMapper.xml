@@ -38,6 +38,8 @@
         <result property="manufacturer" column="manufacturer"/>
         <result property="address" column="address"/>
         <result property="ptzType" column="ptz_type"/>
+        <result property="streamType" column="stream_type"/>
+        <result property="ipAddress" column="ip_address"/>
     </resultMap>
 
     <sql id="selectQsGroupVo">
@@ -183,12 +185,16 @@
         SELECT
             id,
             id AS tree_id,
+            ip_address AS ip_address,
             longitude AS longitude,
             latitude  AS latitude,
             device_name AS name,
             device_status AS status,
             type,
-            flv_type
+            flv_type AS flv_type,
+            address AS address,
+            manufacturer AS manufacturer,
+            type AS stream_type
         FROM qs_device
         WHERE (gb_parent_id IS NOT NULL AND TRIM(gb_parent_id) != '')
           AND (

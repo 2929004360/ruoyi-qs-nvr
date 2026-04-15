@@ -898,7 +898,7 @@ const onvifAuthLogin = () => {
  */
 const handlePlay = (row: QsDevice) => {
   row.loading = true
-  // rtsp协议或者rtmp
+
   if (row.type === '1' || row.type === '2' || row.type === '3' || row.type === '4' || row.type === '5') {
     let data = {
       deviceId: row.id,

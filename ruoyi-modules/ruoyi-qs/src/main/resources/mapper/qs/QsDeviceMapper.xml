@@ -39,6 +39,9 @@
         <result property="gbCivilCode" column="gb_civil_code"/>
         <result property="gbBusinessGroupId" column="gb_business_group_id"/>
         <result property="gbParentId" column="gb_parent_id"/>
+        <result property="manufacturer" column="manufacturer"/>
+        <result property="address" column="address"/>
+        <result property="ptzType" column="ptz_type"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -52,14 +55,17 @@
         <result property="name" column="name"/>
         <result property="parentId" column="parent_id"/>
         <result property="parentDeviceId" column="parent_device_id"/>
-        <result property="status" column="status"/>
+        <result property="treeId" column="tree_id"/>
         <result property="isLeaf" column="is_leaf"/>
         <result property="type" column="type"/>
-        <result property="treeId" column="tree_id"/>
+        <result property="status" column="status"/>
         <result property="longitude" column="longitude"/>
         <result property="latitude" column="latitude"/>
-        <result property="createTime" column="create_time"/>
-        <result property="updateTime" column="update_time"/>
+        <result property="manufacturer" column="manufacturer"/>
+        <result property="address" column="address"/>
+        <result property="ptzType" column="ptz_type"/>
+        <result property="streamType" column="stream_type"/>
+        <result property="ipAddress" column="ip_address"/>
     </resultMap>
 
     <resultMap type="QsGroupTree" id="QsGroupTreeResult">
@@ -82,6 +88,8 @@
         <result property="manufacturer" column="manufacturer"/>
         <result property="address" column="address"/>
         <result property="ptzType" column="ptz_type"/>
+        <result property="streamType" column="stream_type"/>
+        <result property="ipAddress" column="ip_address"/>
     </resultMap>
 
     <sql id="selectQsDeviceVo">
@@ -119,6 +127,9 @@
                gb_civil_code,
                gb_business_group_id,
                gb_parent_id,
+               manufacturer,
+               address,
+               ptz_type,
                create_by,
                create_time,
                update_by,
@@ -188,6 +199,9 @@
             <if test="gbCivilCode != null">gb_civil_code,</if>
             <if test="gbBusinessGroupId != null">gb_business_group_id,</if>
             <if test="gbParentId != null">gb_parent_id,</if>
+            <if test="manufacturer != null">manufacturer,</if>
+            <if test="address != null">address,</if>
+            <if test="ptzType != null">ptz_type,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -228,6 +242,8 @@
             <if test="gbCivilCode != null">#{gbCivilCode},</if>
             <if test="gbBusinessGroupId != null">#{gbBusinessGroupId},</if>
             <if test="gbParentId != null">#{gbParentId},</if>
+            <if test="manufacturer != null">#{manufacturer},</if>
+            <if test="ptzType != null">#{ptzType},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -272,6 +288,9 @@
             <if test="gbCivilCode != null">gb_civil_code = #{gbCivilCode},</if>
             <if test="gbBusinessGroupId != null">gb_business_group_id = #{gbBusinessGroupId},</if>
             <if test="gbParentId != null">gb_parent_id = #{gbParentId},</if>
+            <if test="manufacturer != null">manufacturer = #{manufacturer},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="ptzType != null">ptz_type = #{ptzType},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -467,13 +486,17 @@
 
     <select id="queryForRegionTreeByCivilCode" resultMap="QsRegionTreeResult"
             parameterType="java.lang.String">
-        SELECT id            as tree_id,
-               device_name   as name,
+        SELECT id as id,
+               device_name as name,
                device_status as status,
-               true          as is_leaf,
-               longitude     as longitude,
-               1             as type,
-               latitude      as latitude
+               true as is_leaf,
+               longitude as longitude,
+               1 as type,
+               latitude as latitude,
+               type as stream_type,
+               manufacturer as manufacturer,
+               address as address,
+               ptz_type as ptz_type
         FROM qs_device
         WHERE gb_civil_code = #{deviceId}
     </select>
@@ -499,13 +522,17 @@
     </select>
 
     <select id="queryForGroupTreeByParentId" resultMap="QsGroupTreeResult">
-        SELECT id as tree_id,
+        SELECT id as id,
         device_name as name,
         device_status as status,
         true as is_leaf,
         longitude as longitude,
         1 as type,
-        latitude as latitude
+        latitude as latitude,
+        type as stream_type,
+        manufacturer as manufacturer,
+        address as address,
+        ptz_type as ptz_type
         FROM qs_device
         WHERE gb_parent_id = #{parent}
         <if test="query != null and query != ''">

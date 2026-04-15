@@ -88,7 +88,7 @@ public class QsGroupController extends BaseController {
      *
      * @return
      */
-    @GetMapping("/channel/list")
+    @GetMapping("/device/list")
     public AjaxResult queryForDevice() {
         List<QsGroupTree> list = qsGroupService.queryForDevice();
         return success(list);

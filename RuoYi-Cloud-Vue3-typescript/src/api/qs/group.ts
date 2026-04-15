@@ -57,3 +57,11 @@ export function queryForGroupTree(query): Promise<AjaxResult> {
         params: query
     })
 }
+
+// 查询分组节点设备
+export function queryGroupForDevice(): Promise<AjaxResult> {
+    return request({
+        url: `/qs/group/device/list`,
+        method: 'get',
+    })
+}

@@ -31,7 +31,7 @@
              style="display: flex;">
 
           <div v-if="!data.leaf">
-            <el-icon :color="chooseId === data.deviceId ? '#0094ff' : ''" :size="18" style="margin-right: 4px">
+            <el-icon :color="chooseId === data.name ? '#0094ff' : ''" :size="18" style="margin-right: 4px">
               <FolderOpened/>
             </el-icon>
           </div>
@@ -43,7 +43,6 @@
               （编号：{{ data.deviceId }}）
              </span>
           </div>
-
         </div>
 
         <div v-else
@@ -53,16 +52,16 @@
               <el-icon color="#409efc" :size="18" style="margin-top: 2px;margin-right: 4px" v-if="data.status === 'ON'">
                 <VideoCamera/>
               </el-icon>
-              <el-icon :size="18" style="margin-top: 2px;margin-right: 4px" v-if="data.status === 'OFF'">
+              <el-icon :size="18" style="margin-top: 2px;margin-right: 4px" v-if="data.status === 'OFFLINE'">
                 <VideoCamera/>
               </el-icon>
 
               <div>{{ node.label }}</div>
 
               <div v-if="data.deviceId">
-             <span v-if="showIndex && checked">
-              （编号：{{ data.deviceId }}）
-             </span>
+               <span v-if="showIndex && checked">
+                （编号：{{ data.deviceId }}）
+               </span>
               </div>
             </div>
 
@@ -70,22 +69,22 @@
               <el-icon color="#409efc" :size="18" style="margin-top: 2px;margin-right: 4px" v-if="data.status === 'ON'">
                 <VideoCamera/>
               </el-icon>
-              <el-icon :size="18" style="margin-top: 2px;margin-right: 4px" v-if="data.status === 'OFF'">
+              <el-icon :size="18" style="margin-top: 2px;margin-right: 4px" v-if="data.status === 'OFFLINE'">
                 <VideoCamera/>
               </el-icon>
 
               <div>{{ node.label }}</div>
 
               <div v-if="data.deviceId">
-             <span v-if="showIndex && checked">
-              （编号：{{ data.deviceId }}）
-             </span>
+               <span v-if="showIndex && checked">
+                （编号：{{ data.deviceId }}）
+               </span>
               </div>
             </div>
           </div>
 
           <div v-else style="display: flex;align-items: center">
-            <el-icon :color="chooseId === data.deviceId ? '#0094ff' : ''" :size="18"
+            <el-icon :color="chooseId === data.name ? '#0094ff' : ''" :size="18"
                      style="margin-right: 4px">
               <FolderOpened/>
             </el-icon>
@@ -93,9 +92,9 @@
             <div>{{ node.label }}</div>
 
             <div v-if="data.deviceId">
-             <span v-if="showIndex && checked">
-              （编号：{{ data.deviceId }}）
-             </span>
+               <span v-if="showIndex && checked">
+                （编号：{{ data.deviceId }}）
+               </span>
             </div>
           </div>
         </div>
@@ -107,12 +106,12 @@
         <li v-for="item in regionList" :key="item.id" class="channel-list-li"
             style="height: 26px; align-items: center;cursor: pointer;" @click="handleNodeClick(item)">
           <span
-              v-if="chooseId !== item.deviceId"
+              v-if="chooseId !== item.name"
               style="color: #409EFF; font-size: 20px"
               class="iconfont icon-bianzubeifen3"
           />
           <span
-              v-if="chooseId === item.deviceId"
+              v-if="chooseId === item.name"
               style="color: #c60135; font-size: 20px"
               class="iconfont icon-bianzubeifen3"
           />
@@ -181,14 +180,6 @@
         <template #icon>
           <el-icon :size="15">
             <Place/>
-          </el-icon>
-        </template>
-      </context-menu-item>
-      <context-menu-item label="修改通道" :disabled="nodeData.name === '根资源组'" @click="updateChannel"
-                         v-if="contextMenu.includes('updateChannel')">
-        <template #icon>
-          <el-icon :size="15">
-            <Edit/>
           </el-icon>
         </template>
       </context-menu-item>
@@ -291,7 +282,7 @@ import {
   queryForRegionQuery,
 } from "@/api/qs/region.js";
 
-const emit = defineEmits(['handleNodeClick', 'playChannel', 'updatePosition', 'updateChannel']);
+const emit = defineEmits(['handleNodeClick', 'playChannel', 'updatePosition']);
 const {proxy} = getCurrentInstance();
 
 const searchStr = ref('');
@@ -332,7 +323,7 @@ const data = reactive({
 const {formRegion, rulesRegion, queryParamsRegion} = toRefs(data);
 
 const props = defineProps({
-  hasChannel: Boolean,
+  hasDevice: Boolean,
   showIndex: {
     type: Boolean,
     default: true
@@ -361,7 +352,7 @@ function getQueryForRegionTree() {
   queryForRegionTree({
     query: searchStr.value,
     parent: null,
-    hasChannel: props.hasChannel
+    hasDevice: props.hasDevice
   }).then((res) => {
     let data = [
       {
@@ -419,7 +410,7 @@ async function loadNode(node, resolve) {
       query: '',
       parent: node.data.id,
       leaf: false,
-      hasChannel: props.hasChannel
+      hasDevice: props.hasDevice
     });
 
     let terr = [...proxy.handleTree(res.data, "id")]
@@ -445,7 +436,7 @@ function onContextMenu(e, data) {
 }
 
 function handleNodeClick(data) {
-  chooseId.value = data.deviceId
+  chooseId.value = data.name
   emit('handleNodeClick', data);
 }
 
@@ -697,11 +688,6 @@ function playChannel() {
 function updatePosition() {
   emit('updatePosition', nodeData.value);
 }
-
-function updateChannel() {
-  emit('updateChannel', nodeData.value);
-}
-
 
 defineExpose({
   refresh
