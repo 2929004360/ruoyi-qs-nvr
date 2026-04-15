@@ -102,7 +102,6 @@ defineExpose({
 .device-tree-container {
   width: 100%;
   height: 100%;
-  background-color: #FFFFFF;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -183,14 +182,6 @@ defineExpose({
 
 .device-tree-main-box {
   text-align: left;
-}
-
-.device-online {
-  color: #252525;
-}
-
-.device-offline {
-  color: #727272;
 }
 
 /* Responsive adjustments */
