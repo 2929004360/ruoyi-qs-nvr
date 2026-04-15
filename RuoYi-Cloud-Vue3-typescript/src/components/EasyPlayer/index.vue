@@ -1,7 +1,7 @@
 <template>
   <div style="background-color: #000"
        :style="isPercentage ? `width: ${width};height: ${height}` : `width: ${width}px;height: ${height}px`">
-    <div class="player_box" id="player_box"/>
+    <div class="player_box" :id="id ? id : 'player_box'"/>
   </div>
 </template>
 
@@ -79,7 +79,10 @@ const props = defineProps({
     type: Boolean,
     default: true
   },
-
+  // id
+  id: {
+    type: String,
+  },
 })
 
 const easyplayer = ref<any>(null)
@@ -99,8 +102,12 @@ onBeforeUnmount(() => {
  * 创建播放器
  */
 const playCreate = () => {
-  var container = document.getElementById('player_box');
-  // 2. 修复：直接使用 easyplayer.value 接收实例，避免变量名冲突
+  var container = null
+  if (!props.id) {
+    container = document.getElementById('player_box');
+  } else {
+    container = document.getElementById(props.id);
+  }
 
   let config = {
     isLive: props.isLive, // 是否直播 默认：true
