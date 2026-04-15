@@ -335,4 +335,11 @@ public interface IQsDeviceService {
      * @param deviceIds
      */
     void clearDeviceParent(Boolean all, List<Long> deviceIds);
+
+    /**
+     * 获取设备统计信息
+     *
+     * @return
+     */
+    DeviceStats getDeviceStatistics();
 }

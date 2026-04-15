@@ -95,6 +95,13 @@
             <version>33.4.8-jre</version>
         </dependency>
 
+        <!-- 获取系统信息 -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>6.6.5</version>
+        </dependency>
+
         <!--JavaCV相关依赖-->
         <dependency>
             <groupId>org.bytedeco</groupId>

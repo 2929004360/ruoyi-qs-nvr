@@ -339,4 +339,14 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
             throw new RuntimeException(zlmResult.getMsg());
         }
     }
+
+    @Override
+    public ZLMResult<?> getThreadsLoad(ZlmMediaServer mediaServer) {
+        return zlmresTfulUtils.getThreadsLoad(mediaServer);
+    }
+
+    @Override
+    public ZLMResult<?> getWorkThreadsLoad(ZlmMediaServer mediaServer) {
+        return zlmresTfulUtils.getWorkThreadsLoad(mediaServer);
+    }
 }

@@ -1,10 +1,7 @@
 package com.ruoyi.qs.mapper;
 
 import com.ruoyi.qs.api.domain.QsDevice;
-import com.ruoyi.qs.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
-import com.ruoyi.qs.domain.QsRegion;
-import com.ruoyi.qs.domain.QsRegionTree;
+import com.ruoyi.qs.domain.*;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -339,4 +336,11 @@ public interface QsDeviceMapper {
      * @param deviceIdsForClear
      */
     void removeParentIdByDeviceIds(@Param("deviceIdsForClear") List<Long> deviceIdsForClear);
+
+    /**
+     * 获取设备统计信息
+     *
+     * @return
+     */
+    DeviceStats getDeviceStatistics();
 }

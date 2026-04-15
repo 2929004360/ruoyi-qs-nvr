@@ -1294,6 +1294,29 @@ public class MediaServerServiceImpl implements IMediaServerService {
     }
 
     /**
+     * 获取流媒体服务器负载
+     *
+     * @param mediaServer
+     * @return
+     */
+    @Override
+    public MediaServerLoad getLoad(ZlmMediaServer mediaServer) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[closeStreams] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            throw new RuntimeException("[closeStreams] 失败, mediaServer的类型： " + mediaServer.getType() + "，未找到对应的实现类");
+        }
+        ZLMResult<?> threadsLoadZlmResult = mediaNodeServerService.getThreadsLoad(mediaServer);
+        ZLMResult<?> workThreadsLoadZlmResult = mediaNodeServerService.getWorkThreadsLoad(mediaServer);
+
+        MediaServerLoad result = new MediaServerLoad();
+        result.setWorkThreadsLoad(workThreadsLoadZlmResult.getData());
+        result.setThreadsLoad(threadsLoadZlmResult.getData());
+        result.setId(mediaServer.getId());
+        return result;
+    }
+
+    /**
      * 将 WebSocket 协议地址转换为 HTTP 协议地址
      * ws:// -> http://
      * wss:// -> https://

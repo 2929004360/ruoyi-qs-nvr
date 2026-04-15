@@ -793,6 +793,16 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         qsDeviceMapper.removeParentIdByDeviceIds(deviceIdsForClear);
     }
 
+    /**
+     * 获取设备统计信息
+     *
+     * @return
+     */
+    @Override
+    public DeviceStats getDeviceStatistics() {
+        return qsDeviceMapper.getDeviceStatistics();
+    }
+
     private void deleteToRegionByChannelIds(List<Long> deviceIds) {
         List<QsDevice> deviceList = qsDeviceMapper.queryByIds(deviceIds);
         if (deviceList.isEmpty()) {

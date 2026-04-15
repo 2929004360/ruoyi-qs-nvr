@@ -882,4 +882,36 @@ public class ZLMRESTfulUtils {
             }
         }
     }
+
+    public ZLMResult<?> getThreadsLoad(ZlmMediaServer mediaServer) {
+        Map<String, Object> param = new HashMap<>(1);
+
+        String response = sendPost(mediaServer, "getThreadsLoad", param, null);
+        if (response == null) {
+            return ZLMResult.getFailForMediaServer();
+        } else {
+            ZLMResult<?> zlmResult = JSON.parseObject(response, ZLMResult.class);
+            if (zlmResult == null) {
+                return ZLMResult.getFailForMediaServer();
+            } else {
+                return zlmResult;
+            }
+        }
+    }
+
+    public ZLMResult<?> getWorkThreadsLoad(ZlmMediaServer mediaServer) {
+        Map<String, Object> param = new HashMap<>(1);
+
+        String response = sendPost(mediaServer, "getWorkThreadsLoad", param, null);
+        if (response == null) {
+            return ZLMResult.getFailForMediaServer();
+        } else {
+            ZLMResult<?> zlmResult = JSON.parseObject(response, ZLMResult.class);
+            if (zlmResult == null) {
+                return ZLMResult.getFailForMediaServer();
+            } else {
+                return zlmResult;
+            }
+        }
+    }
 }

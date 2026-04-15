@@ -2,6 +2,7 @@ package com.ruoyi.zlm.service;
 
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
+import com.ruoyi.zlm.domain.MediaServerLoad;
 import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.Snap;
 
@@ -294,4 +295,12 @@ public interface IMediaServerService {
      * @param callback 回调
      */
     void play(QsDevice device, Boolean record, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * 获取流媒体服务器负载
+     *
+     * @param mediaServer
+     * @return
+     */
+    MediaServerLoad getLoad(ZlmMediaServer mediaServer);
 }

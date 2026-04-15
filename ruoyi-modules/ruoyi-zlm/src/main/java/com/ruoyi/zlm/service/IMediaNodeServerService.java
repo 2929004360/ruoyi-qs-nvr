@@ -3,6 +3,7 @@ package com.ruoyi.zlm.service;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.CommonCallback;
 import com.ruoyi.zlm.domain.RecordInfo;
+import com.ruoyi.zlm.domain.dto.ZLMResult;
 
 import java.util.List;
 
@@ -46,4 +47,8 @@ public interface IMediaNodeServerService {
     void startRecord(ZlmMediaServer mediaServer, String app, String stream);
 
     void stopRecord(ZlmMediaServer mediaServer, String app, String stream);
+
+    ZLMResult<?> getThreadsLoad(ZlmMediaServer mediaServer);
+
+    ZLMResult<?> getWorkThreadsLoad(ZlmMediaServer mediaServer);
 }

@@ -2,13 +2,7 @@
 	<img alt="logo" src="https://oscimg.oschina.net/oscnet/up-b99b286755aef70355a7084753f89cdb7c9.png">
 </p>
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">RuoYi v3.6.7</h1>
-<h4 align="center">基于 Vue/Element UI 和 Spring Boot/Spring Cloud & Alibaba 前后端分离的分布式微服务架构</h4>
-<p align="center">
-	<a href="https://gitee.com/y_project/RuoYi-Cloud/stargazers"><img src="https://gitee.com/y_project/RuoYi-Cloud/badge/star.svg?theme=dark"></a>
-	<a href="https://gitee.com/y_project/RuoYi-Cloud"><img src="https://img.shields.io/badge/RuoYi-v3.6.7-brightgreen.svg"></a>
-	<a href="https://gitee.com/y_project/RuoYi-Cloud/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mashape/apistatus.svg"></a>
-</p>
-
+<h4 align="center">基于 wvp-pro 的qs-nvr系统</h4>
 ## 平台简介
 
 若依是一套全部开源的快速开发平台，毫无保留给个人及企业免费使用。
@@ -18,29 +12,6 @@
 * 注册中心、配置中心选型Nacos，权限认证使用Redis。
 * 流量控制框架选型Sentinel，分布式事务选型Seata。
 * 阿里云优惠券：[点我进入](http://aly.ruoyi.vip)，腾讯云优惠券：[点我进入](http://txy.ruoyi.vip)&nbsp;&nbsp;
-
-# 版本分支
-
-RuoYi-Cloud 后端项目提供 Spring Boot 2.x / 3.x / 4.x 多版本分支的并行维护。
-
-| 名称              | 说明                      | 地址                                                      |
-| :---------------- | :------------------------ | :-------------------------------------------------------- |
-| master 默认分支   | Spring Boot 4.x (JDK 17+、Nacos 3.x) | https://gitee.com/y_project/RuoYi-Cloud                   |
-| springboot3 分支  | Spring Boot 3.x (JDK 17+、Nacos 3.x) | https://gitee.com/y_project/RuoYi-Cloud/tree/springboot3  |
-| springboot2 分支  | Spring Boot 2.x (JDK 8+、Nacos 2.x)  | https://gitee.com/y_project/RuoYi-Cloud/tree/springboot2  |  
-
-RuoYi-Cloud 前端项目提供 Vue 2.x / 3.x / JavaScript TypeScript 版本均可混用搭配
-
-| 项目名称      | **RuoYi-Cloud** | **RuoYi-Cloud-Vue3** | **RuoYi-Cloud-Vue3-TypeScript**   |
-| :---          | :---            | :---                 | :---                              |
-| **前端框架**  | Vue 2           | Vue 3                | Vue 3                             |
-| **脚本语言**  | JavaScript      | JavaScript           | TypeScript                        |
-| **构建工具**  | Vue CLI         | Vite                 | Vite                              |
-| **UI 组件库** | Element UI      | Element Plus         | Element Plus                      |
-| **状态管理**  | Vuex            | Pinia                | Pinia                             |
-| **路由管理**  | Vue Router 3    | Vue Router 4         | Vue Router 4                      |
-| **核心特点**  | 1. 技术栈经典稳定<br>2. 社区资料丰富<br>3. 当前维护重心已转移 | 1. 现代前端技术栈<br>2. 开发体验与性能更优<br>3. 官方主推的活跃版本 | 1. 类型加持，减少沟通成本<br>2. 开发时有提示，效率更高<br>3. 多人协作企业级开发项目 |
-| **仓库地址**  | [RuoYi-Cloud](https://gitee.com/y_project/RuoYi-Cloud) | [RuoYi-Cloud-Vue3](https://gitcode.com/yangzongzhuan/RuoYi-Cloud-Vue3) | [RuoYi-Cloud-Vue3-TypeScript](https://gitcode.com/yangzongzhuan/RuoYi-Cloud-Vue3/tree/typescript) |
 
 ## 系统模块
 
@@ -71,10 +42,6 @@ com.ruoyi
 ├──pom.xml                // 公共依赖
 ~~~
 
-## 架构图
-
-<img src="https://oscimg.oschina.net/oscnet/up-82e9722ecb846786405a904bafcf19f73f3.png"/>
-
 ## 内置功能
 
 1.  用户管理：用户是系统操作者，该功能主要完成系统用户配置。
@@ -94,14 +61,6 @@ com.ruoyi
 15. 服务监控：监视当前系统CPU、内存、磁盘、堆栈等相关信息。
 16. 在线构建器：拖动表单元素生成相应的HTML代码。
 17. 连接池监视：监视当前系统数据库连接池状态，可进行分析SQL找出系统性能瓶颈。
-
-## 在线体验
-
-- admin/admin123  
-- 陆陆续续收到一些打赏，为了更好的体验已用于演示服务器升级。谢谢各位小伙伴。
-
-演示地址：http://ruoyi.vip  
-文档地址：http://doc.ruoyi.vip
 
 ## 演示图
 
@@ -143,8 +102,3 @@ com.ruoyi
         <td><img src="https://oscimg.oschina.net/oscnet/up-5e4daac0bb59612c5038448acbcef235e3a.png"/></td>
     </tr>
 </table>
-
-
-## 若依微服务交流群
-
-QQ群： [![加入QQ群](https://img.shields.io/badge/已满-42799195-blue.svg)](https://jq.qq.com/?_wv=1027&k=yqInfq0S) [![加入QQ群](https://img.shields.io/badge/已满-170157040-blue.svg)](https://jq.qq.com/?_wv=1027&k=Oy1mb3p8) [![加入QQ群](https://img.shields.io/badge/已满-130643120-blue.svg)](https://jq.qq.com/?_wv=1027&k=rvxkJtXK) [![加入QQ群](https://img.shields.io/badge/已满-225920371-blue.svg)](https://jq.qq.com/?_wv=1027&k=0Ck3PvTe) [![加入QQ群](https://img.shields.io/badge/已满-201705537-blue.svg)](https://jq.qq.com/?_wv=1027&k=FnHHP4TT) [![加入QQ群](https://img.shields.io/badge/已满-236543183-blue.svg)](https://jq.qq.com/?_wv=1027&k=qdT1Ojpz) [![加入QQ群](https://img.shields.io/badge/已满-213618602-blue.svg)](https://jq.qq.com/?_wv=1027&k=nw3OiyXs) [![加入QQ群](https://img.shields.io/badge/已满-148794840-blue.svg)](https://jq.qq.com/?_wv=1027&k=kiU5WDls) [![加入QQ群](https://img.shields.io/badge/已满-118752664-blue.svg)](https://jq.qq.com/?_wv=1027&k=MtBy6YfT) [![加入QQ群](https://img.shields.io/badge/已满-101038945-blue.svg)](https://jq.qq.com/?_wv=1027&k=FqImHgH2) [![加入QQ群](https://img.shields.io/badge/已满-128355254-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=G4jZ4EtdT50PhnMBudTnEwgonxkXOscJ&authKey=FkGHYfoTKlGE6wHdKdjH9bVoOgQjtLP9WM%2Fj7pqGY1msoqw9uxDiBo39E2mLgzYg&noverify=0&group_code=128355254) [![加入QQ群](https://img.shields.io/badge/已满-179219821-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=irnwcXhbLOQEv1g-TwGifjNTA_f4wZiA&authKey=4bpzEwhcUY%2FvsPDHvzYn6xfoS%2FtOArvZ%2BGXzfr7O0%2FEqLfkKA%2BuCDXlzHIFg8t93&noverify=0&group_code=179219821) [![加入QQ群](https://img.shields.io/badge/已满-158753145-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=lx1uEdEDuxeM7rUvF3qmlFdqKqdJ5Z-R&authKey=rgyPW9yhhh4IIURKVFa6NgP3qiqH04WAzrJ0trsgkr3pjzm6sKIOGyA58oOjoj%2FJ&noverify=0&group_code=158753145) [![加入QQ群](https://img.shields.io/badge/112869560-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Kuaw0Xdlw2Nlgn6s8h9elzuquHGxGObD&authKey=cSrQcWQ%2BzQZAFFrwxaR%2BbzcumX4WRduZnd1O6JO1dlclQMiu%2BKwxAy8t2JfNp67V&noverify=0&group_code=112869560) 点击按钮入群。

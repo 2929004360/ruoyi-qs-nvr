@@ -128,3 +128,13 @@ export function closeStreams(id: string): Promise<AjaxResult> {
         method: 'get',
     })
 }
+
+/**
+ * 获取负载信息
+ */
+export function getMediaLoad(): Promise<AjaxResult> {
+    return request({
+        url: '/zlm//server/media_server/load',
+        method: 'get',
+    })
+}
