@@ -22,7 +22,9 @@
             <div>
               <div style="font-size: 16px">{{ item.id }}</div>
               <div style="font-size: 14px; color: #999; margin-top: 5px; ">{{ item.ip }}</div>
-              <div style="font-size: 14px; color: #999; margin-top: 5px; ">{{ item.status === "ON" ? '在线' : '离线'}}</div>
+              <div style="font-size: 14px; color: #999; margin-top: 5px; ">
+                {{ item.status === "ON" ? '在线' : '离线' }}
+              </div>
             </div>
 
             <div>
@@ -33,6 +35,8 @@
                          @click="handleUpdate(item)">编辑
               </el-button>
               <el-button type="text" @click="handleDelete(item)" v-if="!item.defaultServer">移除
+              </el-button>
+              <el-button type="text" @click="handleRestartServer(item)">重启
               </el-button>
             </div>
           </div>
@@ -94,9 +98,9 @@
         <el-descriptions-item label="录像管理服务端口">
           {{ rowData.recordAssistPort }}
         </el-descriptions-item>
-<!--        <el-descriptions-item label="媒体服务RTSPS_PORT">-->
-<!--          {{ rowData.rtspSslPort }}-->
-<!--        </el-descriptions-item>-->
+        <!--        <el-descriptions-item label="媒体服务RTSPS_PORT">-->
+        <!--          {{ rowData.rtspSslPort }}-->
+        <!--        </el-descriptions-item>-->
       </el-descriptions>
     </el-dialog>
   </div>
@@ -104,7 +108,7 @@
 
 <script setup name="MediaServer" lang="ts">
 import router from "@/router";
-import {delMediaServer, getMediaServerList} from "../../../api/qs/zlm.js";
+import {delMediaServer, getMediaServerList, restartServer} from "../../../api/qs/zlm.js";
 import {MediaServer} from "@/types/api";
 
 const {proxy} = getCurrentInstance();
@@ -169,6 +173,18 @@ function handleDelete(row) {
 function handleView(row) {
   openView.value = true
   rowData.value = row;
+}
+
+/** 删除按钮操作 */
+function handleRestartServer(row) {
+  const _ids = row.id
+  proxy.$modal.confirm('重启服务器,只有 Daemon 方式才能重启，否则是直接关闭！是否继续？').then(function () {
+    return restartServer(_ids)
+  }).then(() => {
+    getList()
+    proxy.$modal.msgSuccess("重启成功")
+  }).catch(() => {
+  })
 }
 
 getList();

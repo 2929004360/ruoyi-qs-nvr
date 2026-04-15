@@ -352,6 +352,7 @@
     <update id="linkAll" parameterType="java.lang.Long">
         UPDATE qs_device
         set record_plan_id = #{planId}
+        where status = 'ENABLE'
     </update>
 
     <update id="cleanAll" parameterType="java.lang.Long">
@@ -480,6 +481,8 @@
             <if test="recordPlanId == null">
                 and record_plan_id is null
             </if>
+
+            and status = 'ENABLE'
         </where>
     </select>
 
@@ -495,6 +498,7 @@
         select count(1)
         from qs_device
         where record_plan_id = #{planId}
+        and status = 'ENABLE'
     </select>
 
     <select id="queryByCivilCode" resultMap="QsDeviceResult">
@@ -517,6 +521,7 @@
                ptz_type      as ptz_type
         FROM qs_device
         WHERE gb_civil_code = #{deviceId}
+        and status = 'ENABLE'
     </select>
 
     <select id="queryByBusinessGroup" resultMap="QsRegionTreeResult" parameterType="java.lang.String">
@@ -553,6 +558,7 @@
         ptz_type as ptz_type
         FROM qs_device
         WHERE gb_parent_id = #{parent}
+          and status = 'ENABLE'
         <if test="query != null and query != ''">
             AND device_name LIKE concat('%', #{query}, '%'))
         </if>
@@ -565,6 +571,7 @@
             </if>
             <if test="ipAddress != null  and ipAddress != ''">and ip_address like concat('%', #{ipAddress}, '%')</if>
             <if test="type != null  and type != ''">and type = #{type}</if>
+            <if test="status != null  and status != ''">and status = #{status}</if>
             <if test="deviceStatus != null  and deviceStatus != ''">and device_status = #{deviceStatus}</if>
             <if test="gbCivilCode != null  and gbCivilCode != ''">and gb_civil_code = #{gbCivilCode}</if>
             <if test="gbCivilCode == null  or gbCivilCode ==''">
@@ -587,6 +594,7 @@
         <if test="ipAddress != null  and ipAddress != ''">and d.ip_address like concat('%', #{ipAddress}, '%')</if>
         <if test="type != null  and type != ''">and d.type = #{type}</if>
         <if test="deviceStatus != null  and deviceStatus != ''">and d.device_status = #{deviceStatus}</if>
+        <if test="status != null  and status != ''">and status = #{status}</if>
     </select>
 
     <select id="queryAllForUnusualCivilCode" resultType="java.lang.Long">
@@ -610,6 +618,7 @@
                 AND gb_parent_id is null
             </if>
         </where>
+        <if test="status != null  and status != ''">and status = #{status}</if>
     </select>
 
     <select id="queryListByParentForUnusual" parameterType="QsDevice" resultMap="QsDeviceResult">
@@ -626,6 +635,7 @@
         <if test="ipAddress != null  and ipAddress != ''">and d.ip_address like concat('%', #{ipAddress}, '%')</if>
         <if test="type != null  and type != ''">and d.type = #{type}</if>
         <if test="deviceStatus != null  and deviceStatus != ''">and d.device_status = #{deviceStatus}</if>
+        <if test="status != null  and status != ''">and status = #{status}</if>
     </select>
 
     <select id="queryAllForUnusualParent" resultType="java.lang.Long">

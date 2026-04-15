@@ -58,4 +58,10 @@ public class ZlmCloudRecord extends BaseEntity
 
     /** 文件时长 */
     private Double timeLen;
+
+    /** 查询开始时间 */
+    private String queryStartTime;
+
+    /** 查询结束时间 */
+    private String queryEndTime;
 }

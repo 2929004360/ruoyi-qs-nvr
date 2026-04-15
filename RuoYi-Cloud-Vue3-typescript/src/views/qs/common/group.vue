@@ -270,6 +270,7 @@ const data = reactive({
     type: undefined,
     deviceStatus: undefined,
     gbParentId: undefined,
+    status: 'ENABLE',
   },
   rules: {},
 
@@ -281,6 +282,7 @@ const data = reactive({
     type: undefined,
     deviceStatus: undefined,
     gbParentId: undefined,
+    status: 'ENABLE',
   }
 });
 

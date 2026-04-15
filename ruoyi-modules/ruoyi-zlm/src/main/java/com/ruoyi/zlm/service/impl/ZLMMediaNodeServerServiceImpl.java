@@ -349,4 +349,15 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
     public ZLMResult<?> getWorkThreadsLoad(ZlmMediaServer mediaServer) {
         return zlmresTfulUtils.getWorkThreadsLoad(mediaServer);
     }
+
+    /**
+     * 重启流媒体
+     *
+     * @param mediaServer 流媒体
+     * @return
+     */
+    @Override
+    public void restartServer(ZlmMediaServer mediaServer) {
+        zlmresTfulUtils.restartServer(mediaServer);
+    }
 }

@@ -303,4 +303,12 @@ public interface IMediaServerService {
      * @return
      */
     MediaServerLoad getLoad(ZlmMediaServer mediaServer);
+
+    /**
+     * 重启流媒体
+     *
+     * @param mediaServer 流媒体ID
+     * @return
+     */
+    void restartServer(ZlmMediaServer mediaServer);
 }

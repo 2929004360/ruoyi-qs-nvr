@@ -16,6 +16,7 @@ import com.ruoyi.zlm.hook.HookSubscribe;
 import com.ruoyi.zlm.hook.HookType;
 import com.ruoyi.zlm.mapper.ZlmCloudRecordMapper;
 import com.ruoyi.zlm.service.*;
+import com.ruoyi.zlm.utils.DateUtil;
 import com.ruoyi.zlm.utils.ZLMRESTfulUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,6 +76,25 @@ public class ZlmCloudRecordServiceImpl implements IZlmCloudRecordService {
      */
     @Override
     public List<ZlmCloudRecord> selectZlmCloudRecordList(ZlmCloudRecord zlmCloudRecord) {
+        if (zlmCloudRecord.getMediaServerId() != null) {
+            ZlmMediaServer mediaServer = mediaServerService.getOne(zlmCloudRecord.getMediaServerId());
+            if (mediaServer == null) {
+                throw new RuntimeException("未找到流媒体: " + zlmCloudRecord.getMediaServerId());
+            }
+        }
+        if (zlmCloudRecord.getQueryStartTime() != null) {
+            if (!DateUtil.verification(zlmCloudRecord.getQueryStartTime(), DateUtil.formatter)) {
+                throw new RuntimeException("开始时间格式错误，正确格式为： " + DateUtil.formatter);
+            }
+            zlmCloudRecord.setStartTime(DateUtil.yyyy_MM_dd_HH_mm_ssToTimestampMs(zlmCloudRecord.getQueryStartTime()));
+        }
+        if (zlmCloudRecord.getQueryEndTime() != null) {
+            if (!DateUtil.verification(zlmCloudRecord.getQueryEndTime(), DateUtil.formatter)) {
+                throw new RuntimeException("结束时间格式错误，正确格式为： " + DateUtil.formatter);
+            }
+            zlmCloudRecord.setEndTime(DateUtil.yyyy_MM_dd_HH_mm_ssToTimestampMs(zlmCloudRecord.getQueryEndTime()));
+        }
+
         return zlmCloudRecordMapper.selectZlmCloudRecordList(zlmCloudRecord);
     }
 
@@ -121,6 +141,9 @@ public class ZlmCloudRecordServiceImpl implements IZlmCloudRecordService {
         for (ZlmCloudRecord cloudRecordItem : cloudRecordItemList) {
             String date = new File(cloudRecordItem.getFilePath()).getParentFile().getName();
             ZlmMediaServer mediaServer = mediaServerService.getOne(cloudRecordItem.getMediaServerId());
+            if (mediaServer == null) {
+                throw new RuntimeException("未找到流媒体: " + cloudRecordItem.getMediaServerId());
+            }
             try {
                 boolean deleteResult = mediaServerService.deleteRecordDirectory(mediaServer, cloudRecordItem.getApp(),
                         cloudRecordItem.getStream(), date, cloudRecordItem.getFileName());
@@ -280,7 +303,7 @@ public class ZlmCloudRecordServiceImpl implements IZlmCloudRecordService {
      * @param mediaServerId 使用的节点Id
      * @param app           应用名
      * @param stream        流ID
-     * @param stamp          要定位的时间位置，从录像开始的时间算起
+     * @param stamp         要定位的时间位置，从录像开始的时间算起
      * @param schema        播放协议
      */
     @Override
@@ -306,6 +329,9 @@ public class ZlmCloudRecordServiceImpl implements IZlmCloudRecordService {
                 cloudRecordUrl.setDownloadUrl(redisRpcPlayService.getRecordPlayUrl(cloudRecordItem.getServerId(), cloudRecordItem.getId()).getHttpPath());
             } else {
                 ZlmMediaServer mediaServer = mediaServerService.getOne(cloudRecordItem.getMediaServerId());
+                if (mediaServer == null) {
+                    throw new RuntimeException("媒体节点不存在： " + cloudRecordItem.getMediaServerId());
+                }
                 mediaServer.setStreamIp(mediaServer.getIp());
                 DownloadFileInfo downloadFilePath = mediaServerService.getDownloadFilePath(mediaServer, RecordInfo.getInstance(cloudRecordItem));
                 cloudRecordUrl.setDownloadUrl(downloadFilePath.getHttpPath());

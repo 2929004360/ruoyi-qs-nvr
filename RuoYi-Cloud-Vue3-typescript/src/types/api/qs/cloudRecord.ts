@@ -28,6 +28,10 @@ export interface CloudRecordQueryParams extends PageDomain {
     fileSize?: number;
     /** 文件时长 */
     timeLen?: number;
+    /** 查询开始时间 */
+    queryStartTime?: number;
+    /** 查询结束时间 */
+    queryEndTime?: number;
 }
 
 /** 云端录像配置信息 */

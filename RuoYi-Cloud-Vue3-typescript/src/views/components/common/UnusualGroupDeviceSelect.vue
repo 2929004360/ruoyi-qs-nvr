@@ -138,6 +138,7 @@ const data = reactive({
     ipAddress: undefined,
     type: undefined,
     deviceStatus: undefined,
+    status: 'ENABLE',
   },
 })
 

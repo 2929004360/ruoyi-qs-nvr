@@ -46,15 +46,12 @@
     <select id="selectZlmCloudRecordList" parameterType="ZlmCloudRecord" resultMap="ZlmCloudRecordResult">
         <include refid="selectZlmCloudRecordVo"/>
         <where>
-            <if test="app != null  and app != ''">and app = #{app}</if>
-            <if test="stream != null  and stream != ''">and stream = #{stream}</if>
+            <if test="app != null  and app != ''">and app like concat('%', #{app}, '%')</if>
+            <if test="stream != null  and stream != ''">and stream like concat('%', #{stream}, '%')</if>
             <if test="callId != null  and callId != ''">and call_id = #{callId}</if>
-            <if test="startTime != null ">and start_time = #{startTime}</if>
-            <if test="endTime != null ">and end_time = #{endTime}</if>
+            <if test="startTime != null ">and start_time &gt;= #{startTime}</if>
+            <if test="endTime != null ">and end_time &lt;= #{endTime}</if>
             <if test="mediaServerId != null  and mediaServerId != ''">and media_server_id = #{mediaServerId}</if>
-            <if test="serverId != null  and serverId != ''">and server_id = #{serverId}</if>
-            <if test="fileName != null  and fileName != ''">and file_name like concat('%', #{fileName}, '%')</if>
-            <if test="collect != null ">and collect = #{collect}</if>
         </where>
     </select>
 

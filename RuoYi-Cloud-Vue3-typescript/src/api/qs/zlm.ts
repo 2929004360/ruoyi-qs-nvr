@@ -134,7 +134,27 @@ export function closeStreams(id: string): Promise<AjaxResult> {
  */
 export function getMediaLoad(): Promise<AjaxResult> {
     return request({
-        url: '/zlm//server/media_server/load',
+        url: '/zlm/server/media_server/load',
+        method: 'get',
+    })
+}
+
+/**
+ * 重启流媒体
+ */
+export function restartServer(id): Promise<AjaxResult> {
+    return request({
+        url: '/zlm/restartServer/' + id,
+        method: 'get',
+    })
+}
+
+/**
+ * 获取所有在线媒体服务器
+ */
+export function getAllOnlineMediaServe(): Promise<AjaxResult> {
+    return request({
+        url: '/zlm/getAllOnlineMediaServe',
         method: 'get',
     })
 }

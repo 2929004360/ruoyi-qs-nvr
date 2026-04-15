@@ -354,4 +354,31 @@ public class ZlmController {
         }
         return AjaxResult.success(mediaServerService.getMediaInfo(mediaServer, app, stream));
     }
+
+    /**
+     * 重启流媒体
+     *
+     * @param mediaServerId 流媒体ID
+     * @return
+     */
+    @GetMapping(value = "/restartServer/{mediaServerId}")
+    public AjaxResult restartServer(@PathVariable String mediaServerId) {
+        ZlmMediaServer mediaServer = mediaServerService.getOne(mediaServerId);
+        if (mediaServer == null) {
+            throw new RuntimeException("流媒体不存在");
+        }
+        mediaServerService.restartServer(mediaServer);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 获取所有在线媒体服务器
+     *
+     * @return
+     */
+    @GetMapping(value = "/getAllOnlineMediaServe")
+    public AjaxResult getAllOnlineMediaServe() {
+        return AjaxResult.success(mediaServerService.getAllOnlineMediaServe());
+    }
+
 }

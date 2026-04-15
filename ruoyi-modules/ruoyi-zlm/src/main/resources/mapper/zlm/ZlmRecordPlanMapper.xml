@@ -39,6 +39,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           AND rpi.start &lt;= #{index}
           AND rpi.stop &gt;= #{index}
           AND rp.id IS NOT NULL
+          AND d.status = 'ENABLE'
         GROUP BY d.id
     </select>
 

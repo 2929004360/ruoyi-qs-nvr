@@ -270,6 +270,7 @@ const data = reactive({
     type: undefined,
     deviceStatus: undefined,
     gbCivilCode: undefined,
+    status: 'ENABLE',
   } as DeviceQueryParams,
   rules: {},
 
@@ -281,6 +282,7 @@ const data = reactive({
     type: undefined,
     deviceStatus: undefined,
     gbCivilCode: undefined,
+    status: 'ENABLE',
   }
 });
 

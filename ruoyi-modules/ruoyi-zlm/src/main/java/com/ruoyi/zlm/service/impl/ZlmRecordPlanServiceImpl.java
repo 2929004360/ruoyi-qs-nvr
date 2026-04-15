@@ -255,6 +255,11 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
                             log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备不在线, id: {}", device.getId());
                             return;
                         }
+
+                        if ("DEACTIVATE".equals(device.getStatus())) {
+                            log.warn("[录制计划] 流离开时拉起需要录像的流时, 发现设备未启用, id: {}", device.getId());
+                            return;
+                        }
                         // 开启点播,
                         devicePlayService.play(device, true, ((code, msg, streamInfo) -> {
                             if (code == InviteErrorCode.SUCCESS.getCode() && streamInfo != null) {

@@ -196,7 +196,7 @@
             manufacturer AS manufacturer,
             type AS stream_type
         FROM qs_device
-        WHERE (gb_parent_id IS NOT NULL AND TRIM(gb_parent_id) != '')
+        WHERE status = 'ENABLE' and (gb_parent_id IS NOT NULL AND TRIM(gb_parent_id) != '')
           AND (
                 (longitude IS NOT NULL AND TRIM(longitude) != '')
                 OR

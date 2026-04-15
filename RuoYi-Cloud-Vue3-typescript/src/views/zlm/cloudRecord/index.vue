@@ -17,29 +17,37 @@
             @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="开始时间" prop="startTime">
-        <el-input
-            v-model="queryParams.startTime"
-            placeholder="请输入开始时间"
-            clearable
-            @keyup.enter="handleQuery"
-        />
+      <el-form-item label="开始时间" prop="queryStartTime">
+        <el-date-picker
+            v-model="queryParams.queryStartTime"
+            type="datetime"
+            style="width: 240px"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            placeholder="选择日期时间">
+        </el-date-picker>
       </el-form-item>
-      <el-form-item label="结束时间" prop="endTime">
-        <el-input
-            v-model="queryParams.endTime"
-            placeholder="请输入结束时间"
-            clearable
-            @keyup.enter="handleQuery"
-        />
+      <el-form-item label="结束时间" prop="queryEndTime">
+        <el-date-picker
+            v-model="queryParams.queryEndTime"
+            type="datetime"
+            style="width: 240px"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            placeholder="选择日期时间">
+        </el-date-picker>
       </el-form-item>
       <el-form-item label="媒体节点" prop="mediaServerId">
-        <el-input
+        <el-select
             v-model="queryParams.mediaServerId"
-            placeholder="请输入ZLM Id"
-            clearable
-            @keyup.enter="handleQuery"
-        />
+            style="width: 240px"
+            placeholder="请选择节点选择"
+        >
+          <el-option
+              v-for="item in mediaServerList"
+              :key="item.id"
+              :label="item.id"
+              :value="item.id"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -293,6 +301,7 @@ import momentDurationFormatSetup from 'moment-duration-format'
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
 import MediaInfo from "@/components/Channel/mediaInfo.vue";
+import {getAllOnlineMediaServe} from "@/api/qs/zlm";
 
 const {toClipboard} = useClipboard()
 
@@ -339,6 +348,9 @@ const playSpeedRange = ref([1, 2, 4]);
 const jessibucaHeight = ref("400px");
 const isPaused = ref(false);
 
+
+const mediaServerList = ref([]);
+
 const data = reactive({
   queryParams: {
     pageNum: 1,
@@ -346,16 +358,9 @@ const data = reactive({
     app: undefined,
     stream: undefined,
     callId: undefined,
-    startTime: undefined,
-    endTime: undefined,
+    queryStartTime: undefined,
+    queryEndTime: undefined,
     mediaServerId: undefined,
-    serverId: undefined,
-    fileName: undefined,
-    folder: undefined,
-    filePath: undefined,
-    collect: undefined,
-    fileSize: undefined,
-    timeLen: undefined,
   } as CloudRecordQueryParams,
 })
 
@@ -773,10 +778,20 @@ const updateFullscreenState = () => {
   }
 };
 
+/**
+ * 获取所有在线媒体服务器
+ */
+function getAllOnlineMediaServeFun(){
+  getAllOnlineMediaServe().then((res) => {
+    mediaServerList.value = res.data
+  })
+}
+
 // 组件挂载时添加事件监听
 onMounted(() => {
   document.addEventListener('fullscreenchange', updateFullscreenState);
   getList()
+  getAllOnlineMediaServeFun()
 });
 
 // 组件卸载时移除事件监听，防止内存泄漏

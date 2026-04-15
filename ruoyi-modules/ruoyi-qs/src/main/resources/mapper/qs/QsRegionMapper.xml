@@ -122,8 +122,8 @@
         FROM
             qs_device
         WHERE
-
-            ( gb_civil_code IS NOT NULL AND TRIM( gb_civil_code ) != '' )
+            status = 'ENABLE'
+            and ( gb_civil_code IS NOT NULL AND TRIM( gb_civil_code ) != '' )
 
           AND (
             (

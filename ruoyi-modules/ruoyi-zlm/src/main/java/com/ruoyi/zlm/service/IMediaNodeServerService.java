@@ -51,4 +51,6 @@ public interface IMediaNodeServerService {
     ZLMResult<?> getThreadsLoad(ZlmMediaServer mediaServer);
 
     ZLMResult<?> getWorkThreadsLoad(ZlmMediaServer mediaServer);
+
+    void restartServer(ZlmMediaServer mediaServer);
 }
