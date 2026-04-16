@@ -142,6 +142,82 @@ public class MediaServerServiceImpl implements IMediaServerService {
             String type = OriginType.values()[event.getMediaInfo().getOriginType()].getType();
             redisCatchStorage.addStream(event.getMediaServer(), type, event.getApp(), event.getStream(), event.getMediaInfo());
         }
+
+        // 推流到来处理
+        pushProcessArrival(event);
+
+    }
+
+    /**
+     * 推流到来处理
+     *
+     * @param event
+     */
+    private void pushProcessArrival(MediaArrivalEvent event) {
+        MediaInfo mediaInfo = event.getMediaInfo();
+        if (mediaInfo == null) {
+            return;
+        }
+        if (mediaInfo.getOriginType() != OriginType.RTMP_PUSH.ordinal() && mediaInfo.getOriginType() != OriginType.RTSP_PUSH.ordinal() && mediaInfo.getOriginType() != OriginType.RTC_PUSH.ordinal()) {
+            return;
+        }
+
+        StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(event.getApp(), event.getStream());
+        if (streamAuthorityInfo == null) {
+            streamAuthorityInfo = StreamAuthorityInfo.getInstanceByHook(event);
+        } else {
+            streamAuthorityInfo.setOriginType(mediaInfo.getOriginType());
+        }
+        redisCatchStorage.updateStreamAuthorityInfo(event.getApp(), event.getStream(), streamAuthorityInfo);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream("pull_" + event.getApp() + "_" + event.getStream(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败,stream:{}", event.getStream());
+            return;
+        }
+
+        if (r.getData() == null) {
+            QsDevice device = new QsDevice();
+            device.setDeviceStatus("ON");
+            device.setMediaServerId(mediaInfo.getMediaServer().getId());
+            device.setDeviceName("推流设备_" + event.getApp() + "_" + event.getStream());
+            device.setType(LiveStreamType.PUSH.getCode());
+            device.setStatus("ENABLE");
+            device.setStreamStatus("1");
+            device.setStreamKey("pull_" + event.getApp() + "_" + event.getStream());
+            device.setDeviceCode("pull_" + event.getApp() + "_" + event.getStream());
+
+            String filePath = snapOnPlay(mediaInfo.getMediaServer(), event.getApp(), event.getStream());
+            device.setSnap(filePath);
+
+            R<Boolean> addR = remoteQsDeviceService.addQsDevice(device, SecurityConstants.INNER);
+            if (addR.getCode() != Constants.SUCCESS) {
+                throw new RuntimeException("添加推流设备设备失败" + event.getApp() + "_" + event.getStream());
+            }
+
+            if (!addR.getData()) {
+                throw new RuntimeException("添加推流设备设备失败" + event.getApp() + "_" + event.getStream());
+            }
+        } else {
+            QsDevice device = new QsDevice();
+            device.setDeviceStatus("ON");
+            device.setMediaServerId(mediaInfo.getMediaServer().getId());
+            device.setStreamKey("pull_" + event.getApp() + "_" + event.getStream());
+            device.setStreamStatus("1");
+            device.setId(r.getData().getId());
+            R<Boolean> updateR = remoteQsDeviceService.updateQsDevice(device, SecurityConstants.INNER);
+            if (updateR.getCode() != Constants.SUCCESS) {
+                throw new RuntimeException("修改推流设备设备失败" + event.getApp() + "_" + event.getStream());
+            }
+
+            if (!updateR.getData()) {
+                throw new RuntimeException("修改推流设备设备失败" + event.getApp() + "_" + event.getStream());
+            }
+        }
+
+        // 冗余数据，自己系统中自用
+        redisCatchStorage.addPushListItem(event.getApp(), event.getStream(), event.getMediaInfo());
+
     }
 
     /**
@@ -183,7 +259,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
                 ssrcFactory.releaseSsrc(inviteInfo.getMediaServerId(), null);
             }
-        } else if ("video_file".equals(event.getApp())) {
+        }
+
+        if ("video_file".equals(event.getApp())) {
             R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(event.getStream(), SecurityConstants.INNER);
             if (r.getCode() != Constants.SUCCESS) {
                 return;
@@ -202,6 +280,51 @@ public class MediaServerServiceImpl implements IMediaServerService {
             if (qsDevicer.getCode() != Constants.SUCCESS) {
                 log.error("更新设备失败");
             }
+        }
+
+        // 推流离开处理
+        pushProcessLeave(event);
+    }
+
+    /**
+     * 推流离开处理
+     *
+     * @param event
+     */
+    private void pushProcessLeave(MediaDepartureEvent event) {
+        // 兼容流注销时类型从redis记录获取
+        MediaInfo mediaInfo = redisCatchStorage.getPushListItem(event.getApp(), event.getStream());
+
+        if (mediaInfo != null) {
+            log.info("[推流信息] 查询到redis存在推流缓存， 开始清理，{}/{}", event.getApp(), event.getStream());
+            String type = OriginType.values()[mediaInfo.getOriginType()].getType();
+            // 冗余数据，自己系统中自用
+            redisCatchStorage.removePushListItem(event.getApp(), event.getStream(), event.getMediaServer().getId());
+        }
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream("pull_" + event.getApp() + "_" + event.getStream(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败,stream:{}", event.getStream());
+            return;
+        }
+
+        if (r.getData() == null) {
+            return;
+        }
+
+        QsDevice device = new QsDevice();
+        device.setDeviceStatus("OFFLINE");
+        device.setMediaServerId("");
+        device.setStreamKey("");
+        device.setStreamStatus("0");
+        device.setId(r.getData().getId());
+        R<Boolean> updateR = remoteQsDeviceService.updateQsDevice(device, SecurityConstants.INNER);
+        if (updateR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("修改推流设备设备失败" + event.getApp() + "_" + event.getStream());
+        }
+
+        if (!updateR.getData()) {
+            throw new RuntimeException("修改推流设备设备失败" + event.getApp() + "_" + event.getStream());
         }
     }
 

@@ -78,4 +78,60 @@ public class RedisCatchStorageImpl implements IRedisCatchStorage {
         String objectKey = app+ "_" + stream;
         return (StreamAuthorityInfo)redisTemplate.opsForHash().get(key, objectKey);
     }
+
+    /**
+     * 存储推流的鉴权信息
+     *
+     * @param app 应用名
+     * @param stream 流
+     * @param streamAuthorityInfo 鉴权信息
+     */
+    @Override
+    public void updateStreamAuthorityInfo(String app, String stream, StreamAuthorityInfo streamAuthorityInfo) {
+        String key = VideoManagerConstants.MEDIA_STREAM_AUTHORITY;
+        String objectKey = app+ "_" + stream;
+        redisTemplate.opsForHash().put(key, objectKey, streamAuthorityInfo);
+    }
+
+    /**
+     * 添加推流列表信息到redis
+     *
+     * @param app
+     * @param stream
+     * @param mediaInfo
+     */
+    @Override
+    public void addPushListItem(String app, String stream, MediaInfo mediaInfo) {
+        String key = VideoManagerConstants.PUSH_STREAM_LIST + app + "_" + stream;
+        redisTemplate.opsForValue().set(key, mediaInfo);
+    }
+
+    /**
+     * 获取推流列表信息从redis
+     *
+     * @param app
+     * @param stream
+     * @return
+     */
+    @Override
+    public MediaInfo getPushListItem(String app, String stream) {
+        String key = VideoManagerConstants.PUSH_STREAM_LIST + app + "_" + stream;
+        return (MediaInfo)redisTemplate.opsForValue().get(key);
+    }
+
+    /**
+     * 移除推流的鉴权信息
+     *
+     * @param app
+     * @param stream
+     * @param id
+     */
+    @Override
+    public void removePushListItem(String app, String stream, String id) {
+        String key = VideoManagerConstants.PUSH_STREAM_LIST + app + "_" + stream;
+        MediaInfo param = (MediaInfo)redisTemplate.opsForValue().get(key);
+        if (param != null) {
+            redisTemplate.delete(key);
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package com.ruoyi.qs.service;
 
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.domain.*;
 
@@ -342,4 +343,12 @@ public interface IQsDeviceService {
      * @return
      */
     DeviceStats getDeviceStatistics();
+
+    /**
+     * 新增视频监控设备
+     *
+     * @param qsDevice
+     * @return
+     */
+    int addQsDevice(QsDevice qsDevice);
 }

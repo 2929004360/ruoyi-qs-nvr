@@ -73,6 +73,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<Integer> countRecordPlanDevice(Long planId, String inner) {
                 return R.fail("根据计划id查询设备数量失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Boolean> addQsDevice(QsDevice qsDevice, String inner) {
+                return R.fail("新增视频监控设备失败:" + throwable.getMessage());
+            }
         };
     }
 }

@@ -41,4 +41,40 @@ public interface IRedisCatchStorage {
      * @return
      */
     StreamAuthorityInfo getStreamAuthorityInfo(String app, String stream);
+
+    /**
+     * 存储推流的鉴权信息
+     *
+     * @param app 应用名
+     * @param stream 流
+     * @param streamAuthorityInfo 鉴权信息
+     */
+    void updateStreamAuthorityInfo(String app, String stream, StreamAuthorityInfo streamAuthorityInfo);
+
+    /**
+     * 添加推流列表信息到redis
+     *
+     * @param app
+     * @param stream
+     * @param mediaInfo
+     */
+    void addPushListItem(String app, String stream, MediaInfo mediaInfo);
+
+    /**
+     * 获取推流列表信息从redis
+     *
+     * @param app
+     * @param stream
+     * @return
+     */
+    MediaInfo getPushListItem(String app, String stream);
+
+    /**
+     * 移除推流的鉴权信息
+     *
+     * @param app
+     * @param stream
+     * @param id
+     */
+    void removePushListItem(String app, String stream, String id);
 }

@@ -93,6 +93,11 @@ public class UserSetting {
     private Boolean pushAuthority = Boolean.TRUE;
 
     /**
+     * 推流鉴权， 默认开启
+     */
+    private String pushKey = "a9b7ba70783b617e9998dc4dd82eb3c5";
+
+    /**
      * 设备上线时是否自动同步通道
      */
     private Boolean syncChannelOnDeviceOnline = Boolean.FALSE;

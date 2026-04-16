@@ -138,7 +138,7 @@
             播放
           </el-button>
           <el-button link
-                     v-if="scope.row.streamStatus === '1'"
+                     v-if="scope.row.streamStatus === '1' && scope.row.type !== '13'"
                      type="danger"
                      icon="SwitchButton"
                      @click="handleStopPlay(scope.row)"
@@ -628,13 +628,13 @@ function reset() {
 
 /** 搜索按钮操作 */
 function handleQuery() {
-  queryParams.value.pageNum = 1
   getList()
 }
 
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
+  queryParams.value.pageNum = 1
   handleQuery()
 }
 

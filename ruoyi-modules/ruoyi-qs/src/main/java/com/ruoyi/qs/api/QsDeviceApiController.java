@@ -122,4 +122,13 @@ public class QsDeviceApiController {
         Integer i = qsDeviceService.countRecordPlanDevice(planId);
         return R.ok(i);
     }
+
+    /**
+     * 新增视频监控设备
+     */
+    @InnerAuth
+    @PostMapping("/addQsDevice")
+    public R<Boolean> addQsDevice(@RequestBody QsDevice qsDevice) {
+        return qsDeviceService.addQsDevice(qsDevice) > 0 ? R.ok(true) : R.ok(false);
+    }
 }

@@ -111,4 +111,14 @@ public interface RemoteQsDeviceService {
      */
     @GetMapping("/api/device/countRecordPlanDevice/{planId}")
     R<Integer> countRecordPlanDevice(@PathVariable Long planId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 新增视频监控设备
+     *
+     * @param qsDevice 视频监控设备
+     * @param inner    请求来源
+     * @return
+     */
+    @PostMapping("/api/device/addQsDevice")
+    public R<Boolean> addQsDevice(QsDevice qsDevice, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

@@ -803,6 +803,17 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         return qsDeviceMapper.getDeviceStatistics();
     }
 
+    /**
+     * 新增视频监控设备
+     *
+     * @param qsDevice
+     * @return
+     */
+    @Override
+    public int addQsDevice(QsDevice qsDevice) {
+        return qsDeviceMapper.insertQsDevice(qsDevice);
+    }
+
     private void deleteToRegionByChannelIds(List<Long> deviceIds) {
         List<QsDevice> deviceList = qsDeviceMapper.queryByIds(deviceIds);
         if (deviceList.isEmpty()) {

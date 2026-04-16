@@ -102,4 +102,6 @@ public class VideoManagerConstants {
 	 * 设备状态订阅的通知
 	 */
 	public static final String VM_MSG_SUBSCRIBE_DEVICE_STATUS = "device";
+
+	public static final String PUSH_STREAM_LIST = "ZLM_PUSH_STREAM_LIST_";
 }
