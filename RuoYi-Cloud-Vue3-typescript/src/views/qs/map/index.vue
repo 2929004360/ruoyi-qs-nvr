@@ -89,16 +89,10 @@
           <el-row :gutter="10">
             <el-col :span="3"><span style="width: 80px; line-height: 40px; text-align: right;">播放地址：</span></el-col>
             <el-col :span="21">
-              <el-input v-model="flvUrl" :disabled="true" style="margin-top: 10px">
+              <el-input v-model="flvUrl" :disabled="true">
                 <template #prepend>flv地址</template>
                 <template #append>
                   <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(flvUrl)"/>
-                </template>
-              </el-input>
-              <el-input v-model="wsUrl" :disabled="true" style="margin-top: 10px">
-                <template #prepend>wsUrl地址</template>
-                <template #append>
-                  <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(wsUrl)"/>
                 </template>
               </el-input>
             </el-col>
@@ -142,7 +136,7 @@ import {queryRegionForDevice} from "@/api/qs/region";
 import {queryGroupForDevice} from "@/api/qs/group";
 import {getDevice, getVideoSnapshot, updateDevice} from "@/api/qs/device";
 import {PullConfig, RTPServerParam} from "@/types/api";
-import {loadRecord, rtpPlay, streamPullPlay} from "@/api/qs/zlm";
+import {loadRecord, rtpPlay, streamPullPlay, streamPullPush} from "@/api/qs/zlm";
 import {ElLoading} from "element-plus";
 
 const {toClipboard} = useClipboard()
@@ -710,6 +704,31 @@ function play(id) {
       }
 
       rtpPlay(data).then(async (res: any) => {
+        await nextTick(async () => {
+          if (location.protocol === "https:") {
+            flvUrl.value = res.data.https_flv;
+            rtcUrl.value = res.data.rtcs;
+            wsUrl.value = res.data.wss_flv;
+          } else {
+            flvUrl.value = res.data.flv;
+            rtcUrl.value = res.data.rtc;
+            wsUrl.value = res.data.ws_flv;
+          }
+
+          streamInfo.value = res.data;
+          quality.value = []
+          defaultQuality.value = ''
+          isPtz.value = false
+          isQuality.value = false
+          isLive.value = true
+          deviceRow.value = row
+          easyPlayerOpen.value = true
+        })
+      }).finally(() => {
+        loading.close()
+      })
+    }else if (row.type === '13') {
+      streamPullPush(row.id).then(async (res: any) => {
         await nextTick(async () => {
           if (location.protocol === "https:") {
             flvUrl.value = res.data.https_flv;

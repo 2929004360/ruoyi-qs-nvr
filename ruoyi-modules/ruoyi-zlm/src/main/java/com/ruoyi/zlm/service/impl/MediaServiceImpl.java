@@ -44,18 +44,19 @@ public class MediaServiceImpl implements IMediaService {
 
     @Override
     public boolean closeStreamOnNoneReader(String mediaServerId, String app, String stream, String schema) {
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            return false;
+        }
+
+        QsDevice data = r.getData();
+        if (data == null) {
+            return false;
+        }
+
         // 拉流代理
         if ("rtsp".equals(app) || "rtmp".equals(app) || "flv".equals(app) || "hls".equals(app)) {
-            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
-            if (r.getCode() != Constants.SUCCESS) {
-                return false;
-            }
-
-            QsDevice data = r.getData();
-            if (data == null) {
-                return false;
-            }
-
             if ("1".equals(data.getEnableDisableNoneReader())) {
                 // 无人观看停用
                 // 修改数据
@@ -70,16 +71,6 @@ public class MediaServiceImpl implements IMediaService {
                 return false;
             }
         } else if ("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)) {
-            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
-            if (r.getCode() != Constants.SUCCESS) {
-                return false;
-            }
-
-            QsDevice data = r.getData();
-            if (data == null) {
-                return false;
-            }
-
             if ("1".equals(data.getEnableDisableNoneReader())) {
                 // 无人观看停用
                 RTPServerParam rtpServerParam = new RTPServerParam();
@@ -91,9 +82,13 @@ public class MediaServiceImpl implements IMediaService {
             } else {
                 return false;
             }
+        } else if ("push".equals(app)) {
+            if ("1".equals(data.getEnableDisableNoneReader())) {
+                return true;
+            } else {
+                return false;
+            }
         }
-
-
         return true;
     }
 
@@ -147,7 +142,7 @@ public class MediaServiceImpl implements IMediaService {
                 String checkSign = DigestUtils.md5DigestAsHex(checkStr.getBytes());
                 if (!checkSign.equals(sign)) {
                     log.info("推流鉴权失败： sign 无权限: callId={}. sign={}", callId, sign);
-                    throw new RuntimeException("Unauthorized");
+                    throw new RuntimeException("推流鉴权失败： sign 无权限: callId=" + callId + ". sign=" + sign);
                 }
 
                 StreamAuthorityInfo streamAuthorityInfo = StreamAuthorityInfo.getInstanceByHook(app, stream, mediaServer.getId());

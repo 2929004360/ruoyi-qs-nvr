@@ -145,6 +145,12 @@
           >
             停止
           </el-button>
+          <el-button link type="primary"
+                     icon="Position"
+                     @click="handleAccessAddress(scope.row)"
+                     v-if="scope.row.type === '13'">
+            接入地址
+          </el-button>
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)">
             修改
           </el-button>
@@ -429,16 +435,10 @@
           <el-row :gutter="10">
             <el-col :span="3"><span style="width: 80px; line-height: 40px; text-align: right;">播放地址：</span></el-col>
             <el-col :span="21">
-              <el-input v-model="flvUrl" :disabled="true" style="margin-top: 10px">
+              <el-input v-model="flvUrl" :disabled="true">
                 <template #prepend>flv地址</template>
                 <template #append>
                   <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(flvUrl)"/>
-                </template>
-              </el-input>
-              <el-input v-model="wsUrl" :disabled="true" style="margin-top: 10px">
-                <template #prepend>wsUrl地址</template>
-                <template #append>
-                  <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(wsUrl)"/>
                 </template>
               </el-input>
             </el-col>
@@ -465,6 +465,25 @@
       </el-tabs>
     </el-dialog>
 
+    <el-dialog :title="`接入地址-${deviceRow.deviceName}`" v-model="accessAddressOpen" width="600px" append-to-body
+               draggable>
+      <el-form :model="streamPushAddressForm" label-width="100px">
+        <el-form-item label="rtsp地址">
+          <el-input v-model="streamPushAddressForm.rtsp" placeholder="请输入rtsp地址" disabled>
+            <template #append>
+              <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(streamPushAddressForm.rtsp)"/>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="rtmp地址" prop="rtmp">
+          <el-input v-model="streamPushAddressForm.rtmp" placeholder="请输入rtmp地址" disabled>
+            <template #append>
+              <el-button type="primary" :icon="DocumentCopy" @click="handleCopy(streamPushAddressForm.rtmp)"/>
+            </template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
@@ -485,11 +504,20 @@ import {listHaiKangIsupDevice} from "@/api/qs/haikang-isup";
 import {HaikangIsupDevice, PullConfig, RTPServerParam, WSDiscoveryDevice, WSOnvifDevice} from "@/types/api";
 import {DaHuaDevice} from "@/types/api/qs/dahua";
 import {listDaHusDevice} from "@/api/qs/dahua";
-import {closeStreams, loadRecord, rtpPlay, stopRtpPlay, stopStreamPullPlay, streamPullPlay} from "@/api/qs/zlm";
+import {
+  closeStreams,
+  getStreamPushAddress,
+  loadRecord,
+  rtpPlay,
+  stopRtpPlay,
+  stopStreamPullPlay,
+  streamPullPlay, streamPullPush
+} from "@/api/qs/zlm";
 import {DocumentCopy} from '@element-plus/icons-vue'
 import StreamDropdown from "@/components/Channel/streamDropdown.vue";
 import MediaInfo from "@/components/Channel/mediaInfo.vue";
 import {getOnvifDeviceList, onvifLogin} from "@/api/qs/onvif";
+import {ElMessageBox} from "element-plus";
 
 const {toClipboard} = useClipboard()
 
@@ -532,6 +560,9 @@ const defaultQuality = ref('高清');
 const isPtz = ref(true);
 const isQuality = ref(true);
 const isLive = ref(true);
+
+// 接入地址
+const streamPushAddressForm = ref({});
 
 const data = reactive({
   form: {} as QsDevice,
@@ -628,14 +659,14 @@ function reset() {
 
 /** 搜索按钮操作 */
 function handleQuery() {
+  queryParams.value.pageNum = 1
   getList()
 }
 
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
-  queryParams.value.pageNum = 1
-  handleQuery()
+  getList()
 }
 
 // 多选框选中数据
@@ -1038,6 +1069,32 @@ const handlePlay = (row: QsDevice) => {
     }).catch((err) => {
       row.loading = false
     })
+  } else if (row.type === '13') {
+    streamPullPush(row.id).then(async (res: any) => {
+      await nextTick(async () => {
+        if (location.protocol === "https:") {
+          flvUrl.value = res.data.https_flv;
+          rtcUrl.value = res.data.rtcs;
+          wsUrl.value = res.data.wss_flv;
+        } else {
+          flvUrl.value = res.data.flv;
+          rtcUrl.value = res.data.rtc;
+          wsUrl.value = res.data.ws_flv;
+        }
+
+        streamInfo.value = res.data;
+        quality.value = []
+        defaultQuality.value = ''
+        isPtz.value = false
+        isQuality.value = false
+        isLive.value = true
+        deviceRow.value = row
+        row.loading = false
+        easyPlayerOpen.value = true
+      })
+    }).catch((err) => {
+      row.loading = false
+    })
   }
 
 }
@@ -1080,7 +1137,7 @@ const handleStopPlay = (row: QsDevice) => {
       getList()
       proxy.$modal.msgSuccess("停止播放成功");
     })
-  } else if(row.type === '6'){
+  } else if (row.type === '6') {
     closeStreams(row.id).then((res) => {
       getList()
       proxy.$modal.msgSuccess("停止播放成功");
@@ -1098,6 +1155,32 @@ const handleStopPlay = (row: QsDevice) => {
   }
 }
 
+const accessAddressOpen = ref(false)
+
+/**
+ * 接入地址
+ */
+const handleAccessAddress = (row: QsDevice) => {
+  if (row.id != null) {
+    ElMessageBox.prompt('请输入callId', '温馨提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern:
+          /^[a-zA-Z0-9]+$/,
+      inputErrorMessage: '输入callId不合法',
+    })
+        .then(({value}) => {
+          getStreamPushAddress(row.id, "12345678").then((res: any) => {
+            deviceRow.value = row
+            streamPushAddressForm.value = res.data
+            accessAddressOpen.value = true
+          })
+        })
+        .catch(() => {
+
+        })
+  }
+}
 
 let timer = null
 /**

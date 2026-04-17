@@ -7,6 +7,7 @@ import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.Snap;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 媒体服务器Service接口
@@ -290,8 +291,8 @@ public interface IMediaServerService {
     /**
      * 开始播放
      *
-     * @param device 设备信息
-     * @param record 是否录制
+     * @param device   设备信息
+     * @param record   是否录制
      * @param callback 回调
      */
     void play(QsDevice device, Boolean record, ErrorCallback<StreamInfo> callback);
@@ -311,4 +312,21 @@ public interface IMediaServerService {
      * @return
      */
     void restartServer(ZlmMediaServer mediaServer);
+
+    /**
+     * 生成推流地址
+     *
+     * @param id     设备id
+     * @param callId
+     * @return
+     */
+    Map<String, Object> getStreamPushAddress(Long id, String callId);
+
+    /**
+     * 推流播放
+     *
+     * @param id
+     * @param callback
+     */
+    void streamPullPush(Long id, ErrorCallback<StreamInfo> callback);
 }

@@ -96,7 +96,7 @@ import DeviceTree from '@/components/DeviceTree'
 import screenFull from 'screenfull'
 import {ElMessageBox} from "element-plus";
 import {PullConfig, RTPServerParam} from "@/types/api";
-import {loadRecord, rtpPlay, streamPullPlay} from "@/api/qs/zlm";
+import {loadRecord, rtpPlay, streamPullPlay, streamPullPush} from "@/api/qs/zlm";
 import {getDevice, getVideoSnapshot} from "@/api/qs/device";
 
 const {proxy} = getCurrentInstance()
@@ -279,6 +279,31 @@ async function sendDevicePush(id) {
       }
 
       rtpPlay(data).then(async (res: any) => {
+        await nextTick(async () => {
+          let videoUrl
+          if (location.protocol === 'https:') {
+            videoUrl = res.data.wss_flv
+          } else {
+            videoUrl = res.data.ws_flv
+          }
+
+          setPlayUrl(videoUrl, idxTmp)
+          setEnableAudio(row.enableAudio, idxTmp)
+
+          quality.value = []
+          defaultQuality.value = ''
+          isPtz.value = false
+          isQuality.value = false
+          isLive.value = true
+        })
+      }).catch(err => {
+        videoTip.value[idxTmp] = '播放失败'
+      })
+          .finally(() => {
+            loading.value = false
+          })
+    } else if (row.type === '13') {
+      streamPullPush(row.id).then(async (res: any) => {
         await nextTick(async () => {
           let videoUrl
           if (location.protocol === 'https:') {

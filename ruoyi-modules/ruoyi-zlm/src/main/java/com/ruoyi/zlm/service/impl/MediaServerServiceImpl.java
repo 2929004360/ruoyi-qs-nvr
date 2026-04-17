@@ -1,5 +1,6 @@
 package com.ruoyi.zlm.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.nacos.api.model.v2.ErrorCode;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
@@ -45,6 +46,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
+import org.springframework.util.DigestUtils;
 
 import java.util.*;
 
@@ -177,6 +179,14 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
 
         if (r.getData() == null) {
+            r = remoteQsDeviceService.getQsDeviceStream(event.getStream(), SecurityConstants.INNER);
+            if (r.getCode() != Constants.SUCCESS) {
+                log.error("获取设备信息失败,stream:{}", event.getStream());
+                return;
+            }
+        }
+
+        if (r.getData() == null) {
             QsDevice device = new QsDevice();
             device.setDeviceStatus("ON");
             device.setMediaServerId(mediaInfo.getMediaServer().getId());
@@ -202,9 +212,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
             QsDevice device = new QsDevice();
             device.setDeviceStatus("ON");
             device.setMediaServerId(mediaInfo.getMediaServer().getId());
-            device.setStreamKey("pull_" + event.getApp() + "_" + event.getStream());
+            device.setStreamKey(r.getData().getDeviceCode());
             device.setStreamStatus("1");
             device.setId(r.getData().getId());
+            String filePath = snapOnPlay(mediaInfo.getMediaServer(), event.getApp(), event.getStream());
+            device.setSnap(filePath);
             R<Boolean> updateR = remoteQsDeviceService.updateQsDevice(device, SecurityConstants.INNER);
             if (updateR.getCode() != Constants.SUCCESS) {
                 throw new RuntimeException("修改推流设备设备失败" + event.getApp() + "_" + event.getStream());
@@ -309,9 +321,16 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
 
         if (r.getData() == null) {
-            return;
+            r = remoteQsDeviceService.getQsDeviceStream(event.getStream(), SecurityConstants.INNER);
+            if (r.getCode() != Constants.SUCCESS) {
+                log.error("获取设备信息失败,stream:{}", event.getStream());
+                return;
+            }
         }
 
+        if (r.getData() == null) {
+            return;
+        }
         QsDevice device = new QsDevice();
         device.setDeviceStatus("OFFLINE");
         device.setMediaServerId("");
@@ -1461,6 +1480,92 @@ public class MediaServerServiceImpl implements IMediaServerService {
             return;
         }
         mediaNodeServerService.restartServer(mediaServer);
+    }
+
+    /**
+     * 生成推流地址
+     *
+     * @param id     设备id
+     * @param callId
+     * @return
+     */
+    @Override
+    public Map<String, Object> getStreamPushAddress(Long id, String callId) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败");
+        }
+        if (r.getData() == null) {
+            throw new RuntimeException("设备不存在");
+        }
+        ZlmMediaServer mediaServer = getMediaServerForMinimumLoad(null);
+        String sign = DigestUtils.md5DigestAsHex((callId + '_' + userSetting.getPushKey()).getBytes());
+
+        HashMap<String, Object> map = new HashMap<>();
+
+        String rtsp = StrUtil.format("rtsp://{}:{}/push/{}?callId={}&sign={}", mediaServer.getIp(), mediaServer.getRtspPort(), r.getData().getDeviceCode(), callId, sign);
+
+        String rtmp = StrUtil.format("rtmp://{}:{}/push/{}?callId={}&sign={}", mediaServer.getIp(), mediaServer.getRtmpPort(), r.getData().getDeviceCode(), callId, sign);
+        map.put("rtsp", rtsp);
+        map.put("rtmp", rtmp);
+        return map;
+    }
+
+    /**
+     * 推流播放
+     *
+     * @param id
+     * @param callback
+     */
+    @Override
+    public void streamPullPush(Long id, ErrorCallback<StreamInfo> callback) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.info("获取设备信息失败 id:{}", id);
+            callback.run(InviteErrorCode.FAIL.getCode(), "获取设备信息失败", null);
+            return;
+        }
+        if (r.getData() == null) {
+            log.info("设备不存在 id:{}", id);
+            callback.run(InviteErrorCode.FAIL.getCode(), "设备不存在", null);
+            return;
+        }
+        QsDevice device = r.getData();
+
+        if (!LiveStreamType.PUSH.getCode().equals(device.getType())) {
+            log.info("直播流接入类型不对，应当是PUSH id:{}", id);
+            callback.run(InviteErrorCode.FAIL.getCode(), "直播流接入类型不对，应当是PUSH", null);
+            return;
+        }
+
+        ZlmMediaServer mediaServer = getOne(device.getMediaServerId());
+        if (mediaServer != null) {
+            MediaInfo mediaInfo = getMediaInfo(mediaServer, "push", device.getDeviceCode());
+            if (mediaInfo != null) {
+                String callId = null;
+                StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo("push", device.getDeviceCode());
+                if (streamAuthorityInfo != null) {
+                    callId = streamAuthorityInfo.getCallId();
+                }
+                callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), getStreamInfoByAppAndStream(mediaServer, "push", device.getDeviceCode(), mediaInfo));
+                if ("0".equals(device.getStreamStatus())) {
+                    QsDevice qsDevice = new QsDevice();
+                    qsDevice.setId(id);
+                    qsDevice.setStreamStatus("1");
+                    R<Boolean> updateR = remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
+                    if (updateR.getCode() != Constants.SUCCESS) {
+                        log.info("修改推流设备设备失败 id:{}", id);
+                        throw new RuntimeException("修改推流设备设备失败");
+                    }
+
+                    if (!updateR.getData()) {
+                        log.info("修改推流设备设备失败 id:{}", id);
+                        throw new RuntimeException("修改推流设备设备失败");
+                    }
+                }
+                return;
+            }
+        }
     }
 
     /**

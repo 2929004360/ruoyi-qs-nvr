@@ -3,6 +3,7 @@ package com.ruoyi.zlm.controller;
 import com.alibaba.nacos.api.model.v2.ErrorCode;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.enums.LiveStreamType;
+import com.ruoyi.common.core.utils.StringUtils;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.InviteErrorCode;
@@ -16,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
@@ -381,4 +383,52 @@ public class ZlmController {
         return AjaxResult.success(mediaServerService.getAllOnlineMediaServe());
     }
 
+    /**
+     * 生成推流地址
+     *
+     * @return
+     */
+    @GetMapping(value = "/getStreamPushAddress/{id}")
+    public AjaxResult getStreamPushAddress(@PathVariable Long id, String callId) {
+        if (StringUtils.isEmpty(callId)) {
+            return AjaxResult.error("callId不能是空");
+        }
+        return AjaxResult.success(mediaServerService.getStreamPushAddress(id, callId));
+    }
+
+    /**
+     * 推流播放
+     *
+     * @param request
+     * @param id
+     * @return
+     */
+    @GetMapping(value = "/streamPullPush")
+    public DeferredResult<R<StreamContent>> streamPullPush(HttpServletRequest request, Long id) {
+        Assert.notNull(id, "设备ID不可为NULL");
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+        result.onTimeout(() -> {
+            R<StreamContent> fail = R.fail("等待推流超时");
+            result.setResult(fail);
+        });
+
+        mediaServerService.streamPullPush(id, (code, msg, streamInfo) -> {
+            if (code == 0 && streamInfo != null) {
+                if (userSetting.getUseSourceIpAsStreamIp()) {
+                    streamInfo = streamInfo.clone();//深拷贝
+                    String host;
+                    try {
+                        URL url = new URL(request.getRequestURL().toString());
+                        host = url.getHost();
+                    } catch (MalformedURLException e) {
+                        host = request.getLocalAddr();
+                    }
+                    streamInfo.changeStreamIp(host);
+                }
+                R<StreamContent> success = R.ok(new StreamContent(streamInfo));
+                result.setResult(success);
+            }
+        });
+        return result;
+    }
 }

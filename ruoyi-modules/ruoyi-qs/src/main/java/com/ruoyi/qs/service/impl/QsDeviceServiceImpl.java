@@ -98,7 +98,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     public int insertQsDevice(QsDevice qsDevice) {
         qsDevice.setCreateBy(String.valueOf(SecurityUtils.getUserId()));
         qsDevice.setCreateTime(DateUtils.getNowDate());
-
+        qsDevice.setDeviceStatus("ON");
         // RTSP协议
         if (LiveStreamType.RTSP.getCode().equals(qsDevice.getType())) {
             qsDevice.setDeviceCode("rtsp_" + IdUtil.getSnowflakeNextId());
@@ -199,7 +199,12 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             }
         }
 
-        qsDevice.setDeviceStatus("ON");
+        // 推流模式
+        if (LiveStreamType.PUSH.getCode().equals(qsDevice.getType())){
+            qsDevice.setDeviceCode("push_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceStatus("OFFLINE");
+        }
+
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
 

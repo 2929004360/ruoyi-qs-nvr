@@ -158,3 +158,29 @@ export function getAllOnlineMediaServe(): Promise<AjaxResult> {
         method: 'get',
     })
 }
+
+/**
+ * 生成推流地址
+ */
+export function getStreamPushAddress(id: number, callId: string): Promise<AjaxResult> {
+    return request({
+        url: '/zlm/getStreamPushAddress/' + id,
+        method: 'get',
+        params: {
+            callId
+        }
+    })
+}
+
+/**
+ * 推流播放
+ */
+export function streamPullPush(id: number): Promise<AjaxResult> {
+    return request({
+        url: '/zlm/streamPullPush',
+        method: 'get',
+        params: {
+            id
+        }
+    })
+}
