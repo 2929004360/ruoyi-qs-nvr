@@ -15,12 +15,14 @@
 
 * [zlmediakit](https://docs.zlmediakit.com/zh/) 流媒体服务器
 * [ruoyi-cloud](https://doc.ruoyi.vip/ruoyi-cloud/) 流媒体服务器
+* [ruoyi-qs-nvr](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr) 后端地址
+* [ruoyi-qs-nvr-ui](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr-ui) 前端地址
 
 ## 系统模块
 
 ~~~
 com.ruoyi     
-├── RuoYi-Cloud-Vue3-typescript              // 前端框架 [80]
+├── ruoyi-qs-nvr-ui       // 前端框架 [80]
 ├── ruoyi-gateway         // 网关模块 [8080]
 ├── ruoyi-auth            // 认证中心 [9200]
 ├── ruoyi-api             // 接口模块
