@@ -23,9 +23,8 @@ public class StreamDetector {
 
         for (QsDevice device : qsDeviceList) {
             // 使用自定义线程池异步执行
-            CompletableFuture<StreamResult> future = CompletableFuture.supplyAsync(() -> {
-                return detectSingle(device.getId(), device.getLiveAddress());
-            }, taskExecutor).orTimeout(15, TimeUnit.SECONDS); // 兜底超时
+            CompletableFuture<StreamResult> future = CompletableFuture.supplyAsync(() ->
+                    detectSingle(device.getId(), device.getLiveAddress()), taskExecutor).orTimeout(15, TimeUnit.SECONDS); // 兜底超时
 
             futures.add(future);
         }
@@ -59,6 +58,7 @@ public class StreamDetector {
             if (grabber.getFormat() != null) {
                 return new StreamResult(id, "ON");
             }
+
             return new StreamResult(id, "OFFLINE");
 
         } catch (Exception e) {

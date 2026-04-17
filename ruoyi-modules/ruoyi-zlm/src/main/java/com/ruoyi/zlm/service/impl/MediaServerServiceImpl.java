@@ -146,8 +146,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
 
         // 推流到来处理
-        pushProcessArrival(event);
-
+        if ("push".equals(event.getSchema())) {
+            pushProcessArrival(event);
+        }
     }
 
     /**
@@ -295,7 +296,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
 
         // 推流离开处理
-        pushProcessLeave(event);
+        if ("push".equals(event.getSchema())) {
+            pushProcessLeave(event);
+        }
     }
 
     /**
