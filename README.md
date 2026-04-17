@@ -99,6 +99,12 @@ com.ruoyi
 但是本项目也零碎的使用了一些其他的开源代码，在商用的情况下请自行替代或剔除； 由于使用本项目而产生的商业纠纷或侵权行为一概与本项目及开发者无关，
 请自行承担法律风险。 在使用本项目代码时，也应该在授权协议中同时表明本项目依赖的第三方库的协议
 
+## 视频教程
+
+* [ruoyi-qs-nvr](https://www.bilibili.com/video/BV1HCdzBQE4c/) 项目介绍
+* [ruoyi-qs-nvr](https://www.bilibili.com/video/BV11RdBBsEsY/) 项目启动
+
+
 ## 演示图
 
 <table>
