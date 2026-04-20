@@ -146,7 +146,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
 
         // 推流到来处理
-        if ("push".equals(event.getSchema())) {
+        if ("push".equals(event.getApp())) {
             pushProcessArrival(event);
         }
     }
@@ -195,8 +195,8 @@ public class MediaServerServiceImpl implements IMediaServerService {
             device.setType(LiveStreamType.PUSH.getCode());
             device.setStatus("ENABLE");
             device.setStreamStatus("1");
-            device.setStreamKey("pull_" + event.getApp() + "_" + event.getStream());
-            device.setDeviceCode("pull_" + event.getApp() + "_" + event.getStream());
+            device.setStreamKey(event.getApp() + "_" + event.getStream());
+            device.setDeviceCode(event.getStream());
 
             String filePath = snapOnPlay(mediaInfo.getMediaServer(), event.getApp(), event.getStream());
             device.setSnap(filePath);
@@ -296,7 +296,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
         }
 
         // 推流离开处理
-        if ("push".equals(event.getSchema())) {
+        if ("push".equals(event.getApp())) {
             pushProcessLeave(event);
         }
     }
