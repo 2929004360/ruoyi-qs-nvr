@@ -101,8 +101,22 @@ com.ruoyi
 
 ## 视频教程
 
-* [ruoyi-qs-nvr](https://www.bilibili.com/video/BV1HCdzBQE4c/) 项目介绍
-* [ruoyi-qs-nvr](https://www.bilibili.com/video/BV11RdBBsEsY/) 项目启动
+* [ruoyi-qs-nvr 项目介绍](https://www.bilibili.com/video/BV1HCdzBQE4c/) 
+* [ruoyi-qs-nvr 项目启动](https://www.bilibili.com/video/BV11RdBBsEsY/)
+* [ruoyi-qs-nvr 设备接入-rtsp设备](https://www.bilibili.com/video/BV187oTBVEjw/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-rtmp设备](https://www.bilibili.com/video/BV1gLoTB1E91/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-flv设备](https://www.bilibili.com/video/BV1gLoTB1Esd/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-hls设备](https://www.bilibili.com/video/BV18LoTByEoR/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-onvif设备](https://www.bilibili.com/video/BV11CoKBiEoz/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-视频文件设备](https://www.bilibili.com/video/BV12CoKBiE7a/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-海康sdk设备](https://www.bilibili.com/video/BV11CoKBiEyz/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-海康isup设备](https://www.bilibili.com/video/BV12koKBTE7n/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-大华sdk设备](https://www.bilibili.com/video/BV12koKBTEku/?spm_id_from=333.1387.homepage.video_card.click)
+* [ruoyi-qs-nvr 设备接入-push设备](https://www.bilibili.com/video/BV14koKBMEzp/?spm_id_from=333.1387.homepage.video_card.click)
+
+## 文档地址
+
+* [ruoyi-qs-nvr](http://1.12.55.122:5173/)
 
 
 ## 演示图
