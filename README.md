@@ -1,6 +1,6 @@
-<div style="display: flex; justify-content: center; align-items: center; height: 100px; width: 100%;">
-  <img alt="logo" src="https://img.cdn1.vip/i/69e87044d75c6_1776840772.webp" width="100px" height="100px">
-</div>
+<p align="center">
+  <img alt="logo" src="https://img.cdn1.vip/i/69e87044d75c6_1776840772.webp" width="100" height="100">
+</p>
 
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">泉视视频监控系统-nvr</h1>
 <h4 align="center">基于rtsp，rtmp，onvif，海康sdk，海康isup，大华sdk系统，集成nvr视频管理</h4>
