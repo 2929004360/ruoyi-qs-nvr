@@ -1,6 +1,6 @@
 package com.ruoyi.qs.mapper;
 
-import com.ruoyi.qs.domain.QsGroup;
+import com.ruoyi.qs.api.domain.QsGroup;
 import com.ruoyi.qs.domain.QsGroupTree;
 import org.apache.ibatis.annotations.Param;
 

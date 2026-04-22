@@ -1,7 +1,8 @@
 package com.ruoyi.qs.service;
 
-import com.ruoyi.common.core.domain.R;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.api.domain.QsGroup;
+import com.ruoyi.qs.api.domain.QsRegion;
 import com.ruoyi.qs.domain.*;
 
 import java.util.List;

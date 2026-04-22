@@ -1,5 +1,6 @@
 package com.ruoyi.qs.domain;
 
+import com.ruoyi.qs.api.domain.QsRegion;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

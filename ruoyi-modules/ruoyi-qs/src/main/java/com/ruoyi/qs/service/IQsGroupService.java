@@ -1,6 +1,6 @@
 package com.ruoyi.qs.service;
 
-import com.ruoyi.qs.domain.QsGroup;
+import com.ruoyi.qs.api.domain.QsGroup;
 import com.ruoyi.qs.domain.QsGroupTree;
 
 import java.util.List;

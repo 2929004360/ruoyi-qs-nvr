@@ -3,7 +3,7 @@ package com.ruoyi.qs.service.impl;
 import com.google.common.collect.Lists;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.qs.common.GbCode;
-import com.ruoyi.qs.domain.QsGroup;
+import com.ruoyi.qs.api.domain.QsGroup;
 import com.ruoyi.qs.domain.QsGroupTree;
 import com.ruoyi.qs.mapper.QsGroupMapper;
 import com.ruoyi.qs.service.IQsDeviceService;

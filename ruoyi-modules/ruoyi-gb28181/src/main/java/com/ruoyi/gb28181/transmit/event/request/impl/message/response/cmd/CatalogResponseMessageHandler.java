@@ -1,14 +1,20 @@
 package com.ruoyi.gb28181.transmit.event.request.impl.message.response.cmd;
 
+import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.gb28181.config.SipConfig;
 import com.ruoyi.gb28181.domain.Device;
 import com.ruoyi.gb28181.domain.DeviceChannel;
+import com.ruoyi.gb28181.domain.GbCode;
 import com.ruoyi.gb28181.domain.HandlerCatchData;
 import com.ruoyi.gb28181.service.IDeviceChannelService;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.IMessageHandler;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.response.ResponseMessageHandler;
 import com.ruoyi.gb28181.utils.Coordtransform;
+import com.ruoyi.qs.api.common.CivilCodePo;
+import com.ruoyi.qs.api.domain.QsGroup;
+import com.ruoyi.qs.api.domain.QsRegion;
+import com.ruoyi.qs.api.utils.CivilCodeUtil;
 import gov.nist.javax.sip.message.SIPRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.DocumentException;
@@ -117,6 +123,8 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
                     Iterator<Element> deviceListIterator = deviceListElement.elementIterator();
                     if (deviceListIterator != null) {
                         List<DeviceChannel> channelList = new ArrayList<>();
+                        List<QsRegion> regionList = new ArrayList<>();
+                        List<QsGroup> groupList = new ArrayList<>();
                         // 遍历DeviceList
                         while (deviceListIterator.hasNext()) {
                             Element itemDevice = deviceListIterator.next();
@@ -139,12 +147,37 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
                             // 解析通道类型
                             if (channel.getDeviceId().length() <= 8) {
                                 // 行政区划
-                                Region region = Region.getInstance(channel);
+                                QsRegion region = new QsRegion();
+                                region.setName(channel.getName());
+                                region.setDeviceId(channel.getDeviceId());
+                                CivilCodePo parentCode = CivilCodeUtil.INSTANCE.getParentCode(channel.getDeviceId());
+                                if (parentCode != null) {
+                                    region.setParentDeviceId(parentCode.getCode());
+                                }
+                                region.setCreateTime(DateUtils.getNowDate());
+                                region.setUpdateTime(DateUtils.getNowDate());
                                 regionList.add(region);
                                 channel.setChannelType(1);
-                            }else if (channel.getDeviceId().length() == 20){
+                            } else if (channel.getDeviceId().length() == 20) {
                                 // 业务分组/虚拟组织
-                                Group group = Group.getInstance(channel);
+                                GbCode gbCode = GbCode.decode(channel.getDeviceId());
+                                if (gbCode == null || (!gbCode.getTypeCode().equals("215") && !gbCode.getTypeCode().equals("216"))) {
+                                    channelList.add(null);
+                                }
+                                QsGroup group = new QsGroup();
+                                group.setName(channel.getName());
+                                group.setDeviceId(channel.getDeviceId());
+                                group.setCreateTime(DateUtils.getNowDate());
+                                group.setUpdateTime(DateUtils.getNowDate());
+                                if (gbCode.getTypeCode().equals("215")) {
+                                    group.setBusinessGroup(channel.getDeviceId());
+                                } else if (gbCode.getTypeCode().equals("216")) {
+                                    group.setBusinessGroup(channel.getBusinessGroupId());
+                                    group.setParentDeviceId(channel.getParentId());
+                                }
+                                if (group.getBusinessGroup() == null) {
+                                    channelList.add(null);
+                                }
                                 if (group != null) {
                                     channel.setParental(1);
                                     channel.setChannelType(2);
@@ -159,6 +192,8 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
                             channelList.add(channel);
                         }
                         deviceChannelService.updateChannels(take.getDevice(), channelList);
+//                        deviceChannelService.updateChannels(take.getDevice(), regionList);
+//                        deviceChannelService.updateChannels(take.getDevice(), groupList);
                         log.info("[收到通道]设备: {} -> {}个，{}/{}", take.getDevice().getDeviceId(), channelList.size(), sn, sumNum);
                     }
                 }

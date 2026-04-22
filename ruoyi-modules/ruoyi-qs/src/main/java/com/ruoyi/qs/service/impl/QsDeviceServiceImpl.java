@@ -12,6 +12,8 @@ import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.api.domain.QsGroup;
+import com.ruoyi.qs.api.domain.QsRegion;
 import com.ruoyi.qs.domain.*;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.mapper.QsRegionMapper;

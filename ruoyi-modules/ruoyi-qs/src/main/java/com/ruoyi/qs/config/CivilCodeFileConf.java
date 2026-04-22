@@ -1,7 +1,7 @@
 package com.ruoyi.qs.config;
 
-import com.ruoyi.qs.common.CivilCodePo;
-import com.ruoyi.qs.utils.CivilCodeUtil;
+import com.ruoyi.qs.api.common.CivilCodePo;
+import com.ruoyi.qs.api.utils.CivilCodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;

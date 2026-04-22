@@ -1,4 +1,4 @@
-package com.ruoyi.qs.domain;
+package com.ruoyi.qs.api.domain;
 
 import com.ruoyi.common.core.web.domain.BaseEntity;
 import jakarta.validation.constraints.NotNull;

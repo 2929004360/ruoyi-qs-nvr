@@ -1,6 +1,6 @@
 package com.ruoyi.qs.service;
 
-import com.ruoyi.qs.domain.QsRegion;
+import com.ruoyi.qs.api.domain.QsRegion;
 import com.ruoyi.qs.domain.QsRegionTree;
 
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.ruoyi.qs.common;
+package com.ruoyi.qs.api.common;
 
 import org.springframework.util.ObjectUtils;
 

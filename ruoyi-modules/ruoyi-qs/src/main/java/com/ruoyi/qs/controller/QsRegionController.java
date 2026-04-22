@@ -5,7 +5,7 @@ import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.core.web.page.TableDataInfo;
 import com.ruoyi.common.log.annotation.Log;
 import com.ruoyi.common.log.enums.BusinessType;
-import com.ruoyi.qs.domain.QsRegion;
+import com.ruoyi.qs.api.domain.QsRegion;
 import com.ruoyi.qs.domain.QsRegionTree;
 import com.ruoyi.qs.service.IQsRegionService;
 import lombok.extern.slf4j.Slf4j;

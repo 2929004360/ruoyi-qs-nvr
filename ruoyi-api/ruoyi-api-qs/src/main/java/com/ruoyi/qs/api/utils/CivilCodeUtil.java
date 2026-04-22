@@ -1,7 +1,7 @@
-package com.ruoyi.qs.utils;
+package com.ruoyi.qs.api.utils;
 
-import com.ruoyi.qs.common.CivilCodePo;
-import com.ruoyi.qs.domain.QsRegion;
+import com.ruoyi.qs.api.common.CivilCodePo;
+import com.ruoyi.qs.api.domain.QsRegion;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.ObjectUtils;
 
