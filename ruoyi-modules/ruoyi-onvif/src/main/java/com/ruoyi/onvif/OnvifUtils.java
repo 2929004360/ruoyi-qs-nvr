@@ -43,13 +43,20 @@ public class OnvifUtils {
     public static String retrieveXAddr(XmlPullParser xpp) throws IOException, XmlPullParserException {
         String result = "";
         int eventType = xpp.getEventType();
-        while (eventType != XmlPullParser.END_DOCUMENT || (eventType == XmlPullParser.END_TAG && xpp.getName().equals("Service"))) {
+        while (eventType != XmlPullParser.END_DOCUMENT) {
 
             if (eventType == XmlPullParser.START_TAG && xpp.getName().equals("XAddr")) {
-                xpp.next();
-                result = xpp.getText();
+                eventType = xpp.next();
+                if (eventType == XmlPullParser.TEXT) {
+                    result = xpp.getText();
+                }
                 break;
             }
+            
+            if (eventType == XmlPullParser.END_TAG && xpp.getName().equals("Service")) {
+                break;
+            }
+            
             eventType = xpp.next();
         }
 

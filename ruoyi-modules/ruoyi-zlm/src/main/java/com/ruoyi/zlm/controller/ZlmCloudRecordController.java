@@ -1,6 +1,5 @@
 package com.ruoyi.zlm.controller;
 
-import com.alibaba.nacos.api.model.v2.ErrorCode;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.web.controller.BaseController;
 import com.ruoyi.common.core.web.domain.AjaxResult;
@@ -98,8 +97,8 @@ public class ZlmCloudRecordController extends BaseController {
 
             R<StreamContent> wvpResult = new R<>();
             if (code == InviteErrorCode.SUCCESS.getCode()) {
-                wvpResult.setCode(ErrorCode.SUCCESS.getCode());
-                wvpResult.setMsg(ErrorCode.SUCCESS.getMsg());
+                wvpResult.setCode(200);
+                wvpResult.setMsg("操作成功");
 
                 if (streamInfo != null) {
                     if (userSetting.getUseSourceIpAsStreamIp()) {
@@ -170,19 +169,29 @@ public class ZlmCloudRecordController extends BaseController {
             for (CloudRecordUrl recordUrl : cloudRecordItemList) {
                 try {
                     zos.putNextEntry(new ZipEntry(recordUrl.getFileName()));
-                    boolean downloadSuccess = HttpUtils.downLoadFile(recordUrl.getDownloadUrl(), zos);
-                    if (!downloadSuccess) {
-                        log.warn("[下载指定录像文件的压缩包] 下载文件失败: {}", recordUrl.getDownloadUrl());
-                        zos.closeEntry();
-                        continue;
+                    boolean success = false;
+                    
+                    // 优先尝试从本地文件读取
+                    if (recordUrl.getFilePath() != null && !recordUrl.getFilePath().isEmpty()) {
+                        try (FileInputStream fis = new FileInputStream(recordUrl.getFilePath())) {
+                            byte[] buf = new byte[8192]; // 8KB 缓冲区，提高性能
+                            int len;
+                            while ((len = fis.read(buf)) != -1) {
+                                zos.write(buf, 0, len);
+                            }
+                            success = true;
+                        } catch (IOException e) {
+                            log.warn("[下载指定录像文件的压缩包] 本地文件读取失败，尝试网络下载: {}", recordUrl.getFilePath());
+                        }
+                    }
+                    
+                    // 如果本地读取失败，尝试网络下载
+                    if (!success && recordUrl.getDownloadUrl() != null && !recordUrl.getDownloadUrl().isEmpty()) {
+                        success = HttpUtils.downLoadFile(recordUrl.getDownloadUrl(), zos);
                     }
 
-                    try (FileInputStream fis = new FileInputStream(recordUrl.getFilePath())) {
-                        byte[] buf = new byte[8192]; // 8KB 缓冲区，提高性能
-                        int len;
-                        while ((len = fis.read(buf)) != -1) {
-                            zos.write(buf, 0, len);
-                        }
+                    if (!success) {
+                        log.warn("[下载指定录像文件的压缩包] 文件获取失败: {}", recordUrl.getFileName());
                     }
 
                     zos.closeEntry();

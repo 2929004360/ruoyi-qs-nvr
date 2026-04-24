@@ -9,64 +9,40 @@ import com.ruoyi.onvif.api.domain.OnvifDevice;
 import com.ruoyi.onvif.api.domain.WSOnvifDevice;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 /**
- * onvif 任务
+ * ONVIF设备状态任务
  *
- * @FileName onvifTask
+ * @FileName OnvifTask
  * @Description
  * @Author fengcheng
  * @date 2026-03-28
  **/
 @Component("onvifTask")
-public class OnvifTask {
+public class OnvifTask extends AbstractDeviceStatusTask {
 
-    @Autowired
-    private RemoteQsDeviceService remoteQsDeviceService;
+    private final RemoteOnvifService remoteOnvifService;
 
-    @Autowired
-    private RemoteOnvifService remoteOnvifService;
+    public OnvifTask(RemoteQsDeviceService remoteQsDeviceService, RemoteOnvifService remoteOnvifService) {
+        super(remoteQsDeviceService);
+        this.remoteOnvifService = remoteOnvifService;
+    }
 
-    public void task() {
-        QsDevice qsDevice = new QsDevice();
-        qsDevice.setType(LiveStreamType.ONVIF.getCode());
-        R<List<QsDevice>> r = remoteQsDeviceService.list(qsDevice, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
-            throw new SecurityException(r.getMsg());
-        }
+    @Override
+    protected LiveStreamType getDeviceType() {
+        return LiveStreamType.ONVIF;
+    }
 
-        List<QsDevice> deviceList = r.getData();
-
-        Set<Long> onlineDeviceSet = new HashSet<>();
-        Set<Long> offlineDeviceSet = new HashSet<>();
-
-        for (QsDevice device : deviceList) {
-            WSOnvifDevice onvifDevice = new WSOnvifDevice();
-            onvifDevice.setAuth(device.getOnvifAuth());
-            onvifDevice.setIp(device.getIpAddress());
-            onvifDevice.setHostName(device.getOnvifHostName());
-            onvifDevice.setUsername(device.getUserName());
-            onvifDevice.setPassword(device.getPassword());
-            R<OnvifDevice> login = remoteOnvifService.login(onvifDevice, SecurityConstants.INNER);
-            if (login.getCode() == Constants.SUCCESS && login.getData() != null)  {
-                onlineDeviceSet.add(device.getId());
-            }else {
-                offlineDeviceSet.add(device.getId());
-            }
-        }
-
-        if (onlineDeviceSet.size() > 0) {
-            remoteQsDeviceService.updateQsDeviceStatusList(onlineDeviceSet, "ON", SecurityConstants.INNER);
-        }
-
-        if (offlineDeviceSet.size() > 0) {
-            remoteQsDeviceService.updateQsDeviceStatusList(offlineDeviceSet, "OFFLINE", SecurityConstants.INNER);
-        }
+    @Override
+    protected boolean checkDeviceOnline(QsDevice device) {
+        WSOnvifDevice onvifDevice = new WSOnvifDevice();
+        onvifDevice.setAuth(device.getOnvifAuth());
+        onvifDevice.setIp(device.getIpAddress());
+        onvifDevice.setHostName(device.getOnvifHostName());
+        onvifDevice.setUsername(device.getUserName());
+        onvifDevice.setPassword(device.getPassword());
+        R<OnvifDevice> login = remoteOnvifService.login(onvifDevice, SecurityConstants.INNER);
+        return login.getCode() == Constants.SUCCESS && login.getData() != null;
     }
 }

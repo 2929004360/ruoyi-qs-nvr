@@ -117,6 +117,9 @@ public class Gb28181ApiController {
                             R<Boolean> r = remoteZlmService.connectRtpServer(rtpServer.getMediaServerId(), sdp.getConnection().getAddress(), port, rtpServer.getStream(), SecurityConstants.INNER);
 
                             if (r.getCode() != Constants.SUCCESS) {
+                                sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+                                remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+                                remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
                                 future.complete(R.ok(false, "[TCP主动连接对方] deviceId: " + rtpServer.getGbDeviceId() + ", channelId: " + rtpServer.getGbChannelId() + ""));
                                 return;
                             }
@@ -125,12 +128,14 @@ public class Gb28181ApiController {
                             if (!result) {
                                 // 主动连接失败，结束流程， 清理数据
                                 sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+                                remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
                                 remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
                                 future.complete(R.ok(false, "[TCP主动连接对方] deviceId: " + rtpServer.getGbDeviceId() + ", channelId: " + rtpServer.getGbChannelId() + ""));
                             }
                         } catch (SdpException e) {
                             log.error("[TCP主动连接对方] deviceId: {}, channelId: {}, 解析200OK的SDP信息失败", rtpServer.getGbDeviceId(), rtpServer.getGbChannelId(), e);
                             sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+                            remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
                             remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
 
                             future.complete(R.fail(false, "[TCP主动连接对方] deviceId: " + rtpServer.getGbDeviceId() + ", channelId: " + rtpServer.getGbChannelId() + ", 解析200OK的SDP信息失败"));
@@ -142,16 +147,27 @@ public class Gb28181ApiController {
             }, (event) -> {
                 sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
                 remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+                remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
                 future.complete(R.fail("国标28181请求预览视频流失败"));
             }, userSetting.getPlayTimeout().longValue());
         } catch (Exception e) {
-            log.error("发送国标播放sip错误 deviceId：{}" + rtpServer.getGbDeviceId());
+            log.error("发送国标播放sip错误 deviceId：{}", rtpServer.getGbDeviceId(), e);
             future.complete(R.fail(false, "国标28181请求预览视频流失败"));
+            remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
             remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
             sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
         }
         // 阻塞等待结果
-        return future.get(userSetting.getPlayTimeout().longValue(), TimeUnit.SECONDS);
+        try {
+            return future.get(userSetting.getPlayTimeout().longValue(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.error("等待播放响应超时或出错 deviceId：{}", rtpServer.getGbDeviceId(), e);
+            // 超时或者异常，需要清理资源
+            remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+            sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+            return R.fail(false, "国标28181请求预览视频流超时或出错");
+        }
     }
 
     /**
@@ -161,15 +177,38 @@ public class Gb28181ApiController {
      * @param gbChannelId
      * @return
      */
-    @GetMapping("/api/gb28181/getDeviceChannelByChannelId/{gbDeviceId}/{gbChannelId}")
+    @GetMapping("/getDeviceChannelByChannelId/{gbDeviceId}/{gbChannelId}")
     R<DeviceChannel> getDeviceChannelByChannelId(@PathVariable String gbDeviceId, @PathVariable String gbChannelId) {
         Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
         if (device == null) {
-            return R.fail("gb2818 设备不存在 deviceId:" + gbDeviceId);
+            return R.fail("gb28181 设备不存在 deviceId:" + gbDeviceId);
         }
 
         DeviceChannel deviceChannel = deviceService.getDeviceChannelByChannelId(gbDeviceId, gbChannelId);
 
         return R.ok(deviceChannel);
+    }
+
+    /**
+     * 停止视频流
+     *
+     * @param rtpServer
+     * @return
+     */
+    @PostMapping("/streamByeCmd")
+    R<Void> streamByeCmd(@RequestBody RtpServerParam rtpServer) {
+        Device device = deviceService.getDeviceByDeviceId(rtpServer.getGbDeviceId());
+
+        if (device == null) {
+            return R.fail("gb28181 设备不存在 deviceId:" + rtpServer.getGbDeviceId());
+        }
+
+        try {
+            sipCommander.stopStreamCmd(device, rtpServer);
+            return R.ok();
+        } catch (Exception e) {
+            log.error("停止播放失败 deviceId:" + rtpServer.getGbDeviceId(), e);
+            return R.fail("停止播放失败:" + e.getMessage());
+        }
     }
 }

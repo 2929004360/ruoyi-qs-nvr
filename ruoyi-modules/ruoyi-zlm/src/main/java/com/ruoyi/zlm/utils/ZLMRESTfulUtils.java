@@ -337,7 +337,7 @@ public class ZLMRESTfulUtils {
 
     public ZLMResult<StreamProxyResult> addFFmpegSource(ZlmMediaServer mediaServer, String src_url, String dst_url, Integer timeout_sec,
                                                         boolean enable_audio, boolean enable_mp4, String ffmpeg_cmd_key) {
-        if (ffmpeg_cmd_key != "ffmpeg.cmd_shout") {
+        if (!"ffmpeg.cmd_shout".equals(ffmpeg_cmd_key)) {
             try {
                 src_url = URLEncoder.encode(src_url, "UTF-8");
             } catch (UnsupportedEncodingException e) {
@@ -870,7 +870,7 @@ public class ZLMRESTfulUtils {
         param.put("stream", stream);
         param.put("type", "1");
 
-        String response = sendPost(mediaServer, "stopRecord", param, null);
+        String response = sendPost(mediaServer, "isRecording", param, null);
         if (response == null) {
             return ZLMResult.getFailForMediaServer();
         } else {

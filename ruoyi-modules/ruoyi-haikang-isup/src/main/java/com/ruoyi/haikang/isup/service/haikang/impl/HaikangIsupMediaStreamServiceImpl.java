@@ -1,5 +1,6 @@
 package com.ruoyi.haikang.isup.service.haikang.impl;
 
+import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.config.HaikangIsupConfig;
 import com.ruoyi.haikang.isup.handler.PreviewStreamHandler;
@@ -9,8 +10,10 @@ import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
 import com.ruoyi.haikang.isup.service.haikang.stream.StreamService;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.zlm.api.RemoteZlmService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +31,9 @@ import java.util.concurrent.CountDownLatch;
 @Service
 @RequiredArgsConstructor
 public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStreamService {
+
+    @Autowired
+    private RemoteZlmService remoteZlmService;
 
     private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
 
@@ -51,15 +57,22 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
 
         CountDownLatch latch = new CountDownLatch(1);
         latchMap.put(streamKey, latch);
+        StreamManager.streamKeyAndRtpServerParamMap.put(streamKey, rtpServerParam);
+        boolean needCleanup = true;
 
         try {
             // 创建异步控制器
             RealPlay(lUserID, device, streamKey, rtpServerParam);
             // 阻塞，直到 stopPreview() 调用 latch.countDown()
             latch.await();
+            needCleanup = false;
         } catch (Exception e) {
+            log.error("海康设备预览异常，设备id: {}, 通道号: {}, streamKey: {}", device.getId(), device.getChannel(), streamKey, e);
             throw new RuntimeException(e);
         } finally {
+            if (needCleanup) {
+                cleanupResources(streamKey, rtpServerParam);
+            }
             latchMap.remove(streamKey);
         }
     }
@@ -74,42 +87,95 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
      */
     @Override
     public void stopPlay(Integer luserId, Long id, Integer channel, String streamKey) {
-        Integer sessionId = StreamManager.userIDandSessionMap.remove(luserId);
-        Integer previewHandleId = StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
-        PreviewStreamHandler previewStreamHandler = StreamManager.sessionIDAndPreviewStreamHandlerMap.remove(sessionId);
-        StreamManager.previewHandSAndSessionIDandMap.remove(previewHandleId);
-        StreamManager.luserIdAndRtpServerParamMap.remove(sessionId);
+        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
 
-        if (sessionId == null) {
-//            log.error("无效的会话ID，无法停止预览");
-            return;
-        }
+        cleanupResources(streamKey, rtpServerParam);
 
-        if (previewHandleId == null) {
-//            log.error("无效的预览句柄，无法停止预览");
-            return;
-        }
-        if (!StreamService.hCEhomeStream.NET_ESTREAM_StopPreview(previewHandleId)) {
-//            log.error("NET_ESTREAM_StopPreview 失败,err = {}", StreamService.hCEhomeStream.NET_ESTREAM_GetLastError());
-            return;
-        }
-        if (!CmsService.hCEhomeCMS.NET_ECMS_StopGetRealStream(luserId, sessionId)) {
-//            log.error("NET_ECMS_StopGetRealStream 失败,err = {}", CmsService.hCEhomeCMS.NET_ECMS_GetLastError());
-            return;
-        }
-
-        if (previewStreamHandler != null) {
-            previewStreamHandler.close(previewHandleId);
-        }
-
-        log.info("CMS已发送停止预览请求");
+        log.info("停止预览，设备id: {}, 通道号: {}", id, channel);
         CountDownLatch latch = latchMap.get(streamKey);
         if (latch != null) {
             latch.countDown(); // 唤醒 preview
-//            log.info("结束预览实例: {}", streamKey);
+            log.info("结束预览实例: {}", streamKey);
         }
 
         latchMap.remove(streamKey);
+    }
+
+    /**
+     * 统一资源清理方法
+     */
+    public void cleanupResources(String streamKey, RtpServerParam rtpServerParam) {
+        Integer sessionId = StreamManager.streamKeyAndSessionIDMap.get(streamKey);
+        Integer luserId = StreamManager.streamKeyAndLuserIdMap.get(streamKey);
+        Integer previewHandleId = null;
+        PreviewStreamHandler previewStreamHandler = null;
+
+        if (sessionId != null) {
+            previewHandleId = StreamManager.sessionIDAndPreviewHandleMap.get(sessionId);
+            previewStreamHandler = StreamManager.sessionIDAndPreviewStreamHandlerMap.get(sessionId);
+        }
+
+        try {
+            if (previewHandleId != null) {
+                StreamService.hCEhomeStream.NET_ESTREAM_StopPreview(previewHandleId);
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 停止预览失败, streamKey: {}", streamKey, e);
+        }
+
+        try {
+            if (luserId != null && sessionId != null) {
+                CmsService.hCEhomeCMS.NET_ECMS_StopGetRealStream(luserId, sessionId);
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 停止获取实时流失败, streamKey: {}", streamKey, e);
+        }
+
+        try {
+            if (previewStreamHandler != null && previewHandleId != null) {
+                previewStreamHandler.close(previewHandleId);
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 关闭回调失败, streamKey: {}", streamKey, e);
+        }
+
+        // 清理所有 Map
+        if (luserId != null) {
+            StreamManager.userIDandSessionMap.remove(luserId);
+        }
+        if (sessionId != null) {
+            StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
+            StreamManager.sessionIDAndPreviewStreamHandlerMap.remove(sessionId);
+            StreamManager.luserIdAndRtpServerParamMap.remove(sessionId);
+        }
+        if (previewHandleId != null) {
+            StreamManager.previewHandSAndSessionIDandMap.remove(previewHandleId);
+        }
+
+        StreamManager.streamKeyAndRtpServerParamMap.remove(streamKey);
+        StreamManager.streamKeyAndSessionIDMap.remove(streamKey);
+        StreamManager.streamKeyAndLuserIdMap.remove(streamKey);
+
+        // 清理 zlm 资源
+        if (rtpServerParam != null) {
+            cleanupZlmResources(streamKey, rtpServerParam);
+        }
+    }
+
+    /**
+     * 清理 zlm 资源
+     *
+     * @param streamKey
+     * @param rtpServerParam
+     */
+    private void cleanupZlmResources(String streamKey, RtpServerParam rtpServerParam) {
+        try {
+            log.info("[海康设备] 清理 zlm 资源, streamKey: {}, ssrc: {}", streamKey, rtpServerParam.getSsrc());
+            remoteZlmService.releaseSsrc(rtpServerParam.getMediaServerId(), rtpServerParam.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(rtpServerParam.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[海康设备] 清理 zlm 资源失败, streamKey: {}", streamKey, e);
+        }
     }
 
     private void RealPlay(Integer luserId, QsDevice device, String streamKey, RtpServerParam rtpServerParam) {
@@ -123,7 +189,7 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
             struPreviewInV11.dwLinkMode = 0;
         } else {
             //0- TCP方式，1- UDP方式
-            struPreviewInV11.dwLinkMode = 01;
+            struPreviewInV11.dwLinkMode = 1;
         }
 
         if ("1".equals(device.getStreamType())) {
@@ -148,12 +214,15 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
         log.info("NET_ECMS_StartGetRealStream 预览请求: {}", getRS);
 
 
-        if (!CmsService.hCEhomeCMS.NET_ECMS_StartGetRealStreamV11(luserId, struPreviewInV11, struPreviewOut)) {
+        if (!getRS) {
             log.error("NET_ECMS_StartGetRealStream 失败, error code: {}", CmsService.hCEhomeCMS.NET_ECMS_GetLastError());
+            throw new RuntimeException("海康设备预览失败");
         } else {
             struPreviewOut.read();
             log.info("NET_ECMS_StartGetRealStream succeed, sessionID: {}", struPreviewOut.lSessionID);
             StreamManager.userIDandSessionMap.put(luserId, struPreviewOut.lSessionID);
+            StreamManager.streamKeyAndLuserIdMap.put(streamKey, luserId);
+            StreamManager.streamKeyAndSessionIDMap.put(streamKey, struPreviewOut.lSessionID);
             HCISUPCMS.NET_EHOME_PUSHSTREAM_IN struPushInfoIn = new HCISUPCMS.NET_EHOME_PUSHSTREAM_IN();
             struPushInfoIn.read();
             struPushInfoIn.dwSize = struPushInfoIn.size();
@@ -166,6 +235,7 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
 
             if (!CmsService.hCEhomeCMS.NET_ECMS_StartPushRealStream(luserId, struPushInfoIn, struPushInfoOut)) {
                 log.error("NET_ECMS_StartPushRealStream 失败, error code: {}", CmsService.hCEhomeCMS.NET_ECMS_GetLastError());
+                throw new RuntimeException("海康设备推流失败");
             } else {
                 log.info("NET_ECMS_StartPushRealStream 成功, sessionID: {}", struPreviewOut.lSessionID);
 

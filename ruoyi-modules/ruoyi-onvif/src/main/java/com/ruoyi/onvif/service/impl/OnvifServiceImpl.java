@@ -63,64 +63,78 @@ public class OnvifServiceImpl implements IOnvifService {
     public void task() {
         log.info("🚀 开始执行 ONVIF 设备发现任务...");
 
-        // 【准备阶段】获取 Redis 中现有的所有设备 IP，作为“待删除候选集”
-        // 假设 Redis Key 是 "onvif:devices"
-        Set<Object> existingIps = redisTemplate.opsForHash().keys(ONVIF_DEVICES);
-        // 使用线程安全的集合，防止并发修改异常
-        Set<Object> staleIps = new CopyOnWriteArraySet<>(existingIps);
-
-        DiscoveryManager manager = new DiscoveryManager();
-        // 设置发现超时时间
-        manager.setDiscoveryTimeout(10000);
-        DiscoveryListener listener = new DiscoveryListener() {
-            @Override
-            public void onDiscoveryStarted() {
-
+        try {
+            // 【准备阶段】获取 Redis 中现有的所有设备 IP，作为“待删除候选集”
+            Set<Object> existingIps = redisTemplate.opsForHash().keys(ONVIF_DEVICES);
+            // 使用线程安全的集合，防止并发修改异常
+            Set<Object> staleIps = new CopyOnWriteArraySet<>();
+            if (existingIps != null) {
+                staleIps.addAll(existingIps);
             }
 
-            @Override
-            public void onDevicesFound(List<Device> devices) {
-                if (devices == null || devices.isEmpty()) {
-                    return;
+            DiscoveryManager manager = new DiscoveryManager();
+            // 设置发现超时时间
+            manager.setDiscoveryTimeout(10000);
+            DiscoveryListener listener = new DiscoveryListener() {
+                @Override
+                public void onDiscoveryStarted() {
+                    log.debug("ONVIF 设备发现开始...");
                 }
 
-                ArrayList<WSDiscoveryDevice> devicesList = new ArrayList<>();
-
-                for (Device device : devices) {
-                    try {
-                        URL url = new URL(device.getHostName());
-                        String ip = url.getHost();
-
-                        staleIps.remove(ip);
-
-                        WSDiscoveryDevice dto = new WSDiscoveryDevice();
-                        dto.setHostName(device.getHostName());
-                        dto.setIp(ip);
-                        devicesList.add(dto);
-                    } catch (Exception e) {
-
-                    }
-                }
-
-                if (devicesList.size() > 0) {
-                    for (WSDiscoveryDevice device : devicesList) {
-                        // 存储对象
-                        redisTemplate.opsForHash().put(ONVIF_DEVICES, device.getIp(), device);
+                @Override
+                public void onDevicesFound(List<Device> devices) {
+                    if (devices == null || devices.isEmpty()) {
+                        log.info("未发现任何 ONVIF 设备");
+                        return;
                     }
 
-                    if (!staleIps.isEmpty()) {
-                        log.info("🧹 扫描结束，发现 {} 个设备离线，正在清理...", staleIps.size());
-                        for (Object offlineIp : staleIps) {
-                            redisTemplate.opsForHash().delete(ONVIF_DEVICES, offlineIp);
-                            log.info("❌ 已删除离线设备: {}", offlineIp);
+                    ArrayList<WSDiscoveryDevice> devicesList = new ArrayList<>();
+                    int deviceCount = 0;
+
+                    for (Device device : devices) {
+                        try {
+                            if (device == null || device.getHostName() == null) {
+                                continue;
+                            }
+                            URL url = new URL(device.getHostName());
+                            String ip = url.getHost();
+
+                            staleIps.remove(ip);
+
+                            WSDiscoveryDevice dto = new WSDiscoveryDevice();
+                            dto.setHostName(device.getHostName());
+                            dto.setIp(ip);
+                            devicesList.add(dto);
+                            deviceCount++;
+                        } catch (Exception e) {
+                            log.warn("解析设备信息失败: {}", e.getMessage());
+                        }
+                    }
+
+                    log.info("发现 {} 个 ONVIF 设备", deviceCount);
+
+                    if (!devicesList.isEmpty()) {
+                        for (WSDiscoveryDevice device : devicesList) {
+                            // 存储对象
+                            redisTemplate.opsForHash().put(ONVIF_DEVICES, device.getIp(), device);
+                        }
+
+                        if (!staleIps.isEmpty()) {
+                            log.info("🧹 扫描结束，发现 {} 个设备离线，正在清理...", staleIps.size());
+                            for (Object offlineIp : staleIps) {
+                                redisTemplate.opsForHash().delete(ONVIF_DEVICES, offlineIp);
+                                log.info("❌ 已删除离线设备: {}", offlineIp);
+                            }
                         }
                     }
                 }
-            }
-        };
+            };
 
-        // 【执行扫描】（这里是阻塞的，会等待 10秒 或直到扫描结束）
-        manager.discover(listener);
+            // 【执行扫描】
+            manager.discover(listener);
+        } catch (Exception e) {
+            log.error("执行 ONVIF 设备发现任务失败", e);
+        }
     }
 
     /**
@@ -130,9 +144,13 @@ public class OnvifServiceImpl implements IOnvifService {
      */
     @Override
     public com.ruoyi.onvif.api.domain.OnvifDevice verifyOnvifDeviceLogin(WSOnvifDevice onvifDevice) {
+        if (onvifDevice == null) {
+            throw new IllegalArgumentException("设备信息不能为空");
+        }
+        
         com.ruoyi.onvif.api.domain.OnvifDevice returnOnvifDevice = new com.ruoyi.onvif.api.domain.OnvifDevice();
 
-        // WS-Usemame token
+        // WS-Username token
         if (AuthTypeEnum.WS_USERNAME_TOKEN.getCode().equals(onvifDevice.getAuth())) {
             FetchMainAndSubStreamUris onvifDeviceInfo = getOnvifDeviceInfo(onvifDevice);
             returnOnvifDevice.setIp(onvifDevice.getIp());
@@ -142,7 +160,7 @@ public class OnvifServiceImpl implements IOnvifService {
             returnOnvifDevice.setStreamUris(onvifDeviceInfo.getStreamUris());
             returnOnvifDevice.setUserName(onvifDevice.getUsername());
             returnOnvifDevice.setPassword(onvifDevice.getPassword());
-            returnOnvifDevice.setHostName(onvifDevice.getPassword());
+            returnOnvifDevice.setHostName(onvifDevice.getHostName());
             return returnOnvifDevice;
         }
 
@@ -155,7 +173,7 @@ public class OnvifServiceImpl implements IOnvifService {
             OnvifDevice device2 = new OnvifDevice(onvifDevice.getIp(), onvifDevice.getUsername(), onvifDevice.getPassword());
 
             onvifManager.getMediaProfiles(device2, (device, mediaProfiles) -> {
-                if (mediaProfiles.isEmpty()) {
+                if (mediaProfiles == null || mediaProfiles.isEmpty()) {
                     latch.countDown();
                     return;
                 }
@@ -163,7 +181,9 @@ public class OnvifServiceImpl implements IOnvifService {
 
                 for (OnvifMediaProfile profile : mediaProfiles) {
                     onvifManager.getMediaStreamURI(device2, profile, (device1, prof, uri) -> {
-                        streamUris.add(uri);
+                        if (uri != null) {
+                            streamUris.add(uri);
+                        }
                         synchronized (remaining) {
                             remaining[0]--;
                             if (remaining[0] <= 0) {
@@ -176,12 +196,14 @@ public class OnvifServiceImpl implements IOnvifService {
             onvifManager.getDeviceInformation(device2, (device, info) -> {
                 try {
                     returnOnvifDevice.setIp(onvifDevice.getIp());
-                    returnOnvifDevice.setFirm(info.getManufacturer());
-                    returnOnvifDevice.setModel(info.getModel());
-                    returnOnvifDevice.setFirmwareVersion(info.getFirmwareVersion());
+                    if (info != null) {
+                        returnOnvifDevice.setFirm(info.getManufacturer());
+                        returnOnvifDevice.setModel(info.getModel());
+                        returnOnvifDevice.setFirmwareVersion(info.getFirmwareVersion());
+                    }
                     returnOnvifDevice.setUserName(onvifDevice.getUsername());
                     returnOnvifDevice.setPassword(onvifDevice.getPassword());
-                    returnOnvifDevice.setHostName(onvifDevice.getPassword());
+                    returnOnvifDevice.setHostName(onvifDevice.getHostName());
                 } finally {
                     latch.countDown();
                 }
@@ -191,11 +213,11 @@ public class OnvifServiceImpl implements IOnvifService {
         try {
             boolean completed = latch.await(10, TimeUnit.SECONDS);
             if (!completed) {
-                throw new RuntimeException("ONVIF 获取信息超时");
+                log.warn("ONVIF 获取信息超时");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("等待中断: " + e.getMessage());
+            log.error("等待中断", e);
         }
         returnOnvifDevice.setStreamUris(streamUris);
         return returnOnvifDevice;
@@ -206,18 +228,26 @@ public class OnvifServiceImpl implements IOnvifService {
      */
     @Override
     public ArrayList<WSDiscoveryDevice> getOnvifDeviceList() {
-        Map<Object, Object> rawMap = redisTemplate.opsForHash().entries(ONVIF_DEVICES);
         ArrayList<WSDiscoveryDevice> deviceList = new ArrayList<>();
-        if (rawMap.size() == 0) {
-            return deviceList;
-        }
+        try {
+            Map<Object, Object> rawMap = redisTemplate.opsForHash().entries(ONVIF_DEVICES);
+            if (rawMap == null || rawMap.isEmpty()) {
+                return deviceList;
+            }
 
-        for (Object value : rawMap.values()) {
-            // 先将对象转为 JSON 字符串，再转为实体类
-            // 或者直接 JSON.toJavaObject((Map) value, WSDiscoveryDevice.class)
-            String jsonString = JSON.toJSONString(value);
-            WSDiscoveryDevice device = JSON.parseObject(jsonString, WSDiscoveryDevice.class);
-            deviceList.add(device);
+            for (Object value : rawMap.values()) {
+                if (value == null) {
+                    continue;
+                }
+                // 先将对象转为 JSON 字符串，再转为实体类
+                String jsonString = JSON.toJSONString(value);
+                WSDiscoveryDevice device = JSON.parseObject(jsonString, WSDiscoveryDevice.class);
+                if (device != null) {
+                    deviceList.add(device);
+                }
+            }
+        } catch (Exception e) {
+            log.error("获取 ONVIF 设备列表失败", e);
         }
 
         return deviceList;
@@ -230,16 +260,28 @@ public class OnvifServiceImpl implements IOnvifService {
      * @return
      */
     public static FetchMainAndSubStreamUris getOnvifDeviceInfo(WSOnvifDevice onvifDevice) {
+        if (onvifDevice == null) {
+            throw new IllegalArgumentException("设备信息不能为空");
+        }
         // 先获取基本信息
         FetchMainAndSubStreamUris mercury = getMercury(onvifDevice);
         // 再获取视频流token
         List<String> profileTokens = getProfileToken(onvifDevice);
-        if (!profileTokens.isEmpty()) {
+        if (profileTokens != null && !profileTokens.isEmpty()) {
             // 根据token获取播放地址
             for (String token : profileTokens) {
-                String urlByToken = getProfilesUrlByToken(onvifDevice, token);
-                String replace = urlByToken.replace("rtsp://", "rtsp://" + onvifDevice.getUsername() + ":" + onvifDevice.getPassword() + "@");
-                mercury.addStreamUri(replace);
+                if (token == null || token.isEmpty()) {
+                    continue;
+                }
+                try {
+                    String urlByToken = getProfilesUrlByToken(onvifDevice, token);
+                    if (urlByToken != null && urlByToken.startsWith("rtsp://")) {
+                        String replace = urlByToken.replace("rtsp://", "rtsp://" + onvifDevice.getUsername() + ":" + onvifDevice.getPassword() + "@");
+                        mercury.addStreamUri(replace);
+                    }
+                } catch (Exception e) {
+                    // 单个获取失败不影响其他
+                }
             }
         }
         return mercury;
@@ -251,6 +293,10 @@ public class OnvifServiceImpl implements IOnvifService {
      * @return
      */
     public static String getProfilesUrlByToken(WSOnvifDevice onvifDevice, String profileToken) {
+        if (onvifDevice == null || profileToken == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
         byte[] nonceBytes = RandomUtil.randomBytes(16);
         String nonce = Base64.encode(nonceBytes);
         String created = Instant.now().toString();
@@ -262,18 +308,22 @@ public class OnvifServiceImpl implements IOnvifService {
             try {
                 return parseSoapResponseProfilesUrlByToken(response.body());
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new RuntimeException("解析视频流地址失败: " + e.getMessage(), e);
             }
         } else if (response.getStatus() == 500) {
             throw new RuntimeException("该命名空间设备不支持");
         } else if (response.getStatus() == 401) {
             throw new RuntimeException("鉴权失败");
         }
-        throw new RuntimeException("获取视频流地址失败");
+        throw new RuntimeException("获取视频流地址失败，状态码: " + response.getStatus());
     }
 
     // 获取视频流地址 -- 解析
     private static String parseSoapResponseProfilesUrlByToken(String responseBody) throws Exception {
+        if (responseBody == null || responseBody.isEmpty()) {
+            throw new IllegalArgumentException("响应内容不能为空");
+        }
+        
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -293,6 +343,10 @@ public class OnvifServiceImpl implements IOnvifService {
      * @return
      */
     private static FetchMainAndSubStreamUris getMercury(WSOnvifDevice onvifDevice) {
+        if (onvifDevice == null) {
+            throw new IllegalArgumentException("设备信息不能为空");
+        }
+        
         byte[] nonceBytes = RandomUtil.randomBytes(16);
         String nonce = Base64.encode(nonceBytes);
         String created = Instant.now().toString();
@@ -304,18 +358,22 @@ public class OnvifServiceImpl implements IOnvifService {
             try {
                 return parseSoapResponse(response.body());
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new RuntimeException("解析设备信息失败: " + e.getMessage(), e);
             }
         } else if (response.getStatus() == 500) {
             throw new RuntimeException("该命名空间设备不支持");
         } else if (response.getStatus() == 401) {
             throw new RuntimeException("鉴权失败");
         }
-        throw new RuntimeException("获取基本信息失败");
+        throw new RuntimeException("获取基本信息失败，状态码: " + response.getStatus());
     }
 
     // 生成token
     private static String calculatePasswordDigest(byte[] nonceBytes, String created, String password) {
+        if (nonceBytes == null || created == null || password == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
         byte[] createdBytes = created.getBytes(CharsetUtil.CHARSET_UTF_8);
         byte[] passwordBytes = password.getBytes(CharsetUtil.CHARSET_UTF_8);
         byte[] combinedBytes = new byte[nonceBytes.length + createdBytes.length + passwordBytes.length];
@@ -333,6 +391,10 @@ public class OnvifServiceImpl implements IOnvifService {
 
     //获取基本信息 -- 解析
     private static FetchMainAndSubStreamUris parseSoapResponse(String responseBody) throws Exception {
+        if (responseBody == null || responseBody.isEmpty()) {
+            throw new IllegalArgumentException("响应内容不能为空");
+        }
+        
         // 使用 DOM 解析器解析 XML
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
@@ -343,13 +405,12 @@ public class OnvifServiceImpl implements IOnvifService {
         NodeList manufacturerNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/device/wsdl", "Manufacturer");
         NodeList modelNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/device/wsdl", "Model");
         NodeList firmwareVersionNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/device/wsdl", "FirmwareVersion");
-        NodeList serialNumberNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/device/wsdl", "SerialNumber");
-        NodeList hardwareIdNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/device/wsdl", "HardwareId");
 
         // 提取信息
-        String manufacturer = manufacturerNodes.item(0).getTextContent();
-        String model = modelNodes.item(0).getTextContent();
-        String firmwareVersion = firmwareVersionNodes.item(0).getTextContent();
+        String manufacturer = manufacturerNodes.getLength() > 0 ? manufacturerNodes.item(0).getTextContent() : "";
+        String model = modelNodes.getLength() > 0 ? modelNodes.item(0).getTextContent() : "";
+        String firmwareVersion = firmwareVersionNodes.getLength() > 0 ? firmwareVersionNodes.item(0).getTextContent() : "";
+        
         FetchMainAndSubStreamUris vo = new FetchMainAndSubStreamUris();
         vo.setFirmwareVersion(firmwareVersion);
         vo.setModel(model);
@@ -364,6 +425,10 @@ public class OnvifServiceImpl implements IOnvifService {
      * @return
      */
     public static List<String> getProfileToken(WSOnvifDevice onvifDevice) {
+        if (onvifDevice == null) {
+            throw new IllegalArgumentException("设备信息不能为空");
+        }
+        
         byte[] nonceBytes = RandomUtil.randomBytes(16);
         String nonce = Base64.encode(nonceBytes);
         String created = Instant.now().toString();
@@ -375,14 +440,14 @@ public class OnvifServiceImpl implements IOnvifService {
             try {
                 return parseSoapResponseProfileToken(response.body());
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new RuntimeException("解析流信息失败: " + e.getMessage(), e);
             }
         } else if (response.getStatus() == 500) {
             throw new RuntimeException("该命名空间设备不支持");
         } else if (response.getStatus() == 401) {
             throw new RuntimeException("鉴权失败");
         }
-        throw new RuntimeException("获取流token失败");
+        throw new RuntimeException("获取流token失败，状态码: " + response.getStatus());
 
     }
 
@@ -393,6 +458,10 @@ public class OnvifServiceImpl implements IOnvifService {
 
     // 获取流信息token -- 解析
     private static List<String> parseSoapResponseProfileToken(String responseBody) throws Exception {
+        if (responseBody == null || responseBody.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
         List<String> profileNames = new ArrayList<>();
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);

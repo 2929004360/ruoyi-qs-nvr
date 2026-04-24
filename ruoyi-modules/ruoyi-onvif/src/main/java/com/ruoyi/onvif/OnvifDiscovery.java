@@ -105,16 +105,16 @@ public class OnvifDiscovery {
     //Properties
 
     private void broadcast(List<InetAddress> addresses) {
-        //Our list will be accessed by multiple threads, hence ConcurrentSkipListSet
+        // Our list will be accessed by multiple threads, hence ConcurrentSkipListSet
         Collection<Device> devices = new ConcurrentSkipListSet<>();
 
-        //Create a new cached thread pool and a monitor service
+        // Create a new cached thread pool and a monitor service
         ExecutorService executorService = Executors.newCachedThreadPool();
         ExecutorService monitor = Executors.newSingleThreadExecutor();
         CountDownLatch latch = new CountDownLatch(addresses.size());
         List<Runnable> runnables = new ArrayList<>();
 
-        //Add runnables to the list to be executed in order
+        // Add runnables to the list to be executed in order
         for (InetAddress address : addresses) {
             runnables.add(() -> {
                 try {
@@ -126,8 +126,8 @@ public class OnvifDiscovery {
                     DatagramSocket client = new DatagramSocket(port, address);
                     client.setBroadcast(true);
 
-                    //Start a new thread to listen for incoming UDP packages
-                    new DiscoveryThread(client, discoveryTimeout, mode, new DiscoveryCallback() {
+                    // Start a new thread to listen for incoming UDP packages
+                    new DiscoveryThread(client, port, discoveryTimeout, mode, new DiscoveryCallback() {
 
                         @Override
                         public void onDiscoveryStarted() {
@@ -155,27 +155,27 @@ public class OnvifDiscovery {
 
                 } catch (IOException e) {
                     e.printStackTrace();
+                    latch.countDown();
                 }
 
             });
         }
 
-        //Notify that we started our discovery
+        // Notify that we started our discovery
         notifyDiscoveryStarted();
 
-        //Execute a new thread for every probe that should be sent.
+        // Execute a new thread for every probe that should be sent.
         monitor.submit(() -> {
-            for (Runnable runnable : runnables) {
-                executorService.submit(runnable);
-            }
-
-            //Stop accepting new tasks and shuts down threads as they finish
             try {
+                for (Runnable runnable : runnables) {
+                    executorService.submit(runnable);
+                }
+
+                // Stop accepting new tasks and shuts down threads as they finish
                 executorService.shutdown();
 
                 latch.await(discoveryTimeout, TimeUnit.MILLISECONDS);
-                boolean cleanShutdown = executorService.awaitTermination(discoveryTimeout,
-                        TimeUnit.MILLISECONDS);
+                boolean cleanShutdown = executorService.awaitTermination(discoveryTimeout, TimeUnit.MILLISECONDS);
 
                 if (!cleanShutdown) {
                     executorService.shutdownNow();
@@ -183,12 +183,12 @@ public class OnvifDiscovery {
 
                 notifyDevicesFound(new ArrayList<>(devices));
             } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 e.printStackTrace();
+            } finally {
+                monitor.shutdown();
             }
-
         });
-        monitor.shutdown();
-
     }
 
     private OnvifPacket createDiscoveryPacket() {

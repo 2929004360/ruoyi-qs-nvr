@@ -132,11 +132,11 @@ public class MediaServiceImpl implements IMediaService {
                 }
 
                 String sign = paramMap.get("sign");
-                sign = sign.replaceAll("/$", "");
                 if (sign == null) {
                     log.info("推流鉴权失败： 缺少必要参数：sign=md5");
                     throw new RuntimeException("Unauthorized");
                 }
+                sign = sign.replaceAll("/$", "");
                 // 推流自定义播放鉴权码
                 String callId = paramMap.get("callId");
                 // 鉴权配置

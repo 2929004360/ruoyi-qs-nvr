@@ -1,6 +1,7 @@
 package com.ruoyi.dahua.service;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.dahua.callback.FRealDatarTPCallback;
 import com.ruoyi.dahua.lib.NetSDKLib;
 import com.ruoyi.qs.api.domain.QsDevice;
 
@@ -31,4 +32,15 @@ public interface IDahuaMediaStreamService {
      * @param streamKey
      */
     void stopPlay(NetSDKLib.LLong lLong, Long id, Integer channel, String streamKey);
+
+    /**
+     * 统一资源清理方法
+     *
+     * @param streamKey
+     * @param rtpServerParam
+     * @param realHandle
+     * @param fRealDataCallBack
+     */
+    void cleanupResources(String streamKey, RtpServerParam rtpServerParam,
+                          NetSDKLib.LLong realHandle, FRealDatarTPCallback fRealDataCallBack);
 }

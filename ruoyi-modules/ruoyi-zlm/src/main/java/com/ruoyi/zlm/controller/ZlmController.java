@@ -1,6 +1,6 @@
 package com.ruoyi.zlm.controller;
 
-import com.alibaba.nacos.api.model.v2.ErrorCode;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
@@ -133,6 +133,9 @@ public class ZlmController {
     @PostMapping("/getSnap")
     public AjaxResult getSnap(@RequestBody Snap snap) {
         ZlmMediaServer mediaServer = mediaServerService.getMediaServerForMinimumLoad(null);
+        if (mediaServer == null) {
+            throw new RuntimeException("无可用的流媒体服务器");
+        }
         String filePath = mediaServerService.getSnap(mediaServer, snap);
         return AjaxResult.success(filePath);
     }
@@ -220,7 +223,7 @@ public class ZlmController {
      */
     @GetMapping("/loadRecord/{id}")
     public DeferredResult<R<StreamContent>> loadRecord(@PathVariable Long id, HttpServletRequest request) {
-        DeferredResult<R<StreamContent>> result = new DeferredResult<>();
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
 
         result.onTimeout(() -> {
             log.info("[加载录像文件超时] id={}", id);
@@ -230,12 +233,8 @@ public class ZlmController {
         });
 
         ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
-
-            R<StreamContent> wvpResult = new R<>();
             if (code == InviteErrorCode.SUCCESS.getCode()) {
-                wvpResult.setCode(ErrorCode.SUCCESS.getCode());
-                wvpResult.setMsg(ErrorCode.SUCCESS.getMsg());
-
+                R<StreamContent> r = R.ok();
                 if (streamInfo != null) {
                     if (userSetting.getUseSourceIpAsStreamIp()) {
                         streamInfo = streamInfo.clone();//深拷贝
@@ -248,19 +247,18 @@ public class ZlmController {
                         }
                         streamInfo.changeStreamIp(host);
                     }
-                    if (!org.springframework.util.ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
                         streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
                     }
-                    wvpResult.setData(new StreamContent(streamInfo));
+                    r.setData(new StreamContent(streamInfo));
                 } else {
-                    wvpResult.setCode(code);
-                    wvpResult.setMsg(msg);
+                    r.setCode(code);
+                    r.setMsg(msg);
                 }
+                result.setResult(r);
             } else {
-                wvpResult.setCode(code);
-                wvpResult.setMsg(msg);
+                result.setResult(R.fail(code, msg));
             }
-            result.setResult(wvpResult);
         };
 
         mediaServerService.loadRecord(id, callback);
@@ -363,7 +361,10 @@ public class ZlmController {
      * @return
      */
     @GetMapping(value = "/media_info")
-    public AjaxResult getMediaInfo(String app, String stream, String mediaServerId) {
+    public AjaxResult getMediaInfo(@RequestParam String app, @RequestParam String stream, @RequestParam String mediaServerId) {
+        Assert.hasText(app, "app参数不能为空");
+        Assert.hasText(stream, "stream参数不能为空");
+        Assert.hasText(mediaServerId, "mediaServerId参数不能为空");
         ZlmMediaServer mediaServer = mediaServerService.getOne(mediaServerId);
         if (mediaServer == null) {
             throw new RuntimeException("流媒体不存在");
@@ -418,10 +419,11 @@ public class ZlmController {
      * @return
      */
     @GetMapping(value = "/streamPullPush")
-    public DeferredResult<R<StreamContent>> streamPullPush(HttpServletRequest request, Long id) {
+    public DeferredResult<R<StreamContent>> streamPullPush(HttpServletRequest request, @RequestParam Long id) {
         Assert.notNull(id, "设备ID不可为NULL");
         DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
         result.onTimeout(() -> {
+            log.info("[等待推流超时] id={}", id);
             R<StreamContent> fail = R.fail("等待推流超时");
             result.setResult(fail);
         });
@@ -441,6 +443,11 @@ public class ZlmController {
                 }
                 R<StreamContent> success = R.ok(new StreamContent(streamInfo));
                 result.setResult(success);
+            } else {
+                // 处理失败情况
+                log.info("[等待推流失败] id={}, code={}, msg={}", id, code, msg);
+                R<StreamContent> fail = R.fail(code, msg);
+                result.setResult(fail);
             }
         });
         return result;
@@ -536,7 +543,62 @@ public class ZlmController {
             }
         };
 
+        qsDevice.setStreamMode(deviceR.getData().getStreamMode());
         mediaServerService.startGb28181Play(qsDevice, deviceR.getData(), callback);
         return result;
+    }
+
+    /**
+     * gb28181 停止点播
+     *
+     * @param id 设备id
+     * @return
+     */
+    @GetMapping("/stopGb28181Play/{id}")
+    public AjaxResult playStop(@PathVariable Long id) {
+
+        log.info("[gb28181 停止点播] id：{} ", id);
+        Assert.notNull(id, "设备id");
+
+        R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (qsDevicer.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+
+        QsDevice qsDevice = qsDevicer.getData();
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            throw new RuntimeException("设备不在线 id:" + id);
+        }
+
+        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId("34020000001350000001", SecurityConstants.INNER);
+        if (deviceR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备信息失败 id:" + qsDevice.getGbDeviceId());
+        }
+        Assert.notNull(deviceR.getData(), "gb28181 国标设备不存在 id:" + qsDevice.getGbDeviceId());
+
+        if (!deviceR.getData().isOnLine()) {
+            throw new RuntimeException("gb28181 国标设备不在线失败 id:" + qsDevice.getGbDeviceId());
+        }
+
+        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId("34020000001350000001", "34020000001350000001", SecurityConstants.INNER);
+        if (deviceChannelR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备通道失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        Assert.notNull(deviceChannelR.getData(), "gb28181 获取设备通道失败不存在 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+
+        if (!"ON".equals(deviceChannelR.getData().getStatus())) {
+            throw new RuntimeException("gb28181 国标设备通道不在线失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        qsDevice.setGbDeviceId("34020000001350000001");
+        qsDevice.setGbChannelId("34020000001350000001");
+        mediaServerService.stopGb28181Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getDeviceCode());
+        JSONObject json = new JSONObject();
+        json.put("deviceId", qsDevice.getGbDeviceId());
+        json.put("channelId", qsDevice.getGbChannelId());
+        return AjaxResult.success(json);
     }
 }

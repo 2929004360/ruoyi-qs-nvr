@@ -28,7 +28,7 @@ public class ZlmApiController {
     @Autowired
     private SSRCFactory ssrcFactory;
 
-    @DeleteMapping("/sessionManagerPut/{id}/{ssrc}")
+    @DeleteMapping("/sessionManagerPut/{mediaServerId}/{ssrc}")
     R<Void> releaseSsrc(@PathVariable String mediaServerId, @PathVariable String ssrc) {
         ssrcFactory.releaseSsrc(mediaServerId, ssrc);
         return R.ok();

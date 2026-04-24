@@ -170,8 +170,13 @@ public class PreviewStreamHandler implements HCISUPStream.PREVIEW_DATA_CB {
      */
     public void close(int iPreviewHandle) {
         RtpConnection connection = connectionMap.remove(iPreviewHandle);
-        if (connection.udpSocket != null && !connection.udpSocket.isClosed()) {
-            connection.udpSocket.close();
+        if (connection != null && connection.udpSocket != null && !connection.udpSocket.isClosed()) {
+            try {
+                connection.udpSocket.close();
+                log.info("关闭RTP连接成功，句柄: {}", iPreviewHandle);
+            } catch (Exception e) {
+                log.error("关闭RTP连接失败，句柄: {}", iPreviewHandle, e);
+            }
         }
     }
 

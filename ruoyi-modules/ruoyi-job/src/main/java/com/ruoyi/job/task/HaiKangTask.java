@@ -9,15 +9,10 @@ import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 /**
- * 海康sdk任务
+ * 海康SDK设备状态任务
  *
  * @FileName HaiKangTask
  * @Description
@@ -25,59 +20,38 @@ import java.util.Set;
  * @date 2026-03-28
  **/
 @Component("haiKangTask")
-public class HaiKangTask {
+public class HaiKangTask extends AbstractDeviceStatusTask {
 
-    @Autowired
-    private RemoteQsDeviceService remoteQsDeviceService;
+    private final RemoteHaiKangService remoteHaiKangService;
 
-    @Autowired
-    private RemoteHaiKangService remoteHaiKangService;
+    public HaiKangTask(RemoteQsDeviceService remoteQsDeviceService, RemoteHaiKangService remoteHaiKangService) {
+        super(remoteQsDeviceService);
+        this.remoteHaiKangService = remoteHaiKangService;
+    }
 
-    public void task() {
-        QsDevice qsDevice = new QsDevice();
-        qsDevice.setType(LiveStreamType.HIK_SDK.getCode());
-        R<List<QsDevice>> r = remoteQsDeviceService.list(qsDevice, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
-            throw new SecurityException(r.getMsg());
+    @Override
+    protected LiveStreamType getDeviceType() {
+        return LiveStreamType.HIK_SDK;
+    }
+
+    @Override
+    protected boolean checkDeviceOnline(QsDevice device) {
+        R<Integer> userIdr = remoteHaiKangService.getUserId(device.getIpAddress(), SecurityConstants.INNER);
+        if (userIdr.getCode() != Constants.SUCCESS) {
+            return false;
         }
 
-        List<QsDevice> deviceList = r.getData();
-
-        Set<Long> onlineDeviceSet = new HashSet<>();
-        Set<Long> offlineDeviceSet = new HashSet<>();
-
-        for (QsDevice device : deviceList) {
-            R<Integer> userIdr = remoteHaiKangService.getUserId(device.getIpAddress(), SecurityConstants.INNER);
-            if (userIdr.getCode() == Constants.SUCCESS) {
-                if (userIdr.getData() != null) {
-                    R<HaikangDeviceInfo> deviceInfor = remoteHaiKangService.getDeviceInfo(device.getIpAddress(), SecurityConstants.INNER);
-                    if (deviceInfor.getCode() == Constants.SUCCESS) {
-                        onlineDeviceSet.add(device.getId());
-                    } else {
-                        offlineDeviceSet.add(device.getId());
-                    }
-                } else {
-                    LoginDevice loginDevice = new LoginDevice();
-                    loginDevice.setIpAddress(device.getIpAddress());
-                    loginDevice.setPort(Short.parseShort(String.valueOf(device.getPort())));
-                    loginDevice.setUserName(device.getUserName());
-                    loginDevice.setPassword(device.getPassword());
-                    R<Integer> loginDeviceR = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);
-                    if (loginDeviceR.getCode() == Constants.SUCCESS) {
-                        onlineDeviceSet.add(device.getId());
-                    } else {
-                        offlineDeviceSet.add(device.getId());
-                    }
-                }
-            }
-        }
-
-        if (onlineDeviceSet.size() > 0) {
-            remoteQsDeviceService.updateQsDeviceStatusList(onlineDeviceSet, "ON", SecurityConstants.INNER);
-        }
-
-        if (offlineDeviceSet.size() > 0) {
-            remoteQsDeviceService.updateQsDeviceStatusList(offlineDeviceSet, "OFFLINE", SecurityConstants.INNER);
+        if (userIdr.getData() != null) {
+            R<HaikangDeviceInfo> deviceInfor = remoteHaiKangService.getDeviceInfo(device.getIpAddress(), SecurityConstants.INNER);
+            return deviceInfor.getCode() == Constants.SUCCESS;
+        } else {
+            LoginDevice loginDevice = new LoginDevice();
+            loginDevice.setIpAddress(device.getIpAddress());
+            loginDevice.setPort(Short.parseShort(String.valueOf(device.getPort())));
+            loginDevice.setUserName(device.getUserName());
+            loginDevice.setPassword(device.getPassword());
+            R<Integer> loginDeviceR = remoteHaiKangService.loginDevice(loginDevice, SecurityConstants.INNER);
+            return loginDeviceR.getCode() == Constants.SUCCESS;
         }
     }
 }

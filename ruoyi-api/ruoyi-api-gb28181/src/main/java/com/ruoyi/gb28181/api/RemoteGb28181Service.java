@@ -52,5 +52,15 @@ public interface RemoteGb28181Service {
      * @return
      */
     @GetMapping("/api/gb28181/getDeviceChannelByChannelId/{gbDeviceId}/{gbChannelId}")
-    R<DeviceChannel> getDeviceChannelByChannelId(@PathVariable String gbDeviceId, @PathVariable String gbChannelId,@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+    R<DeviceChannel> getDeviceChannelByChannelId(@PathVariable String gbDeviceId, @PathVariable String gbChannelId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 停止视频流
+     *
+     * @param rtpServer
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/streamByeCmd")
+    R<Void> streamByeCmd(@RequestBody RtpServerParam rtpServer, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

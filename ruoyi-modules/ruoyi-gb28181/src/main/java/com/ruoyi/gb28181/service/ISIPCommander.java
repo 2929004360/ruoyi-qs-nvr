@@ -53,5 +53,13 @@ public interface ISIPCommander {
      * @param errorEvent
      * @param timeout
      */
-    void playStreamCmd(Device device,RtpServerParam rtpServer, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent, Long timeout) throws SipException, InvalidArgumentException, ParseException;
+    void playStreamCmd(Device device, RtpServerParam rtpServer, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent, Long timeout) throws SipException, InvalidArgumentException, ParseException;
+
+    /**
+     * 停止视频流
+     *
+     * @param device
+     * @param rtpServer
+     */
+    void stopStreamCmd(Device device, RtpServerParam rtpServer) throws SipException, InvalidArgumentException, ParseException;
 }

@@ -263,13 +263,14 @@ public class SIPCommander implements ISIPCommander {
 
         content.append("y=" + rtpServer.getSsrc() + "\r\n");//ssrc
         // f字段:f= v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率
-//			content.append("f=v/2/5/25/1/4000a/1/8/1" + "\r\n"); // 未发现支持此特性的设备
+//			content.append("f= v/2/5/25/1/4000a/1/8/1" + "\r\n"); // 未发现支持此特性的设备
 
 
         Request request = headerProvider.createInviteRequest(device, rtpServer.getGbChannelId(), content.toString(), SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null, rtpServer.getSsrc(), sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
         sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, (e -> {
             sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
             remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
             errorEvent.response(e);
         }), e -> {
             ResponseEvent responseEvent = (ResponseEvent) e.event;
@@ -278,8 +279,34 @@ public class SIPCommander implements ISIPCommander {
             SsrcTransaction ssrcTransaction = SsrcTransaction.buildForDevice(device.getDeviceId(), rtpServer.getGbChannelId(),
                     callId, rtpServer.getApp(), rtpServer.getStream(), rtpServer.getSsrc(), rtpServer.getMediaServerId(), response,
                     InviteSessionType.PLAY);
+            ssrcTransaction.setApp(rtpServer.getApp());
+            ssrcTransaction.setStream(rtpServer.getStream());
             sessionManager.put(ssrcTransaction);
             okEvent.response(e);
         }, timeout);
+    }
+
+    @Override
+    public void stopStreamCmd(Device device, RtpServerParam rtpServer) throws SipException, InvalidArgumentException, ParseException {
+        SsrcTransaction ssrcTransaction = sessionManager.getSsrcTransactionByStream(rtpServer.getApp(), rtpServer.getStream());
+
+        if (ssrcTransaction != null) {
+            log.info("[停止播放] 发送 BYE 请求 deviceId: {}, channelId: {}",
+                    rtpServer.getGbDeviceId(),
+                    rtpServer.getGbChannelId());
+            Request byeRequest = headerProvider.createByteRequestForDeviceInvite(
+                    device,
+                    ssrcTransaction.getChannelId(),
+                    ssrcTransaction.getSipTransactionInfo()
+            );
+            sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), byeRequest);
+
+            sessionManager.removeByCallId(ssrcTransaction.getCallId());
+            remoteZlmService.releaseSsrc(ssrcTransaction.getMediaServerId(), ssrcTransaction.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(ssrcTransaction.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+        } else {
+            log.warn("[停止播放] 未找到会话信息 app: {}, stream: {}",
+                    rtpServer.getApp(), rtpServer.getStream());
+        }
     }
 }

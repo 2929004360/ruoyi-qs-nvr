@@ -4,9 +4,11 @@ import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
-import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.haikang.callback.FRealDataForRtpOverTcpCallback;
+import com.ruoyi.haikang.manager.StreamManager;
 import com.ruoyi.haikang.net.Client;
 import com.ruoyi.haikang.net.HCNetSDK;
 import com.ruoyi.haikang.service.IHaiKangService;
@@ -20,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -61,6 +65,13 @@ public class HaiKangServiceImpl implements IHaiKangService {
      * @return 登录成功返回用户ID，失败返回-1
      */
     public int loginDevice(String ip, short port, String user, String psw) {
+        // 检查是否已登录
+        Integer existingUserId = userIdMap.get(ip);
+        if (existingUserId != null && existingUserId >= 0) {
+            log.warn("设备已登录，返回现有用户ID, IP:{}, userId:{}", ip, existingUserId);
+            return existingUserId;
+        }
+
         // 创建设备登录信息和设备信息对象
         HCNetSDK.NET_DVR_USER_LOGIN_INFO loginInfo = new HCNetSDK.NET_DVR_USER_LOGIN_INFO();
         HCNetSDK.NET_DVR_DEVICEINFO_V40 deviceInfo = new HCNetSDK.NET_DVR_DEVICEINFO_V40();
@@ -88,7 +99,9 @@ public class HaiKangServiceImpl implements IHaiKangService {
         // 执行登录操作
         int userId = client.hCNetSDK.NET_DVR_Login_V40(loginInfo, deviceInfo);
         if (userId == -1) {
-            throw new ServiceException("登录失败" + ip + "，错误码为: " + client.hCNetSDK.NET_DVR_GetLastError());
+            String errorMsg = "登录失败" + ip + "，错误码为: " + client.hCNetSDK.NET_DVR_GetLastError();
+            log.error(errorMsg);
+            throw new ServiceException(errorMsg);
         } else {
             log.info(ip + " 设备登录成功！");
         }
@@ -109,14 +122,53 @@ public class HaiKangServiceImpl implements IHaiKangService {
         }
         Integer userId = getUserId(ip);
         if (userId != null && userId >= 0) {
-            if (!client.hCNetSDK.NET_DVR_Logout(userId)) {
-                log.error("注销失败，错误码为" + client.hCNetSDK.NET_DVR_GetLastError());
+            try {
+                log.info("开始登出海康设备, IP:{}", ip);
+                
+                // 清理设备相关的流媒体资源
+                cleanDeviceStreamResources(ip);
+                
+                if (!client.hCNetSDK.NET_DVR_Logout(userId)) {
+                    log.error("注销失败，错误码为" + client.hCNetSDK.NET_DVR_GetLastError());
+                } else {
+                    log.info("注销成功");
+                }
+            } catch (Exception e) {
+                log.error("海康设备登出异常, IP:{}", ip, e);
+            } finally {
+                userIdMap.remove(ip);
+                deviceInfoMap.remove(ip);
             }
-            log.info("注销成功");
-            userIdMap.remove(ip);
-            deviceInfoMap.remove(ip);
         } else {
             log.error("设备未登录");
+        }
+    }
+
+    /**
+     * 清理设备相关的流媒体资源
+     */
+    private void cleanDeviceStreamResources(String ip) {
+        try {
+            // 复制一份 key 列表，避免在遍历中修改集合
+            List<String> streamKeysToClean = new ArrayList<>();
+            StreamManager.streamKeyAndRealHandleMap.forEach((streamKey, handle) -> {
+                if (streamKey.contains(ip)) {
+                    streamKeysToClean.add(streamKey);
+                }
+            });
+            
+            // 逐个清理资源
+            for (String streamKey : streamKeysToClean) {
+                log.info("清理设备流媒体资源, streamKey:{}", streamKey);
+                Long realHandle = StreamManager.streamKeyAndRealHandleMap.get(streamKey);
+                FRealDataForRtpOverTcpCallback callback = StreamManager.streamKeyAndFRealDataForRtpOverTcpCallbackMap.get(streamKey);
+                RtpServerParam rtpParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
+                
+                mediaStreamService.cleanupResources(streamKey, rtpParam, realHandle, callback);
+            }
+            
+        } catch (Exception e) {
+            log.error("清理设备流媒体资源异常, IP:{}", ip, e);
         }
     }
 
@@ -143,6 +195,10 @@ public class HaiKangServiceImpl implements IHaiKangService {
     @Override
     public HaikangDeviceInfo getDeviceInfo(String ip) {
         Integer iUserID = getUserId(ip);
+        if (iUserID == null || iUserID < 0) {
+            throw new ServiceException("设备未登录, IP:" + ip);
+        }
+        
         HaikangDeviceInfo deviceInfo = new HaikangDeviceInfo();
         HCNetSDK.NET_DVR_DEVICECFG_V40 m_strDeviceCfg = new HCNetSDK.NET_DVR_DEVICECFG_V40();
         m_strDeviceCfg.dwSize = m_strDeviceCfg.size();
@@ -151,7 +207,7 @@ public class HaiKangServiceImpl implements IHaiKangService {
         IntByReference pInt = new IntByReference(0);
         boolean b_GetCfg = client.hCNetSDK.NET_DVR_GetDVRConfig(iUserID, HCNetSDK.NET_DVR_GET_DEVICECFG_V40, 0Xffffffff, pStrDeviceCfg, m_strDeviceCfg.dwSize, pInt);
         if (!b_GetCfg) {
-            System.out.println("获取参数失败  错误码：" + client.hCNetSDK.NET_DVR_GetLastError());
+            log.error("获取参数失败  错误码：" + client.hCNetSDK.NET_DVR_GetLastError());
         }
         m_strDeviceCfg.read();
         parseVersion(m_strDeviceCfg.dwSoftwareVersion, deviceInfo);
@@ -180,8 +236,12 @@ public class HaiKangServiceImpl implements IHaiKangService {
 
         String streamKey = "haikang_play_" + device.getId() + "_" + device.getChannel();
 
-        int lUserID = userIdMap.get(device.getIpAddress());
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
 
+        log.info("开始播放海康设备流, deviceId:{}, channel:{}, streamKey:{}", device.getId(), device.getChannel(), streamKey);
         mediaStreamService.startPlay(lUserID, device, streamKey,rtpServerParam);
     }
 
@@ -199,6 +259,13 @@ public class HaiKangServiceImpl implements IHaiKangService {
         QsDevice device = r.getData();
         String streamKey = "haikang_play_" + device.getId() + "_" + device.getChannel();
 
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.warn("海康设备未登录，无法停止播放, IP:{}", device.getIpAddress());
+            return;
+        }
+
+        log.info("停止播放海康设备流, deviceId:{}, channel:{}, streamKey:{}", device.getId(), device.getChannel(), streamKey);
         mediaStreamService.endPlay(device.getId(), device.getChannel(), streamKey);
     }
 
@@ -209,8 +276,8 @@ public class HaiKangServiceImpl implements IHaiKangService {
         int lowVersion = version & 0XFF;
 
         deviceInfo.setFirstVersion(firstVersion);
-        deviceInfo.setSecondVersion(firstVersion);
-        deviceInfo.setLowVersion(firstVersion);
+        deviceInfo.setSecondVersion(secondVersion);
+        deviceInfo.setLowVersion(lowVersion);
     }
 
     public void parseBuildTime(int buildTime, HaikangDeviceInfo deviceInfo) {

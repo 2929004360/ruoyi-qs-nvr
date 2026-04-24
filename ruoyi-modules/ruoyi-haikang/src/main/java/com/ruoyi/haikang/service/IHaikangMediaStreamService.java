@@ -1,6 +1,7 @@
 package com.ruoyi.haikang.service;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.haikang.callback.FRealDataForRtpOverTcpCallback;
 import com.ruoyi.qs.api.domain.QsDevice;
 
 /**
@@ -30,4 +31,9 @@ public interface IHaikangMediaStreamService {
      * @param streamKey
      */
     void endPlay(Long deviceId, int channelId, String streamKey);
+
+    /**
+     * 统一资源清理方法
+     */
+    void cleanupResources(String streamKey, RtpServerParam rtpServerParam, Long realHandle, FRealDataForRtpOverTcpCallback callback);
 }

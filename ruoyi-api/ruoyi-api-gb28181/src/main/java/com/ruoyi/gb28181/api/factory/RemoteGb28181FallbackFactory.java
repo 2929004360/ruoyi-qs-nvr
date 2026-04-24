@@ -26,7 +26,7 @@ public class RemoteGb28181FallbackFactory implements FallbackFactory<RemoteGb281
     @Override
     public RemoteGb28181Service create(Throwable throwable) {
         log.error("gb28181服务调用失败:{}", throwable.getMessage());
-        return new RemoteGb28181Service(){
+        return new RemoteGb28181Service() {
             @Override
             public R<Device> getDeviceByDeviceId(String gbDeviceId, String inner) {
                 return R.fail("gb28181 根据设备id获取设备失败:" + throwable.getMessage());
@@ -40,6 +40,11 @@ public class RemoteGb28181FallbackFactory implements FallbackFactory<RemoteGb281
             @Override
             public R<DeviceChannel> getDeviceChannelByChannelId(String gbDeviceId, String gbChannelId, String inner) {
                 return R.fail("gb28181 根据设备id和通道获取设备通道:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> streamByeCmd(RtpServerParam rtpServer, String inner) {
+                return R.fail("gb28181 请求停止预览视频流失败:" + throwable.getMessage());
             }
         };
     }

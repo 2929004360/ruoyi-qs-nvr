@@ -3,6 +3,7 @@ package com.ruoyi.onvif;
 import com.ruoyi.onvif.listeners.DiscoveryCallback;
 import com.ruoyi.onvif.parsers.DiscoveryParser;
 import com.ruoyi.onvif.responses.OnvifResponse;
+import com.ruoyi.onvif.utils.PortPoolUtils;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -14,19 +15,21 @@ import java.net.DatagramSocket;
  */
 public class DiscoveryThread extends Thread {
 
-    //Constants
+    // Constants
     public static final String TAG = DiscoveryThread.class.getSimpleName();
 
-    //Attributes
+    // Attributes
     private DatagramSocket server;
     private int timeout;
     private DiscoveryParser parser;
     private DiscoveryCallback callback;
+    private int port;
 
-    //Constructors
-    DiscoveryThread(DatagramSocket server, int timeout, DiscoveryMode mode, DiscoveryCallback callback) {
+    // Constructors
+    DiscoveryThread(DatagramSocket server, int port, int timeout, DiscoveryMode mode, DiscoveryCallback callback) {
         super();
         this.server = server;
+        this.port = port;
         this.timeout = timeout;
         this.callback = callback;
         parser = new DiscoveryParser(mode);
@@ -53,7 +56,10 @@ public class DiscoveryThread extends Thread {
 
         } catch (IOException ignored) {
         } finally {
-            server.close();
+            if (server != null && !server.isClosed()) {
+                server.close();
+            }
+            PortPoolUtils.releasePort(port);
             callback.onDiscoveryFinished();
         }
     }

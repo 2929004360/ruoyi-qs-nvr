@@ -3,6 +3,7 @@ package com.ruoyi.zlm.service;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
+import com.ruoyi.zlm.common.InviteSessionType;
 import com.ruoyi.zlm.domain.MediaServerLoad;
 import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.Snap;
@@ -350,4 +351,14 @@ public interface IMediaServerService {
      * @return
      */
     Boolean connectRtpServer(ZlmMediaServer mediaServer, String address, int port, String stream);
+
+    /**
+     * gb28181 停止点播
+     *
+     * @param type
+     * @param qsDevice
+     * @param device
+     * @param stream
+     */
+    void stopGb28181Play(InviteSessionType type, QsDevice qsDevice, Device device, String stream);
 }

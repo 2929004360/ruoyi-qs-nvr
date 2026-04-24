@@ -1,6 +1,7 @@
 package com.ruoyi.haikang.isup.callBack;
 
 import com.ruoyi.haikang.isup.config.HaikangIsupConfig;
+import com.ruoyi.haikang.isup.manager.StreamManager;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
 import com.sun.jna.Pointer;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,7 +38,7 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
     public static final CopyOnWriteArrayList<Device> deviceList = new CopyOnWriteArrayList<>();
 
     public boolean invoke(int lUserID, int dwDataType, Pointer pOutBuffer, int dwOutLen, Pointer pInBuffer, int dwInLen, Pointer pUser) {
-        log.info("设备注册状态回调:" + dwDataType + ", lUserID:" + lUserID);
+        log.info("设备注册状态回调: {}, lUserID: {}", dwDataType, lUserID);
         HCISUPCMS.NET_EHOME_DEV_REG_INFO_V12 strDevRegInfo = new HCISUPCMS.NET_EHOME_DEV_REG_INFO_V12();
         Pointer pDevRegInfo = strDevRegInfo.getPointer();
 
@@ -116,7 +118,7 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
 
             //Ehome5.0设备Sessionkey回调
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_SESSIONKEY: {
-                System.out.println("Ehome5.0设备Sessionkey回调");
+                log.info("Ehome5.0设备Sessionkey回调");
 
                 // Ehome5.0设备Sessionkey回调
                 strDevRegInfo.write();
@@ -143,7 +145,7 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
                         "        \"Domain\":\"\",\n" +
                         "        \"ServerID\":\"\",\n" +
                         "        \"Port\":" + haikangIsupConfig.getDasServer().getPort() + ",\n" +
-                        "        \"UdpPort\":\n" +
+                        "        \"UdpPort\":" + haikangIsupConfig.getDasServer().getPort() + "\n" +
                         "    }\n" +
                         "}";
                 byte[] bs1 = dasInfo.getBytes();
@@ -156,49 +158,94 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_OFF: {
                 log.info("设备下线回调 Device off, lUserID is: {}", lUserID);
                 String ip = deviceIdMap.remove(lUserID);
+                if (ip != null) {
+                    lUserIDMap.remove(ip);
+                }
                 deviceList.removeIf(d -> Objects.equals(d.getIp(), ip));
+                
+                // 清理该设备相关的流资源
+                cleanupDeviceResources(lUserID);
                 break;
             }
             //设备地址发生变化
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_ADDRESS_CHANGED: {
-                System.out.println("设备地址发生变化");
+                log.info("设备地址发生变化");
                 break;
             }
             //设备重注册回调
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_DAS_REREGISTER: {
-                System.out.println("设备重注册回调");
+                log.info("设备重注册回调");
                 break;
             }
             //设备注册心跳
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_DAS_PINGREO: {
-                System.out.println("设备注册心跳");
+                // 心跳日志太频繁，使用debug级别
+                log.debug("设备注册心跳");
                 break;
             }
             //校验密码失败
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_DAS_EHOMEKEY_ERROR: {
-                System.out.println("校验密码失败");
+                log.error("校验密码失败");
                 break;
             }
             //设备进入休眠状态（注：休眠状态下，设备无法做预览、回放、语音对讲、配置等CMS中的信令作响应；设备可通过NET_ECMS_WakeUp接口进行唤醒）
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_SLEEP: {
-                System.out.println("设备进入休眠状态");
+                log.info("设备进入休眠状态");
                 break;
             }
             //EHome5.0设备sessionkey请求回调
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_SESSIONKEY_REQ: {
-                System.out.println("EHome5.0设备sessionkey请求回调");
+                log.info("EHome5.0设备sessionkey请求回调");
                 break;
             }
             //Sessionkey交互异常
             case HCISUPCMS.EHOME_REGISTER_TYPE.ENUM_DEV_SESSIONKEY_ERROR: {
-                System.out.println("Sessionkey交互异常");
+                log.error("Sessionkey交互异常");
                 break;
             }
             default:
-                System.out.println("FRegisterCallBack default type:" + dwDataType);
+                log.warn("FRegisterCallBack unknown type: {}", dwDataType);
                 break;
         }
         return true;
+    }
+    
+    /**
+     * 清理设备相关的流资源
+     */
+    private void cleanupDeviceResources(int lUserID) {
+        try {
+            log.info("开始清理设备资源，lUserID: {}", lUserID);
+            
+            // 查找该设备相关的 sessionID
+            Integer sessionID = StreamManager.userIDandSessionMap.remove(lUserID);
+            if (sessionID != null) {
+                // 清理该 session 相关的资源
+                Integer previewHandle = StreamManager.sessionIDAndPreviewHandleMap.remove(sessionID);
+                StreamManager.sessionIDAndPreviewStreamHandlerMap.remove(sessionID);
+                StreamManager.luserIdAndRtpServerParamMap.remove(sessionID);
+                
+                if (previewHandle != null) {
+                    StreamManager.previewHandSAndSessionIDandMap.remove(previewHandle);
+                }
+                
+                // 查找并清理 streamKey 相关资源
+                for (Map.Entry<String, Integer> entry : StreamManager.streamKeyAndLuserIdMap.entrySet()) {
+                    if (entry.getValue() != null && entry.getValue() == lUserID) {
+                        String streamKey = entry.getKey();
+                        StreamManager.streamKeyAndRtpServerParamMap.remove(streamKey);
+                        StreamManager.streamKeyAndSessionIDMap.remove(streamKey);
+                    }
+                }
+            }
+            
+            // 使用迭代器安全地移除该设备的 streamKey
+            StreamManager.streamKeyAndLuserIdMap.entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue() == lUserID);
+            
+            log.info("设备资源清理完成，lUserID: {}", lUserID);
+        } catch (Exception e) {
+            log.error("清理设备资源失败，lUserID: {}", lUserID, e);
+        }
     }
 }
 
