@@ -88,6 +88,8 @@ public class MediaServiceImpl implements IMediaService {
             } else {
                 return false;
             }
+        } else if ("gb28181".equals(app)) {
+            return false;
         }
         return true;
     }

@@ -9,19 +9,23 @@ import com.ruoyi.common.core.utils.StringUtils;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.gb28181.api.RemoteGb28181Service;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.InviteErrorCode;
+import com.ruoyi.zlm.common.InviteSessionType;
 import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.domain.Snap;
 import com.ruoyi.zlm.mediaServer.MediaServerChangeEvent;
 import com.ruoyi.zlm.service.ErrorCallback;
+import com.ruoyi.zlm.service.IInviteStreamService;
 import com.ruoyi.zlm.service.IMediaServerService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
@@ -58,6 +62,9 @@ public class ZlmController {
     @Autowired
     private RemoteQsDeviceService remoteQsDeviceService;
 
+    @Autowired
+    @Lazy
+    private IInviteStreamService inviteStreamService;
 
     /**
      * 拉流播放
@@ -451,32 +458,52 @@ public class ZlmController {
             HttpServletRequest request,
             @PathVariable Long id
     ) {
-        log.info("[开始点播] id：{} ", id);
+        log.info("[gb28181 开始点播] id：{} ", id);
         Assert.notNull(id, "设备id");
 
         R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
         if (qsDevicer.getCode() != Constants.SUCCESS) {
-            log.info("获取设备信息失败 id:{}", id);
             throw new RuntimeException("获取设备信息失败 id:" + id);
         }
         Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+
         QsDevice qsDevice = qsDevicer.getData();
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            throw new RuntimeException("设备不在线 id:" + id);
+        }
 
         R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId("34020000001350000001", SecurityConstants.INNER);
         if (deviceR.getCode() != Constants.SUCCESS) {
-            log.info("获取设备信息失败 id:{}", id);
-            throw new RuntimeException("获取设备信息失败 id:" + id);
+            throw new RuntimeException("gb28181 获取设备信息失败 id:" + qsDevice.getGbDeviceId());
         }
-        Assert.notNull(deviceR.getData(), "国标设备不存在 id:" + id);
+        Assert.notNull(deviceR.getData(), "gb28181 国标设备不存在 id:" + qsDevice.getGbDeviceId());
+
+        if (!deviceR.getData().isOnLine()) {
+            throw new RuntimeException("gb28181 国标设备不在线失败 id:" + qsDevice.getGbDeviceId());
+        }
+
+        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId("34020000001350000001", "34020000001350000001", SecurityConstants.INNER);
+        if (deviceChannelR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备通道失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        Assert.notNull(deviceChannelR.getData(), "gb28181 获取设备通道失败不存在 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+
+        if (!"ON".equals(deviceChannelR.getData().getStatus())) {
+            throw new RuntimeException("gb28181 国标设备通道不在线失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
 
         DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
 
         result.onTimeout(() -> {
-            log.info("[点播等待超时] gbDeviceId：{}, gbChannel：{}, ", qsDevice.getGbDeviceId(), qsDevice.getGbChannelId());
+            log.info("[点播等待超时] gbDeviceId：{}, gbChannelId：{}, ", qsDevice.getGbDeviceId(), qsDevice.getGbChannelId());
             // 释放rtpserver
             R<StreamContent> wvpResult = R.fail();
             wvpResult.setMsg("点播超时");
             result.setResult(wvpResult);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, qsDevice.getId());
         });
 
         ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
@@ -509,7 +536,7 @@ public class ZlmController {
             }
         };
 
-        mediaServerService.startGb28181Play(qsDevice,deviceR.getData(), callback);
+        mediaServerService.startGb28181Play(qsDevice, deviceR.getData(), callback);
         return result;
     }
 }

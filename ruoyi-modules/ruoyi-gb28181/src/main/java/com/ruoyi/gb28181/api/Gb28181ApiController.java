@@ -5,6 +5,7 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.gb28181.api.utils.SipUtils;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.service.IDeviceService;
@@ -137,7 +138,7 @@ public class Gb28181ApiController {
                     }
                 }
 
-                future.complete(R.ok(true,"国标28181请求预览视频流成功"));
+                future.complete(R.ok(true, "国标28181请求预览视频流成功"));
             }, (event) -> {
                 sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
                 remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
@@ -151,5 +152,24 @@ public class Gb28181ApiController {
         }
         // 阻塞等待结果
         return future.get(userSetting.getPlayTimeout().longValue(), TimeUnit.SECONDS);
+    }
+
+    /**
+     * 根据设备id和通道获取设备通道
+     *
+     * @param gbDeviceId
+     * @param gbChannelId
+     * @return
+     */
+    @GetMapping("/api/gb28181/getDeviceChannelByChannelId/{gbDeviceId}/{gbChannelId}")
+    R<DeviceChannel> getDeviceChannelByChannelId(@PathVariable String gbDeviceId, @PathVariable String gbChannelId) {
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            return R.fail("gb2818 设备不存在 deviceId:" + gbDeviceId);
+        }
+
+        DeviceChannel deviceChannel = deviceService.getDeviceChannelByChannelId(gbDeviceId, gbChannelId);
+
+        return R.ok(deviceChannel);
     }
 }

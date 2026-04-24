@@ -1,10 +1,11 @@
 package com.ruoyi.gb28181.service.impl;
 
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
-import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.gb28181.api.domain.GbCode;
+import com.ruoyi.gb28181.api.utils.DateUtil;
+import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.service.IDeviceService;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
 import com.ruoyi.gb28181.service.ISIPCommander;
@@ -13,7 +14,6 @@ import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.SubscribeTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForCatalog;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForMobilPosition;
-import com.ruoyi.gb28181.api.utils.DateUtil;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -204,6 +204,32 @@ public class DeviceServiceImpl implements IDeviceService {
                 deviceStatusTaskRunner.updateDelay(device.getDeviceId(), expiresTime + System.currentTimeMillis());
             }
         }
+    }
+
+    /**
+     * 根据设备id和通道获取设备通道
+     *
+     * @param gbDeviceId
+     * @param gbChannelId
+     * @return
+     */
+    @Override
+    public DeviceChannel getDeviceChannelByChannelId(String gbDeviceId, String gbChannelId) {
+        List<DeviceChannel> deviceChannels = redisCatchStorage.queryAllChannelsForRefresh(gbDeviceId);
+        if (deviceChannels.isEmpty()) {
+            throw new RuntimeException("设备【" + gbDeviceId + "】没有通道");
+        }
+
+        DeviceChannel deviceChannel = null;
+        for (DeviceChannel channel : deviceChannels) {
+            if (gbChannelId.equals(channel.getDeviceId())) {
+                deviceChannel = channel;
+            }
+        }
+        if (deviceChannel == null) {
+            throw new RuntimeException("设备【" + gbDeviceId + "】找不到【" + gbChannelId + "】通道");
+        }
+        return deviceChannel;
     }
 
     private void deviceStatusExpire(String deviceId, SipTransactionInfo transactionInfo) {

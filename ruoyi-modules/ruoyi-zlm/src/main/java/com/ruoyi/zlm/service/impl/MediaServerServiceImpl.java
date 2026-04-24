@@ -1595,17 +1595,14 @@ public class MediaServerServiceImpl implements IMediaServerService {
             return;
         }
 
-        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
-            callback.run(InviteErrorCode.FAIL.getCode(), "设备不在线" + qsDevice.getId(), null);
-            return;
-        }
-
+        int tcpMode = gbDevice.getStreamMode().equals("TCP-ACTIVE") ? 2 : (gbDevice.getStreamMode().equals("TCP-PASSIVE") ? 1 : 0);
         RTPServerParam rtpServerParam = new RTPServerParam();
         rtpServerParam.setApp("gb28181");
         rtpServerParam.setMediaServer(mediaServer);
         rtpServerParam.setType(LiveStreamType.GB28181.getCode());
         rtpServerParam.setStreamId(qsDevice.getDeviceCode());
-
+        rtpServerParam.setTcpMode(tcpMode);
+        rtpServerParam.setId(qsDevice.getId());
 
         startGb28181PlayFun(mediaServer, qsDevice, gbDevice, rtpServerParam, null, callback);
     }
@@ -1638,7 +1635,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
      * @param ssrc
      * @param callback
      */
-    private SSRCInfo startGb28181PlayFun(ZlmMediaServer mediaServer, QsDevice device,Device gbDevice, RTPServerParam rtpServerParam, String ssrc, ErrorCallback<StreamInfo> callback) {
+    private SSRCInfo startGb28181PlayFun(ZlmMediaServer mediaServer, QsDevice device, Device gbDevice, RTPServerParam rtpServerParam, String ssrc, ErrorCallback<StreamInfo> callback) {
         // 获取点播的状态信息
         InviteInfo inviteInfoInCatch = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
         if (inviteInfoInCatch != null) {
@@ -1678,7 +1675,6 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 }
             }
         }
-
 
         rtpServerParam.setMediaServer(mediaServer);
         // 获取mediaServer可用的ssrc
@@ -1761,7 +1757,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
         rtpServer.setId(rtpServerParam.getId());
         rtpServer.setSsrc(rtpServerParam.getSsrc());
         rtpServer.setGbDeviceId(gbDevice.getDeviceId());
-        rtpServer.setGbChannelId("34020000001350000001");
+        rtpServer.setGbChannelId(device.getGbChannelId());
         rtpServer.setStreamMode(gbDevice.getStreamMode());
         rtpServer.setMediaServerId(mediaServer.getId());
 

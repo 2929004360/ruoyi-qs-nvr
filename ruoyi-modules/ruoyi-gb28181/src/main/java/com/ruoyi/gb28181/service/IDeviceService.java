@@ -2,6 +2,7 @@ package com.ruoyi.gb28181.service;
 
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
 
 import java.util.List;
 
@@ -53,4 +54,13 @@ public interface IDeviceService {
      * @param device
      */
     void updateDeviceHeartInfo(Device device);
+
+    /**
+     * 根据设备id和通道获取设备通道
+     *
+     * @param gbDeviceId
+     * @param gbChannelId
+     * @return
+     */
+    DeviceChannel getDeviceChannelByChannelId(String gbDeviceId, String gbChannelId);
 }
