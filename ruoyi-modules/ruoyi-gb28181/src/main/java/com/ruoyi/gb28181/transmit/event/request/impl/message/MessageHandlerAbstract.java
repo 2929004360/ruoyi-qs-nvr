@@ -1,11 +1,11 @@
 package com.ruoyi.gb28181.transmit.event.request.impl.message;
 
 import com.ruoyi.gb28181.common.ErrorCode;
-import com.ruoyi.gb28181.domain.Device;
+import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.transmit.event.MessageSubscribe;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.sip.MessageEvent;
-import com.ruoyi.gb28181.utils.XmlUtil;
+import com.ruoyi.gb28181.api.utils.XmlUtil;
 import gov.nist.javax.sip.message.SIPRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.Element;

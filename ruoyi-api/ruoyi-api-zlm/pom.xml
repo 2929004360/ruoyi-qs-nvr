@@ -23,6 +23,11 @@
             <artifactId>ruoyi-common-core</artifactId>
         </dependency>
 
+        <!-- gb28181 api接口-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-gb28181</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

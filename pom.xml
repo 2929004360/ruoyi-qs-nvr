@@ -253,6 +253,13 @@
                 <artifactId>ruoyi-api-onvif</artifactId>
                 <version>${ruoyi.version}</version>
             </dependency>
+
+            <!-- gb28181 接口 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-api-gb28181</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

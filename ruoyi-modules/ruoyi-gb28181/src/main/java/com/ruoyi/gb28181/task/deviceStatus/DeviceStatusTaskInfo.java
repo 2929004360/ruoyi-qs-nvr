@@ -1,6 +1,6 @@
 package com.ruoyi.gb28181.task.deviceStatus;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import lombok.Data;
 
 @Data

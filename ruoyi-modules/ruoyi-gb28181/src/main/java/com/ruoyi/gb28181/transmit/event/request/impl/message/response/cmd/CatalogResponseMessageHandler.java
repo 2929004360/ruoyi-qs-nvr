@@ -2,10 +2,10 @@ package com.ruoyi.gb28181.transmit.event.request.impl.message.response.cmd;
 
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.gb28181.config.SipConfig;
-import com.ruoyi.gb28181.domain.Device;
-import com.ruoyi.gb28181.domain.DeviceChannel;
-import com.ruoyi.gb28181.domain.GbCode;
-import com.ruoyi.gb28181.domain.HandlerCatchData;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.GbCode;
+import com.ruoyi.gb28181.api.domain.HandlerCatchData;
 import com.ruoyi.gb28181.service.IDeviceChannelService;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.IMessageHandler;
@@ -162,7 +162,7 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
                                 // 业务分组/虚拟组织
                                 GbCode gbCode = GbCode.decode(channel.getDeviceId());
                                 if (gbCode == null || (!gbCode.getTypeCode().equals("215") && !gbCode.getTypeCode().equals("216"))) {
-                                    channelList.add(null);
+//                                    channelList.add(null);
                                 }
                                 QsGroup group = new QsGroup();
                                 group.setName(channel.getName());
@@ -176,7 +176,7 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
                                     group.setParentDeviceId(channel.getParentId());
                                 }
                                 if (group.getBusinessGroup() == null) {
-                                    channelList.add(null);
+//                                    channelList.add(null);
                                 }
                                 if (group != null) {
                                     channel.setParental(1);

@@ -84,13 +84,6 @@
             <version>33.4.8-jre</version>
         </dependency>
 
-        <!-- xml解析库 -->
-        <dependency>
-            <groupId>org.dom4j</groupId>
-            <artifactId>dom4j</artifactId>
-            <version>2.1.4</version>
-        </dependency>
-
         <!-- 取代log4j -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -121,25 +114,23 @@
             <version>5.8.38</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-            <version>4.5.0</version>
-        </dependency>
-
-        <!-- sip协议栈 -->
-        <dependency>
-            <groupId>javax.sip</groupId>
-            <artifactId>jain-sip-ri</artifactId>
-            <version>1.3.0-91</version>
-        </dependency>
-
         <!-- 泉视 接口 -->
         <dependency>
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-qs</artifactId>
         </dependency>
 
+        <!-- gb28181 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-gb28181</artifactId>
+        </dependency>
+
+        <!-- zlm 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-zlm</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

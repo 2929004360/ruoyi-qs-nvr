@@ -1,7 +1,7 @@
 package com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
-import com.ruoyi.gb28181.common.SubscribeCallback;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.common.SubscribeCallback;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 

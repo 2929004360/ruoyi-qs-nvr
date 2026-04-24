@@ -1,7 +1,7 @@
 package com.ruoyi.gb28181.service;
 
-import com.ruoyi.gb28181.domain.Device;
-import com.ruoyi.gb28181.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
 
 import java.util.List;
 

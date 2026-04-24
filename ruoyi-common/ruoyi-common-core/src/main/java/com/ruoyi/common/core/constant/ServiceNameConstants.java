@@ -47,9 +47,13 @@ public class ServiceNameConstants
      */
     public static final String ZLM_SERVICE = "ruoyi-zlm";
 
-
     /**
      * onvif模块的serviceid
      */
     public static final String ONVIF_SERVICE = "ruoyi-onvif";
+
+    /**
+     * gb28181模块的serviceid
+     */
+    public static final String GB28181_SERVICE = "ruoyi-gb28181";
 }

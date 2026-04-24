@@ -1,8 +1,8 @@
 package com.ruoyi.gb28181.transmit.event.request.impl.message;
 
-import com.ruoyi.gb28181.bean.DeviceNotFoundEvent;
-import com.ruoyi.gb28181.domain.Device;
-import com.ruoyi.gb28181.domain.SsrcTransaction;
+import com.ruoyi.gb28181.api.bean.DeviceNotFoundEvent;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
 import com.ruoyi.gb28181.session.SipInviteSessionManager;
 import com.ruoyi.gb28181.transmit.ISIPProcessorObserver;
@@ -10,7 +10,7 @@ import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 import com.ruoyi.gb28181.transmit.event.request.ISIPRequestProcessor;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.sip.SipEvent;
-import com.ruoyi.gb28181.utils.SipUtils;
+import com.ruoyi.gb28181.api.utils.SipUtils;
 import gov.nist.javax.sip.message.SIPRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.DocumentException;

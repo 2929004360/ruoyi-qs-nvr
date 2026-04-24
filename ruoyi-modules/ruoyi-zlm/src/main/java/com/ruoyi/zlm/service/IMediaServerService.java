@@ -1,5 +1,6 @@
 package com.ruoyi.zlm.service;
 
+import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.domain.MediaServerLoad;
@@ -329,4 +330,24 @@ public interface IMediaServerService {
      * @param callback
      */
     void streamPullPush(Long id, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * gb28181 播放
+     *
+     * @param qsDevice
+     * @param gbDevice
+     * @param callback
+     */
+    void startGb28181Play(QsDevice qsDevice, Device gbDevice, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * 连接rtp服务
+     *
+     * @param mediaServer
+     * @param address
+     * @param port
+     * @param stream
+     * @return
+     */
+    Boolean connectRtpServer(ZlmMediaServer mediaServer, String address, int port, String stream);
 }

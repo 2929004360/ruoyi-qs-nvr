@@ -1,17 +1,17 @@
 package com.ruoyi.gb28181.transmit.event.request.impl.message.notify.cmd;
 
-import com.ruoyi.gb28181.common.RemoteAddressInfo;
+import com.ruoyi.gb28181.api.common.RemoteAddressInfo;
 import com.ruoyi.gb28181.config.UserSetting;
-import com.ruoyi.gb28181.domain.Device;
-import com.ruoyi.gb28181.domain.SipMsgInfo;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.SipMsgInfo;
 import com.ruoyi.gb28181.service.IDeviceService;
 import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.IMessageHandler;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.notify.NotifyMessageHandler;
-import com.ruoyi.gb28181.utils.DateUtil;
+import com.ruoyi.gb28181.api.utils.DateUtil;
 import com.ruoyi.gb28181.utils.IpPortUtil;
-import com.ruoyi.gb28181.utils.SipUtils;
+import com.ruoyi.gb28181.api.utils.SipUtils;
 import gov.nist.javax.sip.message.SIPRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.Element;

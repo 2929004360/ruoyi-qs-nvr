@@ -2,8 +2,8 @@ package com.ruoyi.gb28181.service.impl;
 
 import com.ruoyi.gb28181.common.VideoManagerConstants;
 import com.ruoyi.gb28181.config.UserSetting;
-import com.ruoyi.gb28181.domain.Device;
-import com.ruoyi.gb28181.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

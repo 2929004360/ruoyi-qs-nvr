@@ -18,4 +18,16 @@ public class RtpServerParam {
     private Integer port;
 
     private String ssrc;
+
+    private String gbDeviceId;
+
+    private String gbChannelId;
+
+    private String streamMode;
+
+    private String mediaServerId;
+
+    private String app;
+
+    private String stream;
 }

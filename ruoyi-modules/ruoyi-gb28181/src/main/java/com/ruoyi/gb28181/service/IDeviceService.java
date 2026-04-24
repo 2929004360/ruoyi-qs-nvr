@@ -1,7 +1,7 @@
 package com.ruoyi.gb28181.service;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
-import com.ruoyi.gb28181.domain.Device;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.domain.Device;
 
 import java.util.List;
 

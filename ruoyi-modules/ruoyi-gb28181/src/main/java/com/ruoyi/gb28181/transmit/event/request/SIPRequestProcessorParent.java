@@ -3,7 +3,7 @@ package com.ruoyi.gb28181.transmit.event.request;
 import com.google.common.primitives.Bytes;
 import com.ruoyi.gb28181.transmit.SIPSender;
 import com.ruoyi.gb28181.utils.IpPortUtil;
-import com.ruoyi.gb28181.utils.SipUtils;
+import com.ruoyi.gb28181.api.utils.SipUtils;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 import lombok.extern.slf4j.Slf4j;

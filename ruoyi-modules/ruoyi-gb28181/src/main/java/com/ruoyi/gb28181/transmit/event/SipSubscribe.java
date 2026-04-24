@@ -1,6 +1,6 @@
 package com.ruoyi.gb28181.transmit.event;
 
-import com.ruoyi.gb28181.bean.DeviceNotFoundEvent;
+import com.ruoyi.gb28181.api.bean.DeviceNotFoundEvent;
 import com.ruoyi.gb28181.transmit.event.sip.SipEvent;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;

@@ -1,6 +1,6 @@
 package com.ruoyi.gb28181.transmit.event.request.impl.message;
 
-import com.ruoyi.gb28181.domain.Device;
+import com.ruoyi.gb28181.api.domain.Device;
 import org.dom4j.Element;
 
 import javax.sip.RequestEvent;

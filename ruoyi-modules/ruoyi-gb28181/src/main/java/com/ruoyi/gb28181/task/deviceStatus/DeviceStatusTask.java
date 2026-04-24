@@ -1,7 +1,7 @@
 package com.ruoyi.gb28181.task.deviceStatus;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
-import com.ruoyi.gb28181.common.DeviceStatusCallback;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.common.DeviceStatusCallback;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;

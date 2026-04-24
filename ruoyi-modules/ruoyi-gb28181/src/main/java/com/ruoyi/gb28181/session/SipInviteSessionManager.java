@@ -2,7 +2,7 @@ package com.ruoyi.gb28181.session;
 
 import com.ruoyi.gb28181.common.VideoManagerConstants;
 import com.ruoyi.gb28181.config.UserSetting;
-import com.ruoyi.gb28181.domain.SsrcTransaction;
+import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;

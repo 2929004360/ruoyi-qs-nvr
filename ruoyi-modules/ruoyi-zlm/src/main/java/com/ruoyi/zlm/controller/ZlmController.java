@@ -1,10 +1,16 @@
 package com.ruoyi.zlm.controller;
 
 import com.alibaba.nacos.api.model.v2.ErrorCode;
+import com.ruoyi.common.core.constant.Constants;
+import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.StringUtils;
 import com.ruoyi.common.core.web.domain.AjaxResult;
+import com.ruoyi.gb28181.api.RemoteGb28181Service;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.InviteErrorCode;
 import com.ruoyi.zlm.config.UserSetting;
@@ -12,7 +18,6 @@ import com.ruoyi.zlm.domain.Snap;
 import com.ruoyi.zlm.mediaServer.MediaServerChangeEvent;
 import com.ruoyi.zlm.service.ErrorCallback;
 import com.ruoyi.zlm.service.IMediaServerService;
-import com.ruoyi.zlm.utils.ZLMRESTfulUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,10 +44,6 @@ import java.util.List;
 public class ZlmController {
 
     @Autowired
-    private ZLMRESTfulUtils zlmresTfulUtils;
-
-
-    @Autowired
     private IMediaServerService mediaServerService;
 
     @Autowired
@@ -50,6 +51,12 @@ public class ZlmController {
 
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
+
+    @Autowired
+    private RemoteGb28181Service remoteGb28181Service;
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
 
 
     /**
@@ -429,6 +436,80 @@ public class ZlmController {
                 result.setResult(success);
             }
         });
+        return result;
+    }
+
+    /**
+     * gb28181 播放
+     *
+     * @param request
+     * @param id      设备id
+     * @return
+     */
+    @GetMapping("/startGb28181Play/{id}")
+    public DeferredResult<R<StreamContent>> startGb28181Play(
+            HttpServletRequest request,
+            @PathVariable Long id
+    ) {
+        log.info("[开始点播] id：{} ", id);
+        Assert.notNull(id, "设备id");
+
+        R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (qsDevicer.getCode() != Constants.SUCCESS) {
+            log.info("获取设备信息失败 id:{}", id);
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+        QsDevice qsDevice = qsDevicer.getData();
+
+        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId("34020000001350000001", SecurityConstants.INNER);
+        if (deviceR.getCode() != Constants.SUCCESS) {
+            log.info("获取设备信息失败 id:{}", id);
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(deviceR.getData(), "国标设备不存在 id:" + id);
+
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+
+        result.onTimeout(() -> {
+            log.info("[点播等待超时] gbDeviceId：{}, gbChannel：{}, ", qsDevice.getGbDeviceId(), qsDevice.getGbChannelId());
+            // 释放rtpserver
+            R<StreamContent> wvpResult = R.fail();
+            wvpResult.setMsg("点播超时");
+            result.setResult(wvpResult);
+        });
+
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                R<StreamContent> r = R.ok();
+                if (streamInfo != null) {
+                    if (userSetting.getUseSourceIpAsStreamIp()) {
+                        streamInfo = streamInfo.clone();//深拷贝
+                        String host;
+                        try {
+                            URL url = new URL(request.getRequestURL().toString());
+                            host = url.getHost();
+                        } catch (MalformedURLException e) {
+                            host = request.getLocalAddr();
+                        }
+                        streamInfo.changeStreamIp(host);
+                    }
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                        streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
+                    }
+                    r.setData(new StreamContent(streamInfo));
+                } else {
+                    r.setCode(code);
+                    r.setMsg(msg);
+                }
+
+                result.setResult(r);
+            } else {
+                result.setResult(R.fail(code, msg));
+            }
+        };
+
+        mediaServerService.startGb28181Play(qsDevice,deviceR.getData(), callback);
         return result;
     }
 }

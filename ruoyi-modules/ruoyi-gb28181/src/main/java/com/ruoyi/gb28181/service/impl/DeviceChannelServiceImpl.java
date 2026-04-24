@@ -1,7 +1,7 @@
 package com.ruoyi.gb28181.service.impl;
 
-import com.ruoyi.gb28181.domain.Device;
-import com.ruoyi.gb28181.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.gb28181.service.IDeviceChannelService;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
 import lombok.extern.slf4j.Slf4j;
@@ -68,19 +68,25 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
             List<DeviceChannel> channels,
             List<DeviceChannel> deviceChannelList) {
 
-        // 处理 null 情况
-        if (channels == null) channels = Collections.emptyList();
-        if (deviceChannelList == null) deviceChannelList = Collections.emptyList();
+        // 1. 如果新拉取的数据是 null 或空，说明没有新数据，业务上通常意味着要清空旧缓存
+        if (deviceChannelList == null || deviceChannelList.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        // 1. 提取数据库中所有已存在的 deviceId
+        // 2. 如果旧数据为空，直接返回新数据
+        if (channels == null || channels.isEmpty()) {
+            return new ArrayList<>(deviceChannelList);
+        }
+
+        // 3. 正常合并逻辑
+        // 提取数据库中（或Redis中）已存在的 deviceId
         Set<String> existingDeviceIds = channels.stream()
                 .map(DeviceChannel::getDeviceId)
                 .collect(Collectors.toSet());
 
-        // 2. 创建结果列表，先放入所有数据库中的数据
         List<DeviceChannel> result = new ArrayList<>(channels);
 
-        // 3. 遍历新数据，只添加 deviceId 不存在于数据库中的项
+        // 遍历新数据，添加独有的项
         for (DeviceChannel newChannel : deviceChannelList) {
             if (!existingDeviceIds.contains(newChannel.getDeviceId())) {
                 result.add(newChannel);

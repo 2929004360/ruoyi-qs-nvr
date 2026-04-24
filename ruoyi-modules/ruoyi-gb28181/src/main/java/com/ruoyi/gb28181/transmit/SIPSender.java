@@ -1,12 +1,12 @@
 package com.ruoyi.gb28181.transmit;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.config.SipConfig;
 import com.ruoyi.gb28181.runner.SipLayer;
 import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 import com.ruoyi.gb28181.transmit.event.sip.SipEvent;
-import com.ruoyi.gb28181.utils.GitUtil;
-import com.ruoyi.gb28181.utils.SipUtils;
+import com.ruoyi.gb28181.api.utils.GitUtil;
+import com.ruoyi.gb28181.api.utils.SipUtils;
 import gov.nist.javax.sip.SipProviderImpl;
 import gov.nist.javax.sip.address.SipUri;
 import gov.nist.javax.sip.message.SIPRequest;

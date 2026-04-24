@@ -9,6 +9,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.dahua.api.RemoteDaHuaService;
+import com.ruoyi.gb28181.api.RemoteGb28181Service;
+import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
@@ -121,6 +123,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
     @Autowired
     private IZlmCloudRecordService zlmCloudRecordService;
+
+    @Autowired
+    private RemoteGb28181Service remoteGb28181Service;
 
     @Value("${file.domain}")
     private String fileDomain;
@@ -904,6 +909,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         if ("OFFLINE".equals(r.getData().getDeviceStatus())) {
             callback.run(InviteErrorCode.FAIL.getCode(), "设备不在线" + rtpServerParam.getId(), null);
+            return;
         }
         play(mediaServer, rtpServerParam, r.getData(), null, callback);
     }
@@ -1125,6 +1131,8 @@ public class MediaServerServiceImpl implements IMediaServerService {
         if (inviteInfo != null) {
             inviteStreamService.removeInviteInfo(inviteInfo);
         }
+
+        ssrcFactory.releaseSsrc(device.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
 
         QsDevice qsDevice = new QsDevice();
         qsDevice.setId(rtpServerParam.getId());
@@ -1569,6 +1577,230 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 return;
             }
         }
+    }
+
+    /**
+     * gb28181 播放
+     *
+     * @param qsDevice
+     * @param gbDevice
+     * @param callback
+     */
+    @Override
+    public void startGb28181Play(QsDevice qsDevice, Device gbDevice, ErrorCallback<StreamInfo> callback) {
+        ZlmMediaServer mediaServer = getMediaServerForMinimumLoad(null);
+
+        if (mediaServer == null) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "无可用的节点", null);
+            return;
+        }
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "设备不在线" + qsDevice.getId(), null);
+            return;
+        }
+
+        RTPServerParam rtpServerParam = new RTPServerParam();
+        rtpServerParam.setApp("gb28181");
+        rtpServerParam.setMediaServer(mediaServer);
+        rtpServerParam.setType(LiveStreamType.GB28181.getCode());
+        rtpServerParam.setStreamId(qsDevice.getDeviceCode());
+
+
+        startGb28181PlayFun(mediaServer, qsDevice, gbDevice, rtpServerParam, null, callback);
+    }
+
+    /**
+     * 连接rtp服务
+     *
+     * @param mediaServer
+     * @param address
+     * @param port
+     * @param stream
+     * @return
+     */
+    @Override
+    public Boolean connectRtpServer(ZlmMediaServer mediaServer, String address, int port, String stream) {
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[connectRtpServer] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            return false;
+        }
+        return mediaNodeServerService.connectRtpServer(mediaServer, address, port, stream);
+    }
+
+    /**
+     * 开启国标28181播放
+     *
+     * @param mediaServer
+     * @param device
+     * @param rtpServerParam
+     * @param ssrc
+     * @param callback
+     */
+    private SSRCInfo startGb28181PlayFun(ZlmMediaServer mediaServer, QsDevice device,Device gbDevice, RTPServerParam rtpServerParam, String ssrc, ErrorCallback<StreamInfo> callback) {
+        // 获取点播的状态信息
+        InviteInfo inviteInfoInCatch = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+        if (inviteInfoInCatch != null) {
+            if (inviteInfoInCatch.getStreamInfo() == null) {
+                // 释放生成的ssrc，使用上一次申请的
+                ssrcFactory.releaseSsrc(mediaServer.getId(), null);
+                // 点播发起了但是尚未成功, 仅注册回调等待结果即可
+                inviteStreamService.once(InviteSessionType.PLAY, device.getId(), null, callback);
+                log.info("[点播开始] 已经请求中，等待结果， deviceId: {}, channel: {}", device.getId(), device.getId());
+                return inviteInfoInCatch.getSsrcInfo();
+            } else {
+                StreamInfo streamInfo = inviteInfoInCatch.getStreamInfo();
+                String streamId = streamInfo.getStream();
+                if (streamId == null) {
+                    callback.run(InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(), "点播失败， redis缓存streamId等于null", null);
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(), "点播失败， redis缓存streamId等于null", null);
+                    return inviteInfoInCatch.getSsrcInfo();
+                }
+                ZlmMediaServer mediaInfo = streamInfo.getMediaServer();
+                Boolean ready = isStreamReady(mediaInfo, rtpServerParam.getApp(), streamId);
+                if (ready != null && ready) {
+                    if (callback != null) {
+                        callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+                    }
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+                    log.info("[点播已存在] 直接返回， 设备编号: {}", device.getId());
+                    return inviteInfoInCatch.getSsrcInfo();
+                } else {
+                    // 点播发起了但是尚未成功, 仅注册回调等待结果即可
+                    inviteStreamService.once(InviteSessionType.PLAY, device.getId(), null, callback);
+                    RTPServerParam rtpServer = new RTPServerParam();
+                    rtpServer.setId(device.getId());
+                    rtpServer.setType(rtpServerParam.getType());
+                    rtpServer.setStreamId(rtpServerParam.getStreamId());
+                    stopRtpPlay(rtpServer);
+                    inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+                }
+            }
+        }
+
+
+        rtpServerParam.setMediaServer(mediaServer);
+        // 获取mediaServer可用的ssrc
+        if (rtpServerParam.getPresetSsrc() != null) {
+            ssrc = rtpServerParam.getPresetSsrc();
+        } else {
+            if (rtpServerParam.isPlayback()) {
+                ssrc = ssrcFactory.getPlayBackSsrc(mediaServer.getId());
+            } else {
+                ssrc = ssrcFactory.getPlaySsrc(mediaServer.getId());
+            }
+        }
+        rtpServerParam.setSsrc(ssrc);
+
+        SSRCInfo ssrcInfo = receiveRtpServerService.openRTPServer(rtpServerParam, (code, msg, result) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode() && result != null && result.getHookData() != null) {
+                log.info("[创建RTP服务器] 成功, code: {}, msg: {}, result: {}", code, msg, result);
+                StreamInfo streamInfo = getStreamInfoByAppAndStream(mediaServer, rtpServerParam.getApp(), rtpServerParam.getStreamId(), result.getHookData().getMediaInfo());
+                if (streamInfo == null) {
+                    if (callback != null) {
+                        callback.run(InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getCode(), InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getMsg(), null);
+                    }
+
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getCode(), InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getMsg(), null);
+                    return;
+                }
+                if (callback != null) {
+                    callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+
+//                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null,
+//                            InviteErrorCode.SUCCESS.getCode(),
+//                            InviteErrorCode.SUCCESS.getMsg(),
+//                            streamInfo);
+
+                    InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+
+                    if (inviteInfo != null) {
+                        inviteInfo.setStatus(InviteSessionStatus.ok);
+                        inviteInfo.setStreamInfo(streamInfo);
+                        inviteStreamService.updateInviteInfo(inviteInfo);
+                    }
+
+
+                    String filePath = snapOnPlay(streamInfo.getMediaServer(), streamInfo.getApp(), streamInfo.getStream());
+                    QsDevice qsDevice = new QsDevice();
+                    qsDevice.setId(rtpServerParam.getId());
+                    qsDevice.setStreamKey(rtpServerParam.getStreamId());
+                    qsDevice.setMediaServerId(mediaServer.getId());
+                    qsDevice.setStreamStatus("1");
+                    qsDevice.setSnap(filePath);
+                    R<Boolean> r = remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
+                    if (r.getCode() != Constants.SUCCESS) {
+                        throw new RuntimeException("更新设备失败");
+                    }
+                }
+            } else {
+                log.error("[创建RTP服务器] 失败, code: {}, msg: {}, result: {}", code, msg, result);
+
+                if (callback != null) {
+                    callback.run(code, msg, null);
+                }
+
+                inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, code, msg, null);
+                inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+            }
+        });
+
+        if (ssrcInfo == null || ssrcInfo.getPort() <= 0) {
+            log.info("[点播端口/SSRC]获取失败，设备编号：{}, 通道编号：{},ssrcInfo；{}", device.getId().toString(), device.getId(), ssrcInfo);
+            callback.run(InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(), "获取端口或者ssrc失败", null);
+            inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(), InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getMsg(), null);
+            return null;
+        }
+
+        int port = ssrcInfo.getPort();
+        String ip = mediaServer.getIp();
+        RtpServerParam rtpServer = new RtpServerParam();
+        rtpServer.setPort(port);
+        rtpServer.setIp(ip);
+        rtpServer.setId(rtpServerParam.getId());
+        rtpServer.setSsrc(rtpServerParam.getSsrc());
+        rtpServer.setGbDeviceId(gbDevice.getDeviceId());
+        rtpServer.setGbChannelId("34020000001350000001");
+        rtpServer.setStreamMode(gbDevice.getStreamMode());
+        rtpServer.setMediaServerId(mediaServer.getId());
+
+        InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getId(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), gbDevice.getStreamMode(), InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
+
+        if ("1".equals(device.getEnableMp4())) {
+            inviteInfo.setRecord(true);
+        }
+
+        inviteStreamService.updateInviteInfo(inviteInfo);
+
+        R<Void> r = remoteGb28181Service.playStreamCmd(rtpServer, SecurityConstants.INNER);
+
+        if (r.getCode() != Constants.SUCCESS) {
+            log.info("[点播失败]{}:{} deviceId: {}, channelId:{}", r.getCode(), r.getMsg(), device.getGbDeviceId(), device.getGbChannelId());
+            inviteInfo = inviteStreamService.getInviteInfo(InviteSessionType.PLAY, device.getId(), rtpServerParam.getStreamId());
+
+            if (inviteInfo != null) {
+                inviteStreamService.removeInviteInfo(inviteInfo);
+                ssrcFactory.releaseSsrc(device.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
+            }
+
+            closeRTPServer(mediaServer, ssrcInfo.getStream());
+            ssrcFactory.releaseSsrc(mediaServer.getId(), ssrcInfo.getSsrc());
+
+
+            if (callback != null) {
+                callback.run(r.getCode(), r.getMsg(), null);
+            }
+            inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null,
+                    r.getCode(), r.getMsg(), null);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+        }
+
+        if (inviteInfo != null) {
+            inviteInfo.setStatus(InviteSessionStatus.ok);
+        }
+        return ssrcInfo;
     }
 
     /**

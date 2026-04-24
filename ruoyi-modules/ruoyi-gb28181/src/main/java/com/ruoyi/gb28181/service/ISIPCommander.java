@@ -1,7 +1,9 @@
 package com.ruoyi.gb28181.service;
 
-import com.ruoyi.gb28181.bean.ErrorCallback;
-import com.ruoyi.gb28181.domain.Device;
+import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.gb28181.api.bean.ErrorCallback;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 
 import javax.sip.InvalidArgumentException;
 import javax.sip.SipException;
@@ -41,4 +43,15 @@ public interface ISIPCommander {
      * @param callback
      */
     void deviceStatusQuery(Device device, ErrorCallback<String> callback) throws InvalidArgumentException, SipException, ParseException;
+
+    /**
+     * 请求预览视频流
+     *
+     * @param device
+     * @param rtpServer
+     * @param okEvent
+     * @param errorEvent
+     * @param timeout
+     */
+    void playStreamCmd(Device device,RtpServerParam rtpServer, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent, Long timeout) throws SipException, InvalidArgumentException, ParseException;
 }

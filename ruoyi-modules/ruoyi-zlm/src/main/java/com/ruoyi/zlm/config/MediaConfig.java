@@ -87,8 +87,8 @@ public class MediaConfig {
     @Value("${media.secret}")
     private String secret;
 
-    @Value("${media.rtp.enable}")
-    private boolean rtpEnable;
+//    @Value("${media.rtp.enable}")
+    private boolean rtpEnable = Boolean.TRUE;
 
     @Value("${media.rtp.port-range}")
     private String rtpPortRange;

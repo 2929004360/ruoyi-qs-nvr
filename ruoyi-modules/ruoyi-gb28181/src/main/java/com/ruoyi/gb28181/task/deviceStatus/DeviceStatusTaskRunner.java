@@ -1,6 +1,6 @@
 package com.ruoyi.gb28181.task.deviceStatus;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.utils.redis.RedisUtil;
 import lombok.extern.slf4j.Slf4j;

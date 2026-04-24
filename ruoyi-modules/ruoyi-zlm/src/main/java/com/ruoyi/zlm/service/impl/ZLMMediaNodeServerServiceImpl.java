@@ -360,4 +360,20 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
     public void restartServer(ZlmMediaServer mediaServer) {
         zlmresTfulUtils.restartServer(mediaServer);
     }
+
+    /**
+     * 连接rtp服务
+     *
+     * @param mediaServer
+     * @param address
+     * @param port
+     * @param stream
+     * @return
+     */
+    @Override
+    public Boolean connectRtpServer(ZlmMediaServer mediaServer, String address, int port, String stream) {
+        ZLMResult<?> zlmResult = zlmresTfulUtils.connectRtpServer(mediaServer, address, port, stream);
+        log.info("[TCP主动连接对方] 结果： {}", zlmResult);
+        return zlmResult.getCode() == 0;
+    }
 }

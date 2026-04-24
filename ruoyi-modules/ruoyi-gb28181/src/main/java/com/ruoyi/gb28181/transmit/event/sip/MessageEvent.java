@@ -1,6 +1,6 @@
 package com.ruoyi.gb28181.transmit.event.sip;
 
-import com.ruoyi.gb28181.bean.ErrorCallback;
+import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 

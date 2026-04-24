@@ -1,13 +1,13 @@
 package com.ruoyi.gb28181.transmit.cmd;
 
-import com.ruoyi.gb28181.bean.SipTransactionInfo;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.config.SipConfig;
-import com.ruoyi.gb28181.domain.Device;
+import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.runner.SipLayer;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
-import com.ruoyi.gb28181.utils.GitUtil;
+import com.ruoyi.gb28181.api.utils.GitUtil;
 import com.ruoyi.gb28181.utils.IpPortUtil;
-import com.ruoyi.gb28181.utils.SipUtils;
+import com.ruoyi.gb28181.api.utils.SipUtils;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 import org.springframework.beans.factory.annotation.Autowired;

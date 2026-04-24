@@ -16,6 +16,7 @@
         <module>ruoyi-api-dahua</module>
         <module>ruoyi-api-zlm</module>
         <module>ruoyi-api-onvif</module>
+        <module>ruoyi-api-gb28181</module>
     </modules>
 
     <artifactId>ruoyi-api</artifactId>

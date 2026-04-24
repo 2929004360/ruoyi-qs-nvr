@@ -53,4 +53,6 @@ public interface IMediaNodeServerService {
     ZLMResult<?> getWorkThreadsLoad(ZlmMediaServer mediaServer);
 
     void restartServer(ZlmMediaServer mediaServer);
+
+    Boolean connectRtpServer(ZlmMediaServer mediaServer, String address, int port, String stream);
 }

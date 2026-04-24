@@ -1,5 +1,8 @@
 package com.ruoyi.zlm.api.factory;
 
+import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +27,20 @@ public class RemoteZlmFallbackFactory implements FallbackFactory<RemoteZlmServic
         log.error("zlm服务调用失败:{}", throwable.getMessage());
 
         return new RemoteZlmService() {
+            @Override
+            public R<Void> releaseSsrc(String mediaServerId, String ssrc, String inner) {
+                return R.fail("zlm接口服务调用失败，releaseSsrc:" + throwable.getMessage());
+            }
 
+            @Override
+            public R<Void> closeRTPServer(String mediaServerId, RtpServerParam rtpServer, String inner) {
+                return R.fail("zlm接口服务调用失败，closeRTPServer:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> connectRtpServer(String mediaServerId, String address, int port, String stream, String inner) {
+                return R.fail("zlm接口服务调用失败，connectRtpServer:" + throwable.getMessage());
+            }
         };
     }
 }
