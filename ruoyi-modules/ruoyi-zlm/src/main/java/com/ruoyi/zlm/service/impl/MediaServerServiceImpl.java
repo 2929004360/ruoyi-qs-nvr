@@ -272,6 +272,17 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 if ("gb28181".equals(event.getApp())) {
                     // 处理gb28181的停止播放逻辑
                     log.info("[gb28181] 流离开，开始清理资源，stream: {}", event.getStream());
+                    // 关闭 RTP 服务器
+                    ZlmMediaServer mediaServer = null;
+                    if (inviteInfo.getStreamInfo() != null) {
+                        mediaServer = inviteInfo.getStreamInfo().getMediaServer();
+                    } else {
+                        mediaServer = getOne(inviteInfo.getMediaServerId());
+                    }
+                    if (mediaServer != null && inviteInfo.getSsrcInfo() != null) {
+                        closeRTPServer(mediaServer, inviteInfo.getSsrcInfo().getStream());
+                    }
+                    
                     // 清理会话和释放资源
                     if (inviteInfo.getSsrcInfo() != null) {
                         ssrcFactory.releaseSsrc(inviteInfo.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
@@ -1162,9 +1173,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         if (inviteInfo != null) {
             inviteStreamService.removeInviteInfo(inviteInfo);
+            
+            if (inviteInfo.getSsrcInfo() != null) {
+                ssrcFactory.releaseSsrc(device.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
+            }
         }
-
-        ssrcFactory.releaseSsrc(device.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
 
         QsDevice qsDevice = new QsDevice();
         qsDevice.setId(rtpServerParam.getId());
@@ -1717,8 +1730,17 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 throw new RuntimeException("更新设备失败");
             }
         }
+        
+        ZlmMediaServer mediaServer = null;
         if (inviteInfo.getStreamInfo() != null) {
-            closeRTPServer(inviteInfo.getStreamInfo().getMediaServer(), inviteInfo.getSsrcInfo().getSsrc());
+            mediaServer = inviteInfo.getStreamInfo().getMediaServer();
+        } else {
+            mediaServer = getOne(inviteInfo.getMediaServerId());
+        }
+        
+        if (mediaServer != null && inviteInfo.getSsrcInfo() != null) {
+            closeRTPServer(mediaServer, inviteInfo.getSsrcInfo().getStream());
+            ssrcFactory.releaseSsrc(inviteInfo.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
         }
     }
 
@@ -1895,7 +1917,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
             if (inviteInfo != null) {
                 inviteStreamService.removeInviteInfo(inviteInfo);
-                ssrcFactory.releaseSsrc(device.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
+                if (inviteInfo.getSsrcInfo() != null) {
+                    ssrcFactory.releaseSsrc(mediaServer.getId(), inviteInfo.getSsrcInfo().getSsrc());
+                }
             }
 
             closeRTPServer(mediaServer, ssrcInfo.getStream());
@@ -1909,10 +1933,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
                     r.getCode(), r.getMsg(), null);
 
             inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
-        }
-
-        if (inviteInfo != null) {
-            inviteInfo.setStatus(InviteSessionStatus.ok);
+            return ssrcInfo;
         }
         return ssrcInfo;
     }

@@ -511,6 +511,7 @@ public class ZlmController {
             result.setResult(wvpResult);
 
             inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, qsDevice.getId());
+            mediaServerService.stopGb28181Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getDeviceCode());
         });
 
         ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {

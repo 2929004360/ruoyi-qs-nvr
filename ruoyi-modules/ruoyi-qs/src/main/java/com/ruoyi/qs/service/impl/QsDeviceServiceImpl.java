@@ -411,30 +411,24 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     @Override
     public void task() {
         List<QsDevice> qsDeviceList = fetchAllQsDeviceStreamUrls();
-        if (qsDeviceList.size() == 0) {
+        if (qsDeviceList.isEmpty()) {
             return;
         }
 
-
-        qsDeviceList.stream()
-                .filter(device -> "3".equals(device.getType()) && "ws".equalsIgnoreCase(device.getFlvType()));
-
+        // 处理所有设备，替换 ws/wss 为 http/https，先替换 wss 防止被误判
         qsDeviceList.forEach(device -> {
             String originalUrl = device.getLiveAddress();
             if (originalUrl != null && !originalUrl.isEmpty()) {
-                // 替换逻辑：先替换 wss -> https，再替换 ws -> http
-                // 注意顺序，先替换 wss 防止被误判
+                // 注意替换顺序，先替换 wss -> https，再替换 ws -> http
                 String newUrl = originalUrl.replace("wss://", "https://")
                         .replace("ws://", "http://");
-
                 device.setLiveAddress(newUrl);
             }
         });
 
-
         List<StreamDetector.StreamResult> streamResults = streamDetector.batchDetect(qsDeviceList, taskExecutor);
 
-        List<QsDevice> newQsDeviceList = new ArrayList<QsDevice>();
+        List<QsDevice> newQsDeviceList = new ArrayList<>();
         for (StreamDetector.StreamResult streamResult : streamResults) {
             QsDevice device = new QsDevice();
             device.setId(streamResult.getId());
@@ -442,7 +436,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             newQsDeviceList.add(device);
         }
 
-        if (newQsDeviceList.size() > 0) {
+        if (!newQsDeviceList.isEmpty()) {
             updateAllQsDeviceStreamUrls(newQsDeviceList);
         }
     }

@@ -1,9 +1,14 @@
 package com.ruoyi.haikang.isup.callBack;
 
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.config.HaikangIsupConfig;
+import com.ruoyi.haikang.isup.handler.PreviewStreamHandler;
 import com.ruoyi.haikang.isup.manager.StreamManager;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
+import com.ruoyi.haikang.isup.service.haikang.stream.StreamService;
+import com.ruoyi.zlm.api.RemoteZlmService;
 import com.sun.jna.Pointer;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -30,6 +35,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
 
     private final HaikangIsupConfig haikangIsupConfig;
+    private final RemoteZlmService remoteZlmService;
 
     public static final ConcurrentHashMap<Integer, String> deviceIdMap = new ConcurrentHashMap<>(16);
 
@@ -217,34 +223,99 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
         try {
             log.info("开始清理设备资源，lUserID: {}", lUserID);
             
-            // 查找该设备相关的 sessionID
-            Integer sessionID = StreamManager.userIDandSessionMap.remove(lUserID);
-            if (sessionID != null) {
-                // 清理该 session 相关的资源
-                Integer previewHandle = StreamManager.sessionIDAndPreviewHandleMap.remove(sessionID);
-                StreamManager.sessionIDAndPreviewStreamHandlerMap.remove(sessionID);
-                StreamManager.luserIdAndRtpServerParamMap.remove(sessionID);
-                
-                if (previewHandle != null) {
-                    StreamManager.previewHandSAndSessionIDandMap.remove(previewHandle);
-                }
-                
-                // 查找并清理 streamKey 相关资源
-                for (Map.Entry<String, Integer> entry : StreamManager.streamKeyAndLuserIdMap.entrySet()) {
-                    if (entry.getValue() != null && entry.getValue() == lUserID) {
-                        String streamKey = entry.getKey();
-                        StreamManager.streamKeyAndRtpServerParamMap.remove(streamKey);
-                        StreamManager.streamKeyAndSessionIDMap.remove(streamKey);
-                    }
+            // 查找该设备相关的 streamKey，逐个清理完整资源
+            // 先复制一份 key 列表，避免在遍历中修改集合
+            java.util.List<String> streamKeysToClean = new java.util.ArrayList<>();
+            for (Map.Entry<String, Integer> entry : StreamManager.streamKeyAndLuserIdMap.entrySet()) {
+                if (entry.getValue() != null && entry.getValue() == lUserID) {
+                    streamKeysToClean.add(entry.getKey());
                 }
             }
             
-            // 使用迭代器安全地移除该设备的 streamKey
+            // 逐个完整清理每个 streamKey 的资源
+            for (String streamKey : streamKeysToClean) {
+                try {
+                    log.info("清理设备流资源，streamKey: {}", streamKey);
+                    cleanupStreamResource(streamKey);
+                } catch (Exception e) {
+                    log.error("清理流资源失败，streamKey: {}", streamKey, e);
+                }
+            }
+            
+            // 最后清理剩余的 Map 引用，确保没有遗漏
+            StreamManager.userIDandSessionMap.remove(lUserID);
             StreamManager.streamKeyAndLuserIdMap.entrySet().removeIf(entry -> entry.getValue() != null && entry.getValue() == lUserID);
             
             log.info("设备资源清理完成，lUserID: {}", lUserID);
         } catch (Exception e) {
             log.error("清理设备资源失败，lUserID: {}", lUserID, e);
+        }
+    }
+
+    /**
+     * 完整清理单个 streamKey 的所有资源
+     */
+    private void cleanupStreamResource(String streamKey) {
+        try {
+            Integer sessionID = StreamManager.streamKeyAndSessionIDMap.remove(streamKey);
+            Integer luserId = StreamManager.streamKeyAndLuserIdMap.remove(streamKey);
+            Integer previewHandle = null;
+            PreviewStreamHandler previewStreamHandler = null;
+            RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.remove(streamKey);
+
+            if (sessionID != null) {
+                previewHandle = StreamManager.sessionIDAndPreviewHandleMap.remove(sessionID);
+                previewStreamHandler = StreamManager.sessionIDAndPreviewStreamHandlerMap.remove(sessionID);
+                StreamManager.luserIdAndRtpServerParamMap.remove(sessionID);
+            }
+
+            // 1. 停止预览
+            try {
+                if (previewHandle != null) {
+                    StreamService.hCEhomeStream.NET_ESTREAM_StopPreview(previewHandle);
+                }
+            } catch (Exception e) {
+                log.error("停止预览失败，streamKey: {}", streamKey, e);
+            }
+
+            // 2. 停止获取实时流
+            try {
+                if (luserId != null && sessionID != null) {
+                    CmsService.hCEhomeCMS.NET_ECMS_StopGetRealStream(luserId, sessionID);
+                }
+            } catch (Exception e) {
+                log.error("停止获取实时流失败，streamKey: {}", streamKey, e);
+            }
+
+            // 3. 关闭回调
+            try {
+                if (previewStreamHandler != null && previewHandle != null) {
+                    previewStreamHandler.close(previewHandle);
+                }
+            } catch (Exception e) {
+                log.error("关闭回调失败，streamKey: {}", streamKey, e);
+            }
+
+            // 4. 清理其他 Map 引用
+            if (luserId != null) {
+                StreamManager.userIDandSessionMap.remove(luserId);
+            }
+            if (previewHandle != null) {
+                StreamManager.previewHandSAndSessionIDandMap.remove(previewHandle);
+            }
+
+            // 5. 清理 zlm 资源
+            if (rtpServerParam != null) {
+                try {
+                    log.info("清理 zlm 资源，streamKey: {}, ssrc: {}", streamKey, rtpServerParam.getSsrc());
+                    remoteZlmService.releaseSsrc(rtpServerParam.getMediaServerId(), rtpServerParam.getSsrc(), SecurityConstants.INNER);
+                    remoteZlmService.closeRTPServer(rtpServerParam.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
+                } catch (Exception e) {
+                    log.error("清理 zlm 资源失败，streamKey: {}", streamKey, e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("清理流资源时发生异常，streamKey: {}", streamKey, e);
         }
     }
 }

@@ -146,11 +146,10 @@ public class DaHuaServiceImpl implements IDaHuaService {
         }
 
         String date = deviceTime.toStringTime();
-        date = date.replace("/", "-");
-
         if (date == null) {
             throw new ServiceException("获取大华设备时间失败");
         }
+        date = date.replace("/", "-");
         log.debug("获取大华设备时间成功, IP:{}, time:{}", ip, date);
         return date;
     }

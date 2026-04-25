@@ -36,15 +36,15 @@ public class OnvifExecutor {
     private final OkHttpClient client;
     private final MediaType reqBodyType;
 
-    private final Credentials credentials;
     private volatile OnvifResponseListener onvifResponseListener;
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
+    private final Credentials credentials;
 
     //Constructors
 
     OnvifExecutor(OnvifResponseListener onvifResponseListener) {
         this.onvifResponseListener = onvifResponseListener;
-        credentials = new Credentials("username", "password");
+        credentials = new Credentials("", "");
         DigestAuthenticator authenticator = new DigestAuthenticator(credentials);
         Map<String, CachingAuthenticator> authCache = new ConcurrentHashMap<>();
 
@@ -76,6 +76,9 @@ public class OnvifExecutor {
             return;
         }
         
+        // 注意：这里有线程安全隐患，如果同一个 OnvifExecutor 被并发用于多个设备，
+        // credentials 会被覆盖。但从 OnvifServiceImpl 的使用方式看，每次都创建新的 OnvifManager，
+        // 所以这个问题在当前代码中不会发生。
         credentials.setUserName(device.getUsername());
         credentials.setPassword(device.getPassword());
         RequestBody reqBody = RequestBody.create(reqBodyType, OnvifXMLBuilder.getSoapHeader() + request.getXml() + OnvifXMLBuilder.getEnvelopeEnd());

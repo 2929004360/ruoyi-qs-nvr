@@ -114,18 +114,17 @@ public class DahuaMediaStreamServiceImpl implements IDahuaMediaStreamService {
      */
     @Override
     public void stopPlay(NetSDKLib.LLong lLong, Long id, Integer channel, String streamKey) {
-        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
-        NetSDKLib.LLong realHandle = StreamManager.streamKeyAndRealHandleMap.get(streamKey);
-        FRealDatarTPCallback fRealDataCallBack = StreamManager.streamKeyAndFRealDatarTPCallbackMap.get(streamKey);
-
-        cleanupResources(streamKey, rtpServerParam, realHandle, fRealDataCallBack);
-
         CountDownLatch latch = latchMap.get(streamKey);
         if (latch != null) {
             latch.countDown();
             log.info("结束预览实例: {}", streamKey);
         }
 
+        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
+        NetSDKLib.LLong realHandle = StreamManager.streamKeyAndRealHandleMap.get(streamKey);
+        FRealDatarTPCallback fRealDataCallBack = StreamManager.streamKeyAndFRealDatarTPCallbackMap.get(streamKey);
+
+        cleanupResources(streamKey, rtpServerParam, realHandle, fRealDataCallBack);
         latchMap.remove(streamKey);
         log.info("停止预览，设备id：{}，通道号：{}", id, channel);
     }

@@ -87,18 +87,17 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
      */
     @Override
     public void stopPlay(Integer luserId, Long id, Integer channel, String streamKey) {
-        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
-
-        cleanupResources(streamKey, rtpServerParam);
-
-        log.info("停止预览，设备id: {}, 通道号: {}", id, channel);
         CountDownLatch latch = latchMap.get(streamKey);
         if (latch != null) {
             latch.countDown(); // 唤醒 preview
             log.info("结束预览实例: {}", streamKey);
         }
 
+        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
+        cleanupResources(streamKey, rtpServerParam);
+
         latchMap.remove(streamKey);
+        log.info("停止预览，设备id: {}, 通道号: {}", id, channel);
     }
 
     /**

@@ -121,17 +121,17 @@ public class HaikangMediaStreamServiceImpl implements IHaikangMediaStreamService
      */
     @Override
     public void endPlay(Long deviceId, int channelId, String streamKey) {
-        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
-        Long realHandle = StreamManager.streamKeyAndRealHandleMap.get(streamKey);
-        FRealDataForRtpOverTcpCallback fRealDataCallBack = StreamManager.streamKeyAndFRealDataForRtpOverTcpCallbackMap.get(streamKey);
-
-        cleanupResources(streamKey, rtpServerParam, realHandle, fRealDataCallBack);
-
         CountDownLatch latch = latchMap.get(streamKey);
         if (latch != null) {
             latch.countDown();
             log.info("结束预览实例: {}", streamKey);
         }
+
+        RtpServerParam rtpServerParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
+        Long realHandle = StreamManager.streamKeyAndRealHandleMap.get(streamKey);
+        FRealDataForRtpOverTcpCallback fRealDataCallBack = StreamManager.streamKeyAndFRealDataForRtpOverTcpCallbackMap.get(streamKey);
+
+        cleanupResources(streamKey, rtpServerParam, realHandle, fRealDataCallBack);
 
         latchMap.remove(streamKey);
         log.info("停止预览，设备id：{}，通道号：{}", deviceId, channelId);

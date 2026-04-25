@@ -20,7 +20,7 @@ public class SystemInfoTimerTask {
     @Autowired
     private IRedisCatchStorageService redisCatchStorageService;
 
-    @Scheduled(fixedRate = 2000)   //每1秒执行一次
+    @Scheduled(fixedRate = 2000)   //每2秒执行一次
     public void execute() {
         try {
             double cpuInfo = SystemInfoUtils.getCpuInfo();
@@ -33,6 +33,9 @@ public class SystemInfoTimerTask {
             redisCatchStorageService.addDiskInfo(diskInfo);
         } catch (InterruptedException e) {
             log.error("[获取系统信息失败] {}", e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.error("[获取系统信息异常] {}", e.getMessage(), e);
         }
     }
 }

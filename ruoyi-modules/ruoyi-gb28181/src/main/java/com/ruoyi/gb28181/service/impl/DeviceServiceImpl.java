@@ -1,19 +1,24 @@
 package com.ruoyi.gb28181.service.impl;
 
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.gb28181.api.domain.GbCode;
+import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.gb28181.api.utils.DateUtil;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.service.IDeviceService;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
 import com.ruoyi.gb28181.service.ISIPCommander;
+import com.ruoyi.gb28181.session.SipInviteSessionManager;
 import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTask;
 import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.SubscribeTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForCatalog;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForMobilPosition;
+import com.ruoyi.zlm.api.RemoteZlmService;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +57,12 @@ public class DeviceServiceImpl implements IDeviceService {
 
     @Autowired
     private SubscribeTaskRunner subscribeTaskRunner;
+
+    @Autowired
+    private SipInviteSessionManager sessionManager;
+
+    @Autowired
+    private RemoteZlmService remoteZlmService;
 
     /**
      * 查询设备信息
@@ -304,6 +315,38 @@ public class DeviceServiceImpl implements IDeviceService {
         }
         if (subscribeTaskRunner.containsKey(SubscribeTaskForMobilPosition.getKey(device))) {
             subscribeTaskRunner.removeSubscribe(SubscribeTaskForMobilPosition.getKey(device));
+        }
+
+        // 清理设备相关的视频流会话
+        List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(device.getDeviceId());
+        if (ssrcTransactions != null && !ssrcTransactions.isEmpty()) {
+            log.info("[设备离线] 清理设备相关的视频流会话, deviceId: {}, 会话数量: {}", 
+                    device.getDeviceId(), ssrcTransactions.size());
+            for (SsrcTransaction ssrcTransaction : ssrcTransactions) {
+                try {
+                    log.info("[BYE 清理资源] deviceId: {}, channelId: {}, app: {}, stream: {}, ssrc: {}", 
+                            ssrcTransaction.getDeviceId(), 
+                            ssrcTransaction.getChannelId(), 
+                            ssrcTransaction.getApp(), 
+                            ssrcTransaction.getStream(), 
+                            ssrcTransaction.getSsrc());
+
+                    sessionManager.removeByCallId(ssrcTransaction.getCallId());
+                    remoteZlmService.releaseSsrc(ssrcTransaction.getMediaServerId(), ssrcTransaction.getSsrc(), SecurityConstants.INNER);
+                    
+                    RtpServerParam rtpServerParam = new RtpServerParam();
+                    rtpServerParam.setMediaServerId(ssrcTransaction.getMediaServerId());
+                    rtpServerParam.setApp(ssrcTransaction.getApp());
+                    rtpServerParam.setStream(ssrcTransaction.getStream());
+                    rtpServerParam.setSsrc(ssrcTransaction.getSsrc());
+                    rtpServerParam.setGbDeviceId(ssrcTransaction.getDeviceId());
+                    rtpServerParam.setGbChannelId(ssrcTransaction.getChannelId());
+                    remoteZlmService.closeRTPServer(ssrcTransaction.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
+                } catch (Exception e) {
+                    log.error("[设备离线] 清理视频流会话异常, deviceId: {}, ssrc: {}", 
+                            device.getDeviceId(), ssrcTransaction.getSsrc(), e);
+                }
+            }
         }
     }
 

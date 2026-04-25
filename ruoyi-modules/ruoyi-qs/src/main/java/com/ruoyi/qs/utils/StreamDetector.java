@@ -2,6 +2,7 @@ package com.ruoyi.qs.utils;
 
 import com.ruoyi.qs.api.domain.QsDevice;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Component
 public class StreamDetector {
 
@@ -34,7 +36,7 @@ public class StreamDetector {
             try {
                 results.add(future.join());
             } catch (Exception e) {
-
+                log.error("[流检测失败] 批量检测时发生异常: {}", e.getMessage());
             }
         }
         return results;
@@ -44,6 +46,10 @@ public class StreamDetector {
      * 单个流检测逻辑
      */
     public StreamResult detectSingle(Long id, String url) {
+        if (url == null || url.isEmpty()) {
+            return new StreamResult(id, "OFFLINE");
+        }
+
         FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(url);
 
         try {
@@ -62,13 +68,16 @@ public class StreamDetector {
             return new StreamResult(id, "OFFLINE");
 
         } catch (Exception e) {
+            log.debug("[流检测] 设备ID: {}, URL: {}, 检测结果: OFFLINE, 原因: {}", id, url, e.getMessage());
             return new StreamResult(id, "OFFLINE");
         } finally {
             try {
-                grabber.stop();
-                grabber.release();
+                if (grabber != null) {
+                    grabber.stop();
+                    grabber.release();
+                }
             } catch (Exception e) {
-
+                log.debug("[流检测] 释放资源失败: {}", e.getMessage());
             }
         }
     }

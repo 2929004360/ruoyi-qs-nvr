@@ -40,12 +40,12 @@ public class DahuaCommandLineRunnerImpl implements CommandLineRunner, Disposable
     /**
      * 设备断线通知回调
      */
-    private static final DisConnect disConnect = new DisConnect();
+    private DisConnect disConnect;
 
     /**
      * 网络连接恢复
      */
-    private static final HaveReConnect haveReConnect = new HaveReConnect();
+    private HaveReConnect haveReConnect;
 
     private static final NetSDKLib netsdk = NetSDKLib.NETSDK_INSTANCE;
 
@@ -64,6 +64,8 @@ public class DahuaCommandLineRunnerImpl implements CommandLineRunner, Disposable
     public void run(String... args) {
         log.info("=========================  开启大华sdk服务  =========================");
         try {
+            this.disConnect = new DisConnect();
+            this.haveReConnect = new HaveReConnect();
             init(disConnect, haveReConnect);
             String serverIp;
             if (dahuaConfig.isPublicNetwork()) {
@@ -103,16 +105,25 @@ public class DahuaCommandLineRunnerImpl implements CommandLineRunner, Disposable
     }
 
     // 设备断线回调: 通过 CLIENT_Init 设置该回调函数，当设备出现断线时，SDK会调用该函数
-    private static class DisConnect implements NetSDKLib.fDisConnect {
+    private class DisConnect implements NetSDKLib.fDisConnect {
         @Override
         public void invoke(NetSDKLib.LLong m_hLoginHandle, String pchDVRIP, int nDVRPort, Pointer dwUser) {
             log.warn("Device[{}] Port[{}] DisConnect!", pchDVRIP, nDVRPort);
+            try {
+                String loginKey = "login:handle:" + pchDVRIP;
+                if (com.ruoyi.dahua.service.impl.DaHuaServiceImpl.loginHandleHandleMap.containsKey(loginKey)) {
+                    log.info("设备断线，开始清理资源, IP:{}", pchDVRIP);
+                    daHuaService.logoutDevice(pchDVRIP);
+                }
+            } catch (Exception e) {
+                log.error("设备断线清理资源异常, IP:{}", pchDVRIP, e);
+            }
         }
     }
 
     // 网络连接恢复，设备重连成功回调
     // 通过 CLIENT_SetAutoReconnect 设置该回调函数，当已断线的设备重连成功时，SDK会调用该函数
-    private static class HaveReConnect implements NetSDKLib.fHaveReConnect {
+    private class HaveReConnect implements NetSDKLib.fHaveReConnect {
         @Override
         public void invoke(NetSDKLib.LLong m_hLoginHandle, String pchDVRIP, int nDVRPort, Pointer dwUser) {
             log.info("ReConnect Device[{}] Port[{}]", pchDVRIP, nDVRPort);

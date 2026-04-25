@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @FileName OnvifServiceImpl
@@ -118,20 +119,21 @@ public class OnvifServiceImpl implements IOnvifService {
                             // 存储对象
                             redisTemplate.opsForHash().put(ONVIF_DEVICES, device.getIp(), device);
                         }
-
-                        if (!staleIps.isEmpty()) {
-                            log.info("🧹 扫描结束，发现 {} 个设备离线，正在清理...", staleIps.size());
-                            for (Object offlineIp : staleIps) {
-                                redisTemplate.opsForHash().delete(ONVIF_DEVICES, offlineIp);
-                                log.info("❌ 已删除离线设备: {}", offlineIp);
-                            }
-                        }
                     }
                 }
             };
 
             // 【执行扫描】
             manager.discover(listener);
+
+            // 【清理离线设备 - 不管有没有发现新设备，都要清理】
+            if (!staleIps.isEmpty()) {
+                log.info("🧹 扫描结束，发现 {} 个设备离线，正在清理...", staleIps.size());
+                for (Object offlineIp : staleIps) {
+                    redisTemplate.opsForHash().delete(ONVIF_DEVICES, offlineIp);
+                    log.info("❌ 已删除离线设备: {}", offlineIp);
+                }
+            }
         } catch (Exception e) {
             log.error("执行 ONVIF 设备发现任务失败", e);
         }
@@ -166,6 +168,8 @@ public class OnvifServiceImpl implements IOnvifService {
 
 
         List<String> streamUris = new ArrayList<>();
+        // 使用 AtomicReference 来跟踪是否成功获取了信息
+        AtomicBoolean success = new AtomicBoolean(false);
         CountDownLatch latch = new CountDownLatch(2);
         // Digest
         if (AuthTypeEnum.DIGEST.getCode().equals(onvifDevice.getAuth())) {
@@ -173,24 +177,34 @@ public class OnvifServiceImpl implements IOnvifService {
             OnvifDevice device2 = new OnvifDevice(onvifDevice.getIp(), onvifDevice.getUsername(), onvifDevice.getPassword());
 
             onvifManager.getMediaProfiles(device2, (device, mediaProfiles) -> {
-                if (mediaProfiles == null || mediaProfiles.isEmpty()) {
-                    latch.countDown();
-                    return;
-                }
-                int[] remaining = {mediaProfiles.size()};
+                try {
+                    if (mediaProfiles == null || mediaProfiles.isEmpty()) {
+                        return;
+                    }
+                    int[] remaining = {mediaProfiles.size()};
 
-                for (OnvifMediaProfile profile : mediaProfiles) {
-                    onvifManager.getMediaStreamURI(device2, profile, (device1, prof, uri) -> {
-                        if (uri != null) {
-                            streamUris.add(uri);
-                        }
-                        synchronized (remaining) {
-                            remaining[0]--;
-                            if (remaining[0] <= 0) {
-                                latch.countDown();
+                    for (OnvifMediaProfile profile : mediaProfiles) {
+                        onvifManager.getMediaStreamURI(device2, profile, (device1, prof, uri) -> {
+                            try {
+                                if (uri != null) {
+                                    streamUris.add(uri);
+                                }
+                            } finally {
+                                synchronized (remaining) {
+                                    remaining[0]--;
+                                    if (remaining[0] <= 0) {
+                                        success.set(true);
+                                        latch.countDown();
+                                    }
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
+                } finally {
+                    // 如果没有 profile，确保 countDown 被调用
+                    if (mediaProfiles == null || mediaProfiles.isEmpty()) {
+                        latch.countDown();
+                    }
                 }
             });
             onvifManager.getDeviceInformation(device2, (device, info) -> {
@@ -200,6 +214,7 @@ public class OnvifServiceImpl implements IOnvifService {
                         returnOnvifDevice.setFirm(info.getManufacturer());
                         returnOnvifDevice.setModel(info.getModel());
                         returnOnvifDevice.setFirmwareVersion(info.getFirmwareVersion());
+                        success.set(true);
                     }
                     returnOnvifDevice.setUserName(onvifDevice.getUsername());
                     returnOnvifDevice.setPassword(onvifDevice.getPassword());
@@ -215,9 +230,15 @@ public class OnvifServiceImpl implements IOnvifService {
             if (!completed) {
                 log.warn("ONVIF 获取信息超时");
             }
+            
+            // 如果没有成功获取到信息，抛出异常
+            if (!success.get() && streamUris.isEmpty()) {
+                throw new RuntimeException("未能成功连接到 ONVIF 设备或认证失败");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("等待中断", e);
+            throw new RuntimeException("等待设备响应时被中断", e);
         }
         returnOnvifDevice.setStreamUris(streamUris);
         return returnOnvifDevice;

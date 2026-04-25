@@ -11,6 +11,7 @@ import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.domain.*;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.utils.VideoSnapshotUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.Assert;
@@ -25,6 +26,7 @@ import java.util.List;
  * @author fengcheng
  * @date 2026-03-27
  */
+@Slf4j
 @RestController
 @RequestMapping("/device")
 public class QsDeviceController extends BaseController {
@@ -290,6 +292,14 @@ public class QsDeviceController extends BaseController {
     @PutMapping("/getVideoSnapshot/{id}")
     public AjaxResult getVideoSnapshot(@PathVariable("id") Long id) {
         QsDevice device = qsDeviceService.selectQsDeviceById(id);
+        
+        if (device == null) {
+            return error("设备不存在");
+        }
+        
+        if (device.getLiveAddress() == null || device.getLiveAddress().isEmpty()) {
+            return error("设备直播地址为空");
+        }
 
         try {
             String videoPath = convertUrlToPath(device.getLiveAddress(), this.fileDomain, this.filePrefix, this.filePath);
@@ -308,7 +318,8 @@ public class QsDeviceController extends BaseController {
             qsDevice.setSnap(filePath);
             qsDeviceService.updateQsDevice(qsDevice);
         } catch (Exception e) {
-            return error("获取视频截图失败");
+            log.error("[获取视频截图失败] 设备ID: {}, 错误: {}", id, e.getMessage());
+            return error("获取视频截图失败: " + e.getMessage());
         }
 
         return success();

@@ -1,5 +1,6 @@
 package com.ruoyi.qs.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.Java2DFrameConverter;
@@ -9,6 +10,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 
+@Slf4j
 @Component
 public class VideoSnapshotUtil {
 
@@ -21,9 +23,10 @@ public class VideoSnapshotUtil {
      * @return 截图文件
      */
     public File takeSnapshot(String videoPath, String outputPath, double frameSecond) throws Exception {
-        FFmpegFrameGrabber grabber = FFmpegFrameGrabber.createDefault(videoPath);
+        FFmpegFrameGrabber grabber = null;
 
         try {
+            grabber = FFmpegFrameGrabber.createDefault(videoPath);
             grabber.start();
 
             // 1. 获取视频元数据
@@ -63,8 +66,18 @@ public class VideoSnapshotUtil {
             return outputFile;
 
         } finally {
-            grabber.stop();
-            grabber.release();
+            if (grabber != null) {
+                try {
+                    grabber.stop();
+                } catch (Exception e) {
+                    log.warn("[视频截图] 停止 grabber 失败: {}", e.getMessage());
+                }
+                try {
+                    grabber.release();
+                } catch (Exception e) {
+                    log.warn("[视频截图] 释放 grabber 资源失败: {}", e.getMessage());
+                }
+            }
         }
     }
 

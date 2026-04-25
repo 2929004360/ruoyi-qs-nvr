@@ -74,6 +74,17 @@ public class SystemInfoUtils {
         SystemInfo si = new SystemInfo();
         HardwareAbstractionLayer hal = si.getHardware();
         List<NetworkIF> beforeRecvNetworkIFs = hal.getNetworkIFs();
+        HashMap<String, Double> map = new HashMap<>();
+        
+        // 默认值
+        map.put("in", 0.0);
+        map.put("out", 0.0);
+        
+        if (beforeRecvNetworkIFs == null || beforeRecvNetworkIFs.isEmpty()) {
+            log.warn("[系统信息] 未找到网络接口");
+            return map;
+        }
+        
         NetworkIF beforeBet = beforeRecvNetworkIFs.get(beforeRecvNetworkIFs.size() - 1);
         long beforeRecv = beforeBet.getBytesRecv();
         long beforeSend = beforeBet.getBytesSent();
@@ -81,11 +92,17 @@ public class SystemInfoUtils {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             log.error("[线程休眠失败] : {}", e.getMessage());
+            Thread.currentThread().interrupt();
         }
         List<NetworkIF> afterNetworkIFs = hal.getNetworkIFs();
+        
+        if (afterNetworkIFs == null || afterNetworkIFs.isEmpty()) {
+            log.warn("[系统信息] 未找到网络接口(第二次)");
+            return map;
+        }
+        
         NetworkIF afterNet = afterNetworkIFs.get(afterNetworkIFs.size() - 1);
 
-        HashMap<String, Double> map = new HashMap<>();
         // 速度单位: Mbps
         map.put("in", formatUnits(afterNet.getBytesRecv() - beforeRecv, 1048576L));
         map.put("out", formatUnits(afterNet.getBytesSent() - beforeSend, 1048576L));
@@ -101,6 +118,12 @@ public class SystemInfoUtils {
         SystemInfo si = new SystemInfo();
         HardwareAbstractionLayer hal = si.getHardware();
         List<NetworkIF> recvNetworkIFs = hal.getNetworkIFs();
+        
+        if (recvNetworkIFs == null || recvNetworkIFs.isEmpty()) {
+            log.warn("[系统信息] 未找到网络接口");
+            return 0L;
+        }
+        
         NetworkIF networkIF = recvNetworkIFs.get(recvNetworkIFs.size() - 1);
 
         return networkIF.getSpeed() / 1048576L / 8L;
