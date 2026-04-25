@@ -63,4 +63,19 @@ public interface IDeviceService {
      * @return
      */
     DeviceChannel getDeviceChannelByChannelId(String gbDeviceId, String gbChannelId);
+
+    /**
+     * 获取所有国标设备
+     *
+     * @return 设备列表
+     */
+    List<Device> getAllDevices();
+
+    /**
+     * 根据设备id获取所有通道
+     *
+     * @param gbDeviceId 设备编号
+     * @return 通道列表
+     */
+    List<DeviceChannel> getChannelsByDeviceId(String gbDeviceId);
 }

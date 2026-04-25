@@ -59,4 +59,11 @@ public interface IRedisCatchStorage {
      * @param subList
      */
     void batchUpdate(String deviceId, List<DeviceChannel> subList);
+
+    /**
+     * 获取所有设备
+     *
+     * @return 设备列表
+     */
+    List<Device> getAllDevices();
 }

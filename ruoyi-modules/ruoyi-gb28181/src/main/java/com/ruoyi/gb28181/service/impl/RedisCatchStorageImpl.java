@@ -119,4 +119,22 @@ public class RedisCatchStorageImpl implements IRedisCatchStorage {
         String key = VideoManagerConstants.DEVICE_CHANNEL_PREFIX;
         redisTemplate.opsForHash().put(key, deviceId, subList);
     }
+
+    /**
+     * 获取所有设备
+     *
+     * @return 设备列表
+     */
+    @Override
+    public List<Device> getAllDevices() {
+        String key = VideoManagerConstants.DEVICE_PREFIX;
+        List<Object> values = redisTemplate.opsForHash().values(key);
+        List<Device> devices = new ArrayList<>();
+        for (Object value : values) {
+            if (value instanceof Device) {
+                devices.add((Device) value);
+            }
+        }
+        return devices;
+    }
 }

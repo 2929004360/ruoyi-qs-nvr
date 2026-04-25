@@ -7,6 +7,7 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -25,6 +26,7 @@ public class Client {
     public FExceptionCallBack_Imp fExceptionCallBack;
 
     @Autowired
+    @Lazy
     private IHaiKangService haiKangService;
 
     public class FExceptionCallBack_Imp implements HCNetSDK.FExceptionCallBack {

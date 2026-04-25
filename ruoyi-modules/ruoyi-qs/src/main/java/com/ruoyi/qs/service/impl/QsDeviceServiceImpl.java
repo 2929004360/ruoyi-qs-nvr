@@ -207,6 +207,10 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             qsDevice.setDeviceStatus("OFFLINE");
         }
 
+        // gb28181协议
+        if (LiveStreamType.GB28181.getCode().equals(qsDevice.getType())) {
+            qsDevice.setDeviceCode("gb28181_" + IdUtil.getSnowflakeNextId());
+        }
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
 

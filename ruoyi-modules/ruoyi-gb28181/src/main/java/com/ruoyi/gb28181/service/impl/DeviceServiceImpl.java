@@ -361,4 +361,25 @@ public class DeviceServiceImpl implements IDeviceService {
         }
         redisCatchStorage.batchUpdate(device.getDeviceId(), channelList);
     }
+
+    /**
+     * 获取所有国标设备
+     *
+     * @return 设备列表
+     */
+    @Override
+    public List<Device> getAllDevices() {
+        return redisCatchStorage.getAllDevices();
+    }
+
+    /**
+     * 根据设备id获取所有通道
+     *
+     * @param gbDeviceId 设备编号
+     * @return 通道列表
+     */
+    @Override
+    public List<DeviceChannel> getChannelsByDeviceId(String gbDeviceId) {
+        return redisCatchStorage.queryAllChannelsForRefresh(gbDeviceId);
+    }
 }

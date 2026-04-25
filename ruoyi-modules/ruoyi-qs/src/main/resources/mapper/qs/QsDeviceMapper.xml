@@ -42,6 +42,9 @@
         <result property="manufacturer" column="manufacturer"/>
         <result property="address" column="address"/>
         <result property="ptzType" column="ptz_type"/>
+        <result property="gbDeviceId" column="gb_device_id"/>
+        <result property="gbChannelId" column="gb_channel_id"/>
+        <result property="streamMode" column="stream_mode"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -148,6 +151,9 @@
                manufacturer,
                address,
                ptz_type,
+               gb_device_id,
+               gb_channel_id,
+               stream_mode,
                create_by,
                create_time,
                update_by,
@@ -220,6 +226,9 @@
             <if test="manufacturer != null">manufacturer,</if>
             <if test="address != null">address,</if>
             <if test="ptzType != null">ptz_type,</if>
+            <if test="gbDeviceId != null">gb_device_id,</if>
+            <if test="gbChannelId != null">gb_channel_id,</if>
+            <if test="streamMode != null">stream_mode,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -262,6 +271,9 @@
             <if test="gbParentId != null">#{gbParentId},</if>
             <if test="manufacturer != null">#{manufacturer},</if>
             <if test="ptzType != null">#{ptzType},</if>
+            <if test="gbDeviceId != null">#{gbDeviceId},</if>
+            <if test="gbChannelId != null">#{gbChannelId},</if>
+            <if test="streamMode != null">#{streamMode},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -309,6 +321,9 @@
             <if test="manufacturer != null">manufacturer = #{manufacturer},</if>
             <if test="address != null">address = #{address},</if>
             <if test="ptzType != null">ptz_type = #{ptzType},</if>
+            <if test="gbDeviceId != null">gb_device_id = #{gbDeviceId},</if>
+            <if test="gbChannelId != null">gb_channel_id = #{gbChannelId},</if>
+            <if test="streamMode != null">stream_mode = #{streamMode},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
