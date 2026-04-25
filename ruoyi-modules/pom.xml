@@ -20,6 +20,7 @@
         <module>ruoyi-zlm</module>
         <module>ruoyi-onvif</module>
         <module>ruoyi-gb28181</module>
+        <module>ruoyi-jt1078</module>
     </modules>
 
     <artifactId>ruoyi-modules</artifactId>
