@@ -70,7 +70,7 @@ public class JT808Endpoint {
 
         device.setOnline(false);
         redisCatchStorage.updateDevice(device);
-        log.info("终端注册处理 手机号：{}， 设备id：{}， 车牌号：{}", message.getClientId(), device.getDeviceId(), device.getPlateNo());
+        log.info("终端注销处理 手机号：{}， 设备id：{}， 车牌号：{}", message.getClientId(), device.getDeviceId(), device.getPlateNo());
     }
 
     @Mapping(types = 查询服务器时间, desc = "查询服务器时间")
@@ -133,7 +133,16 @@ public class JT808Endpoint {
     public T0001 T0102(T0102 message, Session session) {
         session.register(message);
 
-        String[] token = message.getToken().split(",");
+        String tokenStr = message.getToken();
+        if (tokenStr == null || !tokenStr.contains(",")) {
+            log.error("终端鉴权失败，token格式错误！ 手机号：{}， token：{}", message.getClientId(), tokenStr);
+            throw new RuntimeException("终端鉴权失败，token格式错误！");
+        }
+        String[] token = tokenStr.split(",");
+        if (token.length < 2) {
+            log.error("终端鉴权失败，token格式错误！ 手机号：{}， token：{}", message.getClientId(), tokenStr);
+            throw new RuntimeException("终端鉴权失败，token格式错误！");
+        }
         String deviceId = token[0];
         String plateNo = token[1];
 
@@ -153,7 +162,7 @@ public class JT808Endpoint {
         redisCatchStorage.updateDevice(device);
         session.setAttribute(SessionKey.Device, device);
 
-        log.error("终端鉴权成功。 手机号：{}， 设备id：{}， 车牌号：{}", message.getClientId(), deviceId, plateNo);
+        log.info("终端鉴权成功。 手机号：{}， 设备id：{}， 车牌号：{}", message.getClientId(), deviceId, plateNo);
 
         long expiresTime = heartBeatInterval * heartBeatCount * 1000L;
 

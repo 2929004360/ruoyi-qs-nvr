@@ -44,7 +44,13 @@ public class DeviceStatusTask implements Delayed {
 
     @Override
     public int compareTo(@NotNull Delayed o) {
-        return (int) (this.getDelay(TimeUnit.MILLISECONDS) - o.getDelay(TimeUnit.MILLISECONDS));
+        long diff = this.getDelay(TimeUnit.MILLISECONDS) - o.getDelay(TimeUnit.MILLISECONDS);
+        if (diff > 0) {
+            return 1;
+        } else if (diff < 0) {
+            return -1;
+        }
+        return 0;
     }
 
     public DeviceStatusTaskInfo getInfo() {
