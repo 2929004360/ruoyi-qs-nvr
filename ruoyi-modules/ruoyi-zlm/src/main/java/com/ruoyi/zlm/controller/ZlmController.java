@@ -485,7 +485,7 @@ public class ZlmController {
             throw new RuntimeException("设备不在线 id:" + id);
         }
 
-        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId("34020000001350000001", SecurityConstants.INNER);
+        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(qsDevice.getGbDeviceId(), SecurityConstants.INNER);
         if (deviceR.getCode() != Constants.SUCCESS) {
             throw new RuntimeException("gb28181 获取设备信息失败 id:" + qsDevice.getGbDeviceId());
         }
@@ -495,7 +495,7 @@ public class ZlmController {
             throw new RuntimeException("gb28181 国标设备不在线失败 id:" + qsDevice.getGbDeviceId());
         }
 
-        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId("34020000001350000001", "34020000001350000001", SecurityConstants.INNER);
+        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId(qsDevice.getGbDeviceId(), qsDevice.getGbChannelId(), SecurityConstants.INNER);
         if (deviceChannelR.getCode() != Constants.SUCCESS) {
             throw new RuntimeException("gb28181 获取设备通道失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
         }
@@ -578,7 +578,7 @@ public class ZlmController {
             throw new RuntimeException("设备不在线 id:" + id);
         }
 
-        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId("34020000001350000001", SecurityConstants.INNER);
+        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(qsDevice.getGbDeviceId(), SecurityConstants.INNER);
         if (deviceR.getCode() != Constants.SUCCESS) {
             throw new RuntimeException("gb28181 获取设备信息失败 id:" + qsDevice.getGbDeviceId());
         }
@@ -588,7 +588,7 @@ public class ZlmController {
             throw new RuntimeException("gb28181 国标设备不在线失败 id:" + qsDevice.getGbDeviceId());
         }
 
-        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId("34020000001350000001", "34020000001350000001", SecurityConstants.INNER);
+        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId(qsDevice.getGbDeviceId(), qsDevice.getGbChannelId(), SecurityConstants.INNER);
         if (deviceChannelR.getCode() != Constants.SUCCESS) {
             throw new RuntimeException("gb28181 获取设备通道失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
         }
@@ -599,8 +599,6 @@ public class ZlmController {
             throw new RuntimeException("gb28181 国标设备通道不在线失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
         }
 
-        qsDevice.setGbDeviceId("34020000001350000001");
-        qsDevice.setGbChannelId("34020000001350000001");
         mediaServerService.stopGb28181Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getDeviceCode());
         JSONObject json = new JSONObject();
         json.put("deviceId", qsDevice.getGbDeviceId());
@@ -636,15 +634,15 @@ public class ZlmController {
         }
 
         // 通过手机号获取 JT1078 设备信息
-        // 假设 QsDevice 中有 mobileNo 字段，或者使用 deviceCode 作为手机号
-        R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo("19978019429", SecurityConstants.INNER);
+        // 或者使用 deviceCode 作为手机号
+        R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(qsDevice.getJtMobileNo(), SecurityConstants.INNER);
         if (deviceR.getCode() != Constants.SUCCESS) {
-            throw new RuntimeException("jt1078 获取设备信息失败 mobileNo：" + qsDevice.getDeviceCode());
+            throw new RuntimeException("jt1078 获取设备信息失败 mobileNo：" + qsDevice.getJtMobileNo());
         }
-        Assert.notNull(deviceR.getData(), "jt1078 设备不存在 mobileNo：" + qsDevice.getDeviceCode());
+        Assert.notNull(deviceR.getData(), "jt1078 设备不存在 mobileNo：" + qsDevice.getJtMobileNo());
 
         if (!deviceR.getData().getOnline()) {
-            throw new RuntimeException("jt1078 设备不在线 mobileNo：" + qsDevice.getDeviceCode());
+            throw new RuntimeException("jt1078 设备不在线 mobileNo：" + qsDevice.getJtMobileNo());
         }
 
         DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
@@ -657,7 +655,7 @@ public class ZlmController {
             result.setResult(wvpResult);
 
             inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, qsDevice.getId());
-            mediaServerService.stopJt1078Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getDeviceCode());
+            mediaServerService.stopJt1078Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getJtMobileNo());
         });
 
         ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
@@ -718,20 +716,20 @@ public class ZlmController {
         }
 
         // 通过手机号获取 JT1078 设备信息
-        R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo("19978019429", SecurityConstants.INNER);
+        R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(qsDevice.getJtMobileNo(), SecurityConstants.INNER);
         if (deviceR.getCode() != Constants.SUCCESS) {
-            throw new RuntimeException("jt1078 获取设备信息失败 mobileNo：" + qsDevice.getDeviceCode());
+            throw new RuntimeException("jt1078 获取设备信息失败 mobileNo：" + qsDevice.getJtMobileNo());
         }
-        Assert.notNull(deviceR.getData(), "jt1078 设备不存在 mobileNo：" + qsDevice.getDeviceCode());
+        Assert.notNull(deviceR.getData(), "jt1078 设备不存在 mobileNo：" + qsDevice.getJtMobileNo());
 
         if (!deviceR.getData().getOnline()) {
-            throw new RuntimeException("jt1078 设备不在线 mobileNo：" + qsDevice.getDeviceCode());
+            throw new RuntimeException("jt1078 设备不在线 mobileNo：" + qsDevice.getJtMobileNo());
         }
 
         mediaServerService.stopJt1078Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getDeviceCode());
         JSONObject json = new JSONObject();
         json.put("deviceId", id);
-        json.put("deviceCode", qsDevice.getDeviceCode());
+        json.put("jtMobileNo", qsDevice.getJtMobileNo());
         return AjaxResult.success(json);
     }
 }

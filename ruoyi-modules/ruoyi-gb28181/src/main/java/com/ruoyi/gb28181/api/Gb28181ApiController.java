@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.sdp.*;
 import javax.sip.ResponseEvent;
+import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -210,5 +211,15 @@ public class Gb28181ApiController {
             log.error("停止播放失败 deviceId:" + rtpServer.getGbDeviceId(), e);
             return R.fail("停止播放失败:" + e.getMessage());
         }
+    }
+
+    /**
+     * 获取全部设备
+     *
+     * @return
+     */
+    @GetMapping("/getAllDevices")
+    R<List<Device>> getAllDevices() {
+        return R.ok(deviceService.getAllDevices());
     }
 }

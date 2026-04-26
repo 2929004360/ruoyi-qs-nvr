@@ -131,4 +131,32 @@ public class QsDeviceApiController {
     public R<Boolean> addQsDevice(@RequestBody QsDevice qsDevice) {
         return qsDeviceService.addQsDevice(qsDevice) > 0 ? R.ok(true) : R.ok(false);
     }
+
+    /**
+     * 根据 gbDeviceId 更新设备在线状态
+     *
+     * @param gbDeviceId   国标设备编号
+     * @param deviceStatus 设备状态
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/updateDeviceStatusByGbDeviceId/{gbDeviceId}/{deviceStatus}")
+    public R<Boolean> updateDeviceStatusByGbDeviceId(@PathVariable String gbDeviceId, @PathVariable String deviceStatus) {
+        Boolean result = qsDeviceService.updateDeviceStatusByGbDeviceId(gbDeviceId, deviceStatus);
+        return R.ok(result);
+    }
+
+    /**
+     * 根据 jtMobileNo 更新设备在线状态
+     *
+     * @param jtMobileNo   设备手机号
+     * @param deviceStatus 设备状态
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/updateDeviceStatusByJtMobileNo/{jtMobileNo}/{deviceStatus}")
+    public R<Boolean> updateDeviceStatusByJtMobileNo(@PathVariable String jtMobileNo, @PathVariable String deviceStatus) {
+        Boolean result = qsDeviceService.updateDeviceStatusByJtMobileNo(jtMobileNo, deviceStatus);
+        return R.ok(result);
+    }
 }

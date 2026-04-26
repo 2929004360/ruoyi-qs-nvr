@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * jt1078服务降级处理
  *
@@ -34,6 +36,11 @@ public class RemoteJt1078FallbackFactory implements FallbackFactory<RemoteJt1078
             @Override
             public R<Void> streamByeCmd(RtpServerParam rtpServer, String inner) {
                 return R.fail("jt1078停止视频流失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<List<Jt1078Device>> getAllDevices(String inner) {
+                return R.fail("jt1078获取全部设备失败:" + throwable.getMessage());
             }
         };
     }

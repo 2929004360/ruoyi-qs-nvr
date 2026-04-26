@@ -45,6 +45,9 @@
         <result property="gbDeviceId" column="gb_device_id"/>
         <result property="gbChannelId" column="gb_channel_id"/>
         <result property="streamMode" column="stream_mode"/>
+        <result property="jtMobileNo" column="jt_mobile_no"/>
+        <result property="jtPlateNo" column="jt_plate_no"/>
+        <result property="jtPlateColor" column="jt_plate_color"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -154,6 +157,9 @@
                gb_device_id,
                gb_channel_id,
                stream_mode,
+               jt_mobile_no,
+               jt_plate_no,
+               jt_plate_color,
                create_by,
                create_time,
                update_by,
@@ -229,6 +235,9 @@
             <if test="gbDeviceId != null">gb_device_id,</if>
             <if test="gbChannelId != null">gb_channel_id,</if>
             <if test="streamMode != null">stream_mode,</if>
+            <if test="jtMobileNo != null">jt_mobile_no,</if>
+            <if test="jtPlateNo != null">jt_plate_no,</if>
+            <if test="jtPlateColor != null">jt_plate_color,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -274,6 +283,9 @@
             <if test="gbDeviceId != null">#{gbDeviceId},</if>
             <if test="gbChannelId != null">#{gbChannelId},</if>
             <if test="streamMode != null">#{streamMode},</if>
+            <if test="jtMobileNo != null">#{jtMobileNo},</if>
+            <if test="jtPlateNo != null">#{jtPlateNo},</if>
+            <if test="jtPlateColor != null">#{jtPlateColor},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -324,6 +336,9 @@
             <if test="gbDeviceId != null">gb_device_id = #{gbDeviceId},</if>
             <if test="gbChannelId != null">gb_channel_id = #{gbChannelId},</if>
             <if test="streamMode != null">stream_mode = #{streamMode},</if>
+            <if test="jtMobileNo != null">jt_mobile_no = #{jtMobileNo},</if>
+            <if test="jtPlateNo != null">jt_plate_no = #{jtPlateNo},</if>
+            <if test="jtPlateColor != null">jt_plate_color = #{jtPlateColor},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

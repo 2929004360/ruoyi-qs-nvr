@@ -27,11 +27,12 @@ public class RedisUtil {
 
         Set<String> resultKeys = (Set<String>) redisTemplate.execute((RedisCallback<Set<String>>) connection -> {
             ScanOptions scanOptions = ScanOptions.scanOptions().match("*" + query + "*").count(1000).build();
-            Cursor<byte[]> scan = connection.scan(scanOptions);
             Set<String> keys = new HashSet<>();
-            while (scan.hasNext()) {
-                byte[] next = scan.next();
-                keys.add(new String(next));
+            try (Cursor<byte[]> scan = connection.scan(scanOptions)) {
+                while (scan.hasNext()) {
+                    byte[] next = scan.next();
+                    keys.add(new String(next));
+                }
             }
             return keys;
         });

@@ -112,6 +112,12 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-jt1078</artifactId>
         </dependency>
+
+        <!-- qs 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-qs</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

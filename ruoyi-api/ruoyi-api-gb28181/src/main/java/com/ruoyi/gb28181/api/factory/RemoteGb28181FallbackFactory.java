@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * gb28181服务降级处理
  *
@@ -45,6 +47,11 @@ public class RemoteGb28181FallbackFactory implements FallbackFactory<RemoteGb281
             @Override
             public R<Void> streamByeCmd(RtpServerParam rtpServer, String inner) {
                 return R.fail("gb28181 请求停止预览视频流失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<List<Device>> getAllDevices(String inner) {
+                return R.fail("gb28181 获取全部设备失败:" + throwable.getMessage());
             }
         };
     }

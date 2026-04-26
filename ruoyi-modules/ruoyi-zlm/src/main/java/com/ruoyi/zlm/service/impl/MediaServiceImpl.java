@@ -3,12 +3,17 @@ package com.ruoyi.zlm.service.impl;
 import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.gb28181.api.RemoteGb28181Service;
+import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.jt1078.api.RemoteJt1078Service;
+import com.ruoyi.jt1078.api.domain.Jt1078Device;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.RTPServerParam;
 import com.ruoyi.zlm.api.domain.StreamPullPlay;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import com.ruoyi.zlm.api.utils.MediaServerUtils;
+import com.ruoyi.zlm.common.InviteSessionType;
 import com.ruoyi.zlm.config.UserSetting;
 import com.ruoyi.zlm.domain.StreamAuthorityInfo;
 import com.ruoyi.zlm.hook.ResultForOnPublish;
@@ -41,6 +46,12 @@ public class MediaServiceImpl implements IMediaService {
 
     @Autowired
     private IRedisCatchStorage redisCatchStorage;
+
+    @Autowired
+    private RemoteGb28181Service remoteGb28181Service;
+
+    @Autowired
+    private RemoteJt1078Service remoteJt1078Service;
 
     @Override
     public boolean closeStreamOnNoneReader(String mediaServerId, String app, String stream, String schema) {
@@ -89,7 +100,25 @@ public class MediaServiceImpl implements IMediaService {
                 return false;
             }
         } else if ("gb28181".equals(app)) {
-            return false;
+            if ("1".equals(data.getEnableDisableNoneReader())) {
+                R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(data.getGbDeviceId(), SecurityConstants.INNER);
+                if (deviceR.getCode() == Constants.SUCCESS && deviceR.getData() != null) {
+                    mediaServerService.stopGb28181Play(InviteSessionType.PLAY, data, deviceR.getData(), data.getDeviceCode());
+                }
+                return true;
+            } else {
+                return false;
+            }
+        } else if ("jt1078".equals(app)) {
+            if ("1".equals(data.getEnableDisableNoneReader())) {
+                R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(data.getJtMobileNo(), SecurityConstants.INNER);
+                if (deviceR.getCode() == Constants.SUCCESS && deviceR.getData() != null) {
+                    mediaServerService.stopJt1078Play(InviteSessionType.PLAY, data, deviceR.getData(), data.getDeviceCode());
+                }
+                return true;
+            } else {
+                return false;
+            }
         }
         return true;
     }

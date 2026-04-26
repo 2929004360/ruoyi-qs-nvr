@@ -34,4 +34,7 @@ public class RtpServerParam {
     private String mobileNo;
 
     private String type;
+    
+    /** 通道号 */
+    private Integer channel;
 }

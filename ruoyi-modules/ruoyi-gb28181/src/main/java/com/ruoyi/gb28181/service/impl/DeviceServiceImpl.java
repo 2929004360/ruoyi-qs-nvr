@@ -18,6 +18,7 @@ import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.SubscribeTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForCatalog;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForMobilPosition;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,9 @@ public class DeviceServiceImpl implements IDeviceService {
 
     @Autowired
     private RemoteZlmService remoteZlmService;
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
 
     /**
      * 查询设备信息
@@ -162,6 +166,12 @@ public class DeviceServiceImpl implements IDeviceService {
             DeviceStatusTask task = DeviceStatusTask.getInstance(device.getDeviceId(), sipTransactionInfo, expiresTime + System.currentTimeMillis(), this::deviceStatusExpire);
             deviceStatusTaskRunner.addTask(task);
         }
+        // 同步设备状态到 QS 模块
+        try {
+            remoteQsDeviceService.updateDeviceStatusByGbDeviceId(device.getDeviceId(), "ON", SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[同步设备状态] 设备上线，同步到 QS 模块失败：{}", device.getDeviceId(), e);
+        }
     }
 
     @Override
@@ -172,7 +182,7 @@ public class DeviceServiceImpl implements IDeviceService {
             return;
         }
 
-        // 主动查询设备状态, 没有HostAddress无法发送请求，可能是手动添加的设备
+        // 主动查询设备状态, 没有 HostAddress 无法发送请求，可能是手动添加的设备
         if (device.getHostAddress() != null) {
             Boolean deviceStatus = getDeviceStatus(device);
             if (deviceStatus != null && deviceStatus) {
@@ -188,6 +198,12 @@ public class DeviceServiceImpl implements IDeviceService {
         redisCatchStorage.updateDevice(device);
         if (isDevice(deviceId)) {
             channelOfflineByDevice(device);
+        }
+        // 同步设备状态到 QS 模块
+        try {
+            remoteQsDeviceService.updateDeviceStatusByGbDeviceId(deviceId, "OFFLINE", SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[同步设备状态] 设备离线，同步到 QS 模块失败：{}", deviceId, e);
         }
     }
 

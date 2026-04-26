@@ -278,29 +278,17 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 if ("gb28181".equals(event.getApp())) {
                     // 处理gb28181的停止播放逻辑
                     log.info("[gb28181] 流离开，开始清理资源，stream: {}", event.getStream());
-                    // 关闭 RTP 服务器
-                    ZlmMediaServer mediaServer = null;
-                    if (inviteInfo.getStreamInfo() != null) {
-                        mediaServer = inviteInfo.getStreamInfo().getMediaServer();
-                    } else {
-                        mediaServer = getOne(inviteInfo.getMediaServerId());
+                    R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(r.getData().getGbDeviceId(), SecurityConstants.INNER);
+                    if (deviceR.getCode() == Constants.SUCCESS && deviceR.getData() != null) {
+                        stopGb28181Play(inviteInfo.getType(), r.getData(), deviceR.getData(), event.getStream());
                     }
-                    if (mediaServer != null && inviteInfo.getSsrcInfo() != null) {
-                        closeRTPServer(mediaServer, inviteInfo.getSsrcInfo().getStream());
+                } else if ("jt1078".equals(event.getApp())) {
+                    // 处理jt1078的停止播放逻辑
+                    log.info("[jt1078] 流离开，开始清理资源，stream: {}", event.getStream());
+                    R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(r.getData().getJtMobileNo(), SecurityConstants.INNER);
+                    if (deviceR.getCode() == Constants.SUCCESS && deviceR.getData() != null) {
+                        stopJt1078Play(inviteInfo.getType(), r.getData(), deviceR.getData(), event.getStream());
                     }
-                    
-                    // 清理会话和释放资源
-                    if (inviteInfo.getSsrcInfo() != null) {
-                        ssrcFactory.releaseSsrc(inviteInfo.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
-                    }
-
-                    // 更新设备状态
-                    QsDevice qsDevice = new QsDevice();
-                    qsDevice.setId(r.getData().getId());
-                    qsDevice.setStreamKey("");
-                    qsDevice.setMediaServerId("");
-                    qsDevice.setStreamStatus("0");
-                    remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
                 } else {
                     // 处理其他类型的停止播放逻辑
                     RTPServerParam rtpServerParam = new RTPServerParam();
@@ -1646,7 +1634,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
             return;
         }
 
-        int tcpMode = gbDevice.getStreamMode().equals("TCP-ACTIVE") ? 2 : (gbDevice.getStreamMode().equals("TCP-PASSIVE") ? 1 : 0);
+        int tcpMode = qsDevice.getStreamMode().equals("TCP-ACTIVE") ? 2 : (qsDevice.getStreamMode().equals("TCP-PASSIVE") ? 1 : 0);
 
         RTPServerParam rtpServerParam = new RTPServerParam();
         rtpServerParam.setApp("gb28181");
@@ -1766,12 +1754,14 @@ public class MediaServerServiceImpl implements IMediaServerService {
             return;
         }
 
+        int tcpMode = qsDevice.getStreamMode().equals("TCP-ACTIVE") ? 2 : (qsDevice.getStreamMode().equals("TCP-PASSIVE") ? 1 : 0);
+
         RTPServerParam rtpServerParam = new RTPServerParam();
         rtpServerParam.setApp("jt1078");
         rtpServerParam.setMediaServer(mediaServer);
         rtpServerParam.setType(LiveStreamType.JT1078.getCode());
         rtpServerParam.setStreamId(qsDevice.getDeviceCode());
-        rtpServerParam.setTcpMode(1);
+        rtpServerParam.setTcpMode(tcpMode);
         rtpServerParam.setId(qsDevice.getId());
 
         startJt1078PlayFun(mediaServer, qsDevice, jt1078Device, rtpServerParam, null, callback);
@@ -1813,6 +1803,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 rtpServer.setId(qsDevice.getId());
                 rtpServer.setMobileNo(device.getMobileNo());
                 rtpServer.setType(LiveStreamType.JT1078.getCode());
+                rtpServer.setChannel(qsDevice.getChannel());
 
                 R<Void> r = remoteJt1078Service.streamByeCmd(rtpServer, SecurityConstants.INNER);
                 if (r.getCode() != Constants.SUCCESS) {
@@ -1993,6 +1984,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
         rtpServer.setStream(rtpServerParam.getStreamId());
         rtpServer.setMobileNo(jt1078Device.getMobileNo());
         rtpServer.setType(LiveStreamType.JT1078.getCode());
+        rtpServer.setChannel(device.getChannel());
 
         log.info("[jt1078 点播开始] ===============================");
         log.info("[jt1078] 设备ID：{}，设备手机号：{}", device.getId(), jt1078Device.getMobileNo());

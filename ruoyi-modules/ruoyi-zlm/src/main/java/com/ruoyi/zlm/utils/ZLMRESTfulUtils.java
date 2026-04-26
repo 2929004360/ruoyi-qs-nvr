@@ -102,16 +102,12 @@ public class ZLMRESTfulUtils {
                 .url(url)
                 .build();
         if (callback == null) {
-            try {
-                Response response = client.newCall(request).execute();
+            try (Response response = client.newCall(request).execute()) {
                 if (response.isSuccessful()) {
                     ResponseBody responseBody = response.body();
                     if (responseBody != null) {
                         result = responseBody.string();
                     }
-                } else {
-                    response.close();
-                    Objects.requireNonNull(response.body()).close();
                 }
             } catch (IOException e) {
                 log.error(String.format("[ %s ]请求失败: %s", url, e.getMessage()));
@@ -133,17 +129,13 @@ public class ZLMRESTfulUtils {
 
                 @Override
                 public void onResponse(@NotNull Call call, @NotNull Response response) {
-                    if (response.isSuccessful()) {
-                        try {
+                    try (response) {
+                        if (response.isSuccessful()) {
                             String responseStr = Objects.requireNonNull(response.body()).string();
                             callback.run(responseStr);
-                        } catch (IOException e) {
-                            log.error(String.format("[ %s ]请求失败: %s", url, e.getMessage()));
                         }
-
-                    } else {
-                        response.close();
-                        Objects.requireNonNull(response.body()).close();
+                    } catch (IOException e) {
+                        log.error(String.format("[ %s ]请求失败: %s", url, e.getMessage()));
                     }
                 }
 
@@ -187,9 +179,7 @@ public class ZLMRESTfulUtils {
         if (log.isDebugEnabled()) {
             log.debug(request.toString());
         }
-        try {
-            OkHttpClient client = getClient();
-            Response response = client.newCall(request).execute();
+        try (Response response = client.newCall(request).execute()) {
             if (response.isSuccessful()) {
                 if (targetPath != null) {
                     File snapFolder = new File(targetPath);
@@ -197,21 +187,18 @@ public class ZLMRESTfulUtils {
                         if (!snapFolder.mkdirs()) {
                             log.warn("{}路径创建失败", snapFolder.getAbsolutePath());
                         }
-
                     }
                     File snapFile = new File(targetPath + File.separator + fileName);
-                    FileOutputStream outStream = new FileOutputStream(snapFile);
-
-                    outStream.write(Objects.requireNonNull(response.body()).bytes());
-                    outStream.flush();
-                    outStream.close();
+                    try (FileOutputStream outStream = new FileOutputStream(snapFile)) {
+                        outStream.write(Objects.requireNonNull(response.body()).bytes());
+                        outStream.flush();
+                    }
                 } else {
                     log.error(String.format("[ %s ]请求失败: %s %s", url, response.code(), response.message()));
                 }
             } else {
                 log.error(String.format("[ %s ]请求失败: %s %s", url, response.code(), response.message()));
             }
-            Objects.requireNonNull(response.body()).close();
         } catch (ConnectException e) {
             log.error(String.format("连接ZLM失败: %s, %s", e.getCause().getMessage(), e.getMessage()));
             log.info("请检查media配置并确认ZLM已启动...");

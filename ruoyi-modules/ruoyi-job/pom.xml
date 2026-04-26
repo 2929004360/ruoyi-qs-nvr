@@ -106,6 +106,18 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-zlm</artifactId>
         </dependency>
+
+        <!-- gb28181 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-gb28181</artifactId>
+        </dependency>
+
+        <!-- jt1078 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-jt1078</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

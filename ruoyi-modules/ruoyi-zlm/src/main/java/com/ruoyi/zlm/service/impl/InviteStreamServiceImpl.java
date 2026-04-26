@@ -136,10 +136,7 @@ public class InviteStreamServiceImpl implements IInviteStreamService {
         ScanOptions options = ScanOptions.scanOptions().match(keyPattern).count(20).build();
         try (Cursor<Map.Entry<Object, Object>> cursor = redisTemplate.opsForHash().scan(key, options)) {
             if (cursor.hasNext()) {
-                InviteInfo inviteInfo = (InviteInfo) cursor.next().getValue();
-                cursor.close();
-                return inviteInfo;
-
+                return (InviteInfo) cursor.next().getValue();
             }
         } catch (Exception e) {
             log.error("[Redis-InviteInfo] 查询异常: ", e);

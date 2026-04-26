@@ -9,6 +9,8 @@ import com.ruoyi.jt1078.api.factory.RemoteJt1078FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * jt1078 服务
  *
@@ -46,4 +48,13 @@ public interface RemoteJt1078Service {
      */
     @PostMapping("/api/jt1078/streamByeCmd")
     R<Void> streamByeCmd(@RequestBody RtpServerParam rtpServer, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 获取全部设备
+     *
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/getAllDevices")
+    R<List<Jt1078Device>> getAllDevices(@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

@@ -1,5 +1,6 @@
 package com.ruoyi.jt1078.server.endpoint;
 
+import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.jt1078.protocol.basics.JTMessage;
 import com.ruoyi.jt1078.protocol.commons.JT808;
 import com.ruoyi.jt1078.protocol.t808.*;
@@ -10,6 +11,7 @@ import com.ruoyi.jt1078.server.service.FileService;
 import com.ruoyi.jt1078.server.service.IRedisCatchStorage;
 import com.ruoyi.jt1078.server.task.deviceStatus.DeviceStatusTask;
 import com.ruoyi.jt1078.server.task.deviceStatus.DeviceStatusTaskRunner;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
 import io.github.yezhihao.netmc.core.annotation.Async;
 import io.github.yezhihao.netmc.core.annotation.AsyncBatch;
 import io.github.yezhihao.netmc.core.annotation.Endpoint;
@@ -17,6 +19,7 @@ import io.github.yezhihao.netmc.core.annotation.Mapping;
 import io.github.yezhihao.netmc.session.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -46,6 +49,9 @@ public class JT808Endpoint {
 
     private final FileService fileService;
 
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
+
     @Mapping(types = 终端通用应答, desc = "终端通用应答")
     public Object T0001(T0001 message, Session session) {
         session.response(message);
@@ -71,6 +77,13 @@ public class JT808Endpoint {
         device.setOnline(false);
         redisCatchStorage.updateDevice(device);
         log.info("终端注销处理 手机号：{}， 设备id：{}， 车牌号：{}", message.getClientId(), device.getDeviceId(), device.getPlateNo());
+
+        // 同步设备状态到 QS 模块
+        try {
+            remoteQsDeviceService.updateDeviceStatusByJtMobileNo(device.getMobileNo(), "OFFLINE", SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[同步设备状态] 设备注销，同步到 QS 模块失败：{}", device.getMobileNo(), e);
+        }
     }
 
     @Mapping(types = 查询服务器时间, desc = "查询服务器时间")
@@ -126,6 +139,13 @@ public class JT808Endpoint {
         result.setResponseSerialNo(message.getSerialNo());
         result.setToken(device.getDeviceId() + "," + device.getPlateNo());
         result.setResultCode(T8100.Success);
+
+        // 同步设备状态到 QS 模块
+        try {
+            remoteQsDeviceService.updateDeviceStatusByJtMobileNo(device.getMobileNo(), "ON", SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[同步设备状态] 设备注册，同步到 QS 模块失败：{}", device.getMobileNo(), e);
+        }
         return result;
     }
 
@@ -179,6 +199,13 @@ public class JT808Endpoint {
         result.setResponseSerialNo(message.getSerialNo());
         result.setResponseMessageId(message.getMessageId());
         result.setResultCode(T0001.Success);
+
+        // 同步设备状态到 QS 模块
+        try {
+            remoteQsDeviceService.updateDeviceStatusByJtMobileNo(device.getMobileNo(), "ON", SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[同步设备状态] 设备鉴权，同步到 QS 模块失败：{}", device.getMobileNo(), e);
+        }
         return result;
     }
 

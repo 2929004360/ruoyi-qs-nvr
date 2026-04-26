@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Mono;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -46,11 +48,13 @@ public class Jt1078ApiController {
             return R.fail("jt1078 设备不存在 mobileNo:" + rtpServer.getMobileNo());
         }
 
+        Integer channelNo = rtpServer.getChannel() != null ? rtpServer.getChannel() : 1;
+        
         T9101 t9101 = new T9101()
                 .setIp(rtpServer.getIp())
                 .setTcpPort(rtpServer.getPort())
                 .setUdpPort(rtpServer.getPort())
-                .setChannelNo(1)
+                .setChannelNo(channelNo)
                 .setMediaType(0)
                 .setStreamType(0);
         t9101.setClientId(deviceDO.getMobileNo());
@@ -74,8 +78,10 @@ public class Jt1078ApiController {
             return R.fail("jt1078 设备不存在 mobileNo:" + rtpServer.getMobileNo());
         }
 
+        Integer channelNo = rtpServer.getChannel() != null ? rtpServer.getChannel() : 1;
+        
         T9102 t9102 = new T9102()
-                .setChannelNo(1)
+                .setChannelNo(channelNo)
                 .setCommand(0)
                 .setCloseType(0);
         t9102.setClientId(deviceDO.getMobileNo());
@@ -88,5 +94,23 @@ public class Jt1078ApiController {
             log.error("[JT1078 停止播放请求失败] mobileNo:{}", deviceDO.getMobileNo(), e);
             return R.fail("jt1078 停止播放请求失败:" + e.getMessage());
         }
+    }
+
+    /**
+     * 获取全部设备
+     *
+     * @return
+     */
+    @GetMapping("/getAllDevices")
+    R<List<Jt1078Device>> getAllDevices() {
+        List<DeviceDO> deviceDOList = redisCatchStorage.getAllDevice();
+        List<Jt1078Device> deviceList = deviceDOList.stream()
+                .map(deviceDO -> {
+                    Jt1078Device device = new Jt1078Device();
+                    BeanUtils.copyProperties(deviceDO, device);
+                    return device;
+                })
+                .collect(Collectors.toList());
+        return R.ok(deviceList);
     }
 }

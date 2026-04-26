@@ -352,4 +352,22 @@ public interface IQsDeviceService {
      * @return
      */
     int addQsDevice(QsDevice qsDevice);
+
+    /**
+     * 根据 gbDeviceId 更新设备在线状态
+     *
+     * @param gbDeviceId   国标设备编号
+     * @param deviceStatus 设备状态
+     * @return
+     */
+    Boolean updateDeviceStatusByGbDeviceId(String gbDeviceId, String deviceStatus);
+
+    /**
+     * 根据 jtMobileNo 更新设备在线状态
+     *
+     * @param jtMobileNo   设备手机号
+     * @param deviceStatus 设备状态
+     * @return
+     */
+    Boolean updateDeviceStatusByJtMobileNo(String jtMobileNo, String deviceStatus);
 }

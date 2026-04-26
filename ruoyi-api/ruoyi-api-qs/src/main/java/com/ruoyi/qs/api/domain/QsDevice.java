@@ -148,4 +148,13 @@ public class QsDevice extends BaseEntity
      * TCP-PASSIVE：tcp被动模式
      */
     private String streamMode;
+
+    /** JT1078-手机号 */
+    private String jtMobileNo;
+
+    /** JT1078-车牌号 */
+    private String jtPlateNo;
+
+    /** JT1078-车牌颜色 */
+    private String jtPlateColor;
 }

@@ -11,6 +11,8 @@ import com.ruoyi.gb28181.api.factory.RemoteGb28181FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * gb28181 服务
  *
@@ -63,4 +65,13 @@ public interface RemoteGb28181Service {
      */
     @PostMapping("/api/gb28181/streamByeCmd")
     R<Void> streamByeCmd(@RequestBody RtpServerParam rtpServer, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 获取全部设备
+     *
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/gb28181/getAllDevices")
+    R<List<Device>> getAllDevices(@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

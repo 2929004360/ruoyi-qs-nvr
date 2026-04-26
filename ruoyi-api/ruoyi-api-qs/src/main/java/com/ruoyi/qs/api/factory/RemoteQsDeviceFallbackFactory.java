@@ -78,6 +78,16 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<Boolean> addQsDevice(QsDevice qsDevice, String inner) {
                 return R.fail("新增视频监控设备失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Boolean> updateDeviceStatusByGbDeviceId(String gbDeviceId, String deviceStatus, String inner) {
+                return R.fail("根据 gbDeviceId 更新设备在线状态失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> updateDeviceStatusByJtMobileNo(String jtMobileNo, String deviceStatus, String inner) {
+                return R.fail("根据 jtMobileNo 更新设备在线状态失败:" + throwable.getMessage());
+            }
         };
     }
 }

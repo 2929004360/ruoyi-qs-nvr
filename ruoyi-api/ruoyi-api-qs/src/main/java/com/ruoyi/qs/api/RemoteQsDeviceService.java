@@ -121,4 +121,26 @@ public interface RemoteQsDeviceService {
      */
     @PostMapping("/api/device/addQsDevice")
     public R<Boolean> addQsDevice(QsDevice qsDevice, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 根据 gbDeviceId 更新设备在线状态
+     *
+     * @param gbDeviceId   国标设备编号
+     * @param deviceStatus 设备状态（ON/OFFLINE）
+     * @param inner        请求来源
+     * @return
+     */
+    @PostMapping("/api/device/updateDeviceStatusByGbDeviceId/{gbDeviceId}/{deviceStatus}")
+    public R<Boolean> updateDeviceStatusByGbDeviceId(@PathVariable String gbDeviceId, @PathVariable String deviceStatus, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 根据 jtMobileNo 更新设备在线状态
+     *
+     * @param jtMobileNo   设备手机号
+     * @param deviceStatus 设备状态（ON/OFFLINE）
+     * @param inner        请求来源
+     * @return
+     */
+    @PostMapping("/api/device/updateDeviceStatusByJtMobileNo/{jtMobileNo}/{deviceStatus}")
+    public R<Boolean> updateDeviceStatusByJtMobileNo(@PathVariable String jtMobileNo, @PathVariable String deviceStatus, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

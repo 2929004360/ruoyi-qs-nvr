@@ -211,6 +211,11 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         if (LiveStreamType.GB28181.getCode().equals(qsDevice.getType())) {
             qsDevice.setDeviceCode("gb28181_" + IdUtil.getSnowflakeNextId());
         }
+
+        // JT1078协议
+        if (LiveStreamType.JT1078.getCode().equals(qsDevice.getType())) {
+            qsDevice.setDeviceCode("jt1078_" + IdUtil.getSnowflakeNextId());
+        }
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
 
@@ -817,6 +822,56 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     @Override
     public int addQsDevice(QsDevice qsDevice) {
         return qsDeviceMapper.insertQsDevice(qsDevice);
+    }
+
+    /**
+     * 根据 gbDeviceId 更新设备在线状态
+     *
+     * @param gbDeviceId   国标设备编号
+     * @param deviceStatus 设备状态
+     * @return
+     */
+    @Override
+    public Boolean updateDeviceStatusByGbDeviceId(String gbDeviceId, String deviceStatus) {
+        // 先查询是否有对应的设备
+        QsDevice queryDevice = new QsDevice();
+        queryDevice.setGbDeviceId(gbDeviceId);
+        List<QsDevice> deviceList = qsDeviceMapper.selectQsDeviceList(queryDevice);
+        if (deviceList.isEmpty()) {
+            log.warn("[更新设备状态] 未找到 gbDeviceId 对应的设备：{}", gbDeviceId);
+            return false;
+        }
+        // 更新设备状态
+        QsDevice qsDevice = new QsDevice();
+        qsDevice.setId(deviceList.get(0).getId());
+        qsDevice.setDeviceStatus(deviceStatus);
+        int result = qsDeviceMapper.updateQsDevice(qsDevice);
+        return result > 0;
+    }
+
+    /**
+     * 根据 jtMobileNo 更新设备在线状态
+     *
+     * @param jtMobileNo   设备手机号
+     * @param deviceStatus 设备状态
+     * @return
+     */
+    @Override
+    public Boolean updateDeviceStatusByJtMobileNo(String jtMobileNo, String deviceStatus) {
+        // 先查询是否有对应的设备
+        QsDevice queryDevice = new QsDevice();
+        queryDevice.setJtMobileNo(jtMobileNo);
+        List<QsDevice> deviceList = qsDeviceMapper.selectQsDeviceList(queryDevice);
+        if (deviceList.isEmpty()) {
+            log.warn("[更新设备状态] 未找到 jtMobileNo 对应的设备：{}", jtMobileNo);
+            return false;
+        }
+        // 更新设备状态
+        QsDevice qsDevice = new QsDevice();
+        qsDevice.setId(deviceList.get(0).getId());
+        qsDevice.setDeviceStatus(deviceStatus);
+        int result = qsDeviceMapper.updateQsDevice(qsDevice);
+        return result > 0;
     }
 
     private void deleteToRegionByChannelIds(List<Long> deviceIds) {
