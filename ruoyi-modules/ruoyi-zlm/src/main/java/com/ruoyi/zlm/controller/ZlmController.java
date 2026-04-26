@@ -166,6 +166,16 @@ public class ZlmController {
 
         DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
 
+        result.onTimeout(() -> {
+            log.info("[rtp播放等待超时] app：{}, stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
+            R<StreamContent> wvpResult = R.fail();
+            wvpResult.setMsg("rtp播放超时");
+            result.setResult(wvpResult);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, rtpServerParam.getId());
+            mediaServerService.stopRtpPlay(rtpServerParam);
+        });
+
         ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
             if (code == InviteErrorCode.SUCCESS.getCode()) {
                 R<StreamContent> r = R.ok();

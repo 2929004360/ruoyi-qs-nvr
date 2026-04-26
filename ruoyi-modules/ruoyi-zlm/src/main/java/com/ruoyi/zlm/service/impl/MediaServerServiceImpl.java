@@ -934,6 +934,11 @@ public class MediaServerServiceImpl implements IMediaServerService {
             callback.run(InviteErrorCode.FAIL.getCode(), "设备不在线" + rtpServerParam.getId(), null);
             return;
         }
+        
+        int tcpMode = r.getData().getStreamMode().equals("TCP-ACTIVE") ? 2 : (r.getData().getStreamMode().equals("TCP-PASSIVE") ? 1 : 0);
+        rtpServerParam.setTcpMode(tcpMode);
+        rtpServerParam.setMediaServer(mediaServer);
+        
         play(mediaServer, rtpServerParam, r.getData(), null, callback);
     }
 
@@ -1022,10 +1027,10 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 if (callback != null) {
                     callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
 
-//                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null,
-//                            InviteErrorCode.SUCCESS.getCode(),
-//                            InviteErrorCode.SUCCESS.getMsg(),
-//                            streamInfo);
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null,
+                            InviteErrorCode.SUCCESS.getCode(),
+                            InviteErrorCode.SUCCESS.getMsg(),
+                            streamInfo);
 
                     InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
 
@@ -1086,7 +1091,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         log.info("[点播开始] 设备编号: {}, 通道编号: {}, 收流端口： {}, 流ID：{}, SSRC: {}", device.getId().toString(), device.getId(), ssrcInfo.getPort(), ssrcInfo.getStream(), ssrcInfo.getSsrc());
 
-        InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getId(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), "TCP-ACTIVE", InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
+        InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getId(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), device.getStreamMode(), InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
 
         if ("1".equals(device.getEnableMp4())) {
             inviteInfo.setRecord(true);
@@ -2109,10 +2114,10 @@ public class MediaServerServiceImpl implements IMediaServerService {
                 if (callback != null) {
                     callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
 
-//                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null,
-//                            InviteErrorCode.SUCCESS.getCode(),
-//                            InviteErrorCode.SUCCESS.getMsg(),
-//                            streamInfo);
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null,
+                            InviteErrorCode.SUCCESS.getCode(),
+                            InviteErrorCode.SUCCESS.getMsg(),
+                            streamInfo);
 
                     InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
 

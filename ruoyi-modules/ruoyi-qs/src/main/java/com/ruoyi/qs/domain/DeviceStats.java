@@ -20,4 +20,7 @@ public class DeviceStats implements Serializable {
     private Integer hikSdkCount;
     private Integer hikIsupCount;
     private Integer dahuaSdkCount;
+    private Integer gb28181Count;
+    private Integer jt1078Count;
+    private Integer pushCount;
 }

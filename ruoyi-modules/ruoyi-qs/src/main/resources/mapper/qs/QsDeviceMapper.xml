@@ -113,6 +113,9 @@
         <result column="hikSdkCount" property="hikSdkCount"/>
         <result column="hikIsupCount" property="hikIsupCount"/>
         <result column="dahuaSdkCount" property="dahuaSdkCount"/>
+        <result column="gb28181Count" property="gb28181Count"/>
+        <result column="jt1078Count" property="jt1078Count"/>
+        <result column="pushCount" property="pushCount"/>
     </resultMap>
 
 
@@ -687,22 +690,17 @@
         SUM(CASE WHEN status = 'DEACTIVATE' THEN 1 ELSE 0 END) AS 'deactivateCount',
 
         SUM(CASE WHEN type = '1' THEN 1 ELSE 0 END) AS 'rtspCount',
-
         SUM(CASE WHEN type = '2' THEN 1 ELSE 0 END) AS 'rtmpCount',
-
         SUM(CASE WHEN type = '3' THEN 1 ELSE 0 END) AS 'flvCount' ,
-
         SUM(CASE WHEN type = '4' THEN 1 ELSE 0 END) AS 'hlsCount' ,
-
         SUM(CASE WHEN type = '5' THEN 1 ELSE 0 END) AS 'onvifCount' ,
-
-        SUM(CASE WHEN type = '6' THEN 1 ELSE 0 END) AS 'hikSdkCount' ,
-
-        SUM(CASE WHEN type = '7' THEN 1 ELSE 0 END) AS '海康SDK设备总数' ,
-
+        SUM(CASE WHEN type = '6' THEN 1 ELSE 0 END) AS 'fileCount' ,
+        SUM(CASE WHEN type = '7' THEN 1 ELSE 0 END) AS 'hikSdkCount' ,
         SUM(CASE WHEN type = '8' THEN 1 ELSE 0 END) AS 'hikIsupCount' ,
-
-        SUM(CASE WHEN type = '9' THEN 1 ELSE 0 END) AS 'dahuaSdkCount'
+        SUM(CASE WHEN type = '9' THEN 1 ELSE 0 END) AS 'dahuaSdkCount',
+        SUM(CASE WHEN type = '12' THEN 1 ELSE 0 END) AS 'gb28181Count',
+        SUM(CASE WHEN type = '13' THEN 1 ELSE 0 END) AS 'pushCount',
+        SUM(CASE WHEN type = '14' THEN 1 ELSE 0 END) AS 'jt1078Count'
 
         FROM qs_device;
     </select>
