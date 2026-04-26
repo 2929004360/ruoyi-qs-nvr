@@ -106,6 +106,12 @@
             <artifactId>guava</artifactId>
             <version>33.4.8-jre</version>
         </dependency>
+
+        <!-- jt1078 接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-jt1078</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

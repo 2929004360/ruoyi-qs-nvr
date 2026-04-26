@@ -11,6 +11,8 @@ import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.dahua.api.RemoteDaHuaService;
 import com.ruoyi.gb28181.api.RemoteGb28181Service;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.jt1078.api.RemoteJt1078Service;
+import com.ruoyi.jt1078.api.domain.Jt1078Device;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
@@ -126,6 +128,10 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
     @Autowired
     private RemoteGb28181Service remoteGb28181Service;
+
+    @Autowired
+    @Lazy
+    private RemoteJt1078Service remoteJt1078Service;
 
     @Value("${file.domain}")
     private String fileDomain;
@@ -255,7 +261,7 @@ public class MediaServerServiceImpl implements IMediaServerService {
             redisCatchStorage.removeStream(mediaInfo.getMediaServer().getId(), type, event.getApp(), event.getStream());
         }
 
-        if ("haikang".equals(event.getApp()) || "haikang_isup".equals(event.getApp()) || "dahua".equals(event.getApp()) || "gb28181".equals(event.getApp())) {
+        if ("haikang".equals(event.getApp()) || "haikang_isup".equals(event.getApp()) || "dahua".equals(event.getApp()) || "gb28181".equals(event.getApp()) || "jt1078".equals(event.getApp())) {
             InviteInfo inviteInfo = inviteStreamService.getInviteInfoByStream(null, event.getStream());
             if (inviteInfo != null && (inviteInfo.getType() == InviteSessionType.PLAY || inviteInfo.getType() == InviteSessionType.PLAYBACK)) {
                 inviteStreamService.removeInviteInfo(inviteInfo);
@@ -1742,6 +1748,290 @@ public class MediaServerServiceImpl implements IMediaServerService {
             closeRTPServer(mediaServer, inviteInfo.getSsrcInfo().getStream());
             ssrcFactory.releaseSsrc(inviteInfo.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
         }
+    }
+
+    /**
+     * jt1078 播放
+     *
+     * @param qsDevice
+     * @param jt1078Device
+     * @param callback
+     */
+    @Override
+    public void startJt1078Play(QsDevice qsDevice, Jt1078Device jt1078Device, ErrorCallback<StreamInfo> callback) {
+        ZlmMediaServer mediaServer = getMediaServerForMinimumLoad(null);
+
+        if (mediaServer == null) {
+            callback.run(InviteErrorCode.FAIL.getCode(), "无可用的节点", null);
+            return;
+        }
+
+        RTPServerParam rtpServerParam = new RTPServerParam();
+        rtpServerParam.setApp("jt1078");
+        rtpServerParam.setMediaServer(mediaServer);
+        rtpServerParam.setType(LiveStreamType.JT1078.getCode());
+        rtpServerParam.setStreamId(qsDevice.getDeviceCode());
+        rtpServerParam.setTcpMode(1);
+        rtpServerParam.setId(qsDevice.getId());
+
+        startJt1078PlayFun(mediaServer, qsDevice, jt1078Device, rtpServerParam, null, callback);
+    }
+
+    /**
+     * jt1078 停止点播
+     *
+     * @param type
+     * @param qsDevice
+     * @param device
+     * @param stream
+     */
+    @Override
+    public void stopJt1078Play(InviteSessionType type, QsDevice qsDevice, Jt1078Device device, String stream) {
+        InviteInfo inviteInfo = inviteStreamService.getInviteInfo(type, qsDevice.getId(), stream);
+        if (inviteInfo == null) {
+            if (type == InviteSessionType.PLAY) {
+                QsDevice qsDeviceUpdate = new QsDevice();
+                qsDeviceUpdate.setId(qsDevice.getId());
+                qsDeviceUpdate.setStreamKey("");
+                qsDeviceUpdate.setMediaServerId("");
+                qsDeviceUpdate.setStreamStatus("0");
+                R<Boolean> r = remoteQsDeviceService.updateQsDevice(qsDeviceUpdate, SecurityConstants.INNER);
+                if (r.getCode() != Constants.SUCCESS) {
+                    throw new RuntimeException("更新设备失败");
+                }
+            }
+            return;
+        }
+        inviteStreamService.removeInviteInfo(inviteInfo);
+        if (InviteSessionStatus.ok == inviteInfo.getStatus()) {
+            try {
+                log.info("[jt1078 停止点播] deviceId：{}, deviceCode：{}", qsDevice.getId(), qsDevice.getDeviceCode());
+
+                RtpServerParam rtpServer = new RtpServerParam();
+                rtpServer.setApp("jt1078");
+                rtpServer.setStream(qsDevice.getDeviceCode());
+                rtpServer.setId(qsDevice.getId());
+                rtpServer.setMobileNo(device.getMobileNo());
+                rtpServer.setType(LiveStreamType.JT1078.getCode());
+
+                R<Void> r = remoteJt1078Service.streamByeCmd(rtpServer, SecurityConstants.INNER);
+                if (r.getCode() != Constants.SUCCESS) {
+                    log.error("[jt1078 命令发送失败] 停止点播，deviceId：{}", qsDevice.getId());
+                    throw new RuntimeException("[jt1078 命令发送失败] 停止点播，deviceId：" + qsDevice.getId());
+                }
+            } catch (Exception e) {
+                log.error("[jt1078 命令发送失败] 停止点播，发送BYE：{}", e.getMessage());
+                throw new RuntimeException("jt1078 命令发送失败：" + e.getMessage());
+            }
+        }
+
+        if (inviteInfo.getType() == InviteSessionType.PLAY) {
+            QsDevice qsDeviceUpdate = new QsDevice();
+            qsDeviceUpdate.setId(qsDevice.getId());
+            qsDeviceUpdate.setStreamKey("");
+            qsDeviceUpdate.setMediaServerId("");
+            qsDeviceUpdate.setStreamStatus("0");
+            R<Boolean> r = remoteQsDeviceService.updateQsDevice(qsDeviceUpdate, SecurityConstants.INNER);
+            if (r.getCode() != Constants.SUCCESS) {
+                throw new RuntimeException("更新设备失败");
+            }
+        }
+
+        ZlmMediaServer mediaServer = null;
+        if (inviteInfo.getStreamInfo() != null) {
+            mediaServer = inviteInfo.getStreamInfo().getMediaServer();
+        } else {
+            mediaServer = getOne(inviteInfo.getMediaServerId());
+        }
+
+        if (mediaServer != null && inviteInfo.getSsrcInfo() != null) {
+            closeRTPServer(mediaServer, inviteInfo.getSsrcInfo().getStream());
+            ssrcFactory.releaseSsrc(inviteInfo.getMediaServerId(), inviteInfo.getSsrcInfo().getSsrc());
+        }
+    }
+
+    /**
+     * 开启部标1078播放
+     *
+     * @param mediaServer
+     * @param device
+     * @param rtpServerParam
+     * @param ssrc
+     * @param callback
+     */
+    private SSRCInfo startJt1078PlayFun(ZlmMediaServer mediaServer, QsDevice device, Jt1078Device jt1078Device, RTPServerParam rtpServerParam, String ssrc, ErrorCallback<StreamInfo> callback) {
+        // 获取点播的状态信息
+        InviteInfo inviteInfoInCatch = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+        if (inviteInfoInCatch != null) {
+            if (inviteInfoInCatch.getStreamInfo() == null) {
+                // 释放生成的ssrc，使用上一次申请的
+                ssrcFactory.releaseSsrc(mediaServer.getId(), null);
+                // 点播发起了但是尚未成功，仅注册回调等待结果即可
+                inviteStreamService.once(InviteSessionType.PLAY, device.getId(), null, callback);
+                log.info("[jt1078 点播开始] 已经请求中，等待结果，deviceId：{}", device.getId());
+                return inviteInfoInCatch.getSsrcInfo();
+            } else {
+                StreamInfo streamInfo = inviteInfoInCatch.getStreamInfo();
+                String streamId = streamInfo.getStream();
+                if (streamId == null) {
+                    callback.run(InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(), "点播失败，redis缓存streamId等于null", null);
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.ERROR_FOR_CATCH_DATA.getCode(), "点播失败，redis缓存streamId等于null", null);
+                    return inviteInfoInCatch.getSsrcInfo();
+                }
+                ZlmMediaServer mediaInfo = streamInfo.getMediaServer();
+                Boolean ready = isStreamReady(mediaInfo, rtpServerParam.getApp(), streamId);
+                if (ready != null && ready) {
+                    if (callback != null) {
+                        callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+                    }
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+                    log.info("[jt1078 点播已存在] 直接返回，设备编号：{}", device.getId());
+                    return inviteInfoInCatch.getSsrcInfo();
+                } else {
+                    // 点播发起了但是尚未成功，仅注册回调等待结果即可
+                    inviteStreamService.once(InviteSessionType.PLAY, device.getId(), null, callback);
+                    RTPServerParam rtpServer = new RTPServerParam();
+                    rtpServer.setId(device.getId());
+                    rtpServer.setType(rtpServerParam.getType());
+                    rtpServer.setStreamId(rtpServerParam.getStreamId());
+                    stopRtpPlay(rtpServer);
+                    inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+                }
+            }
+        }
+
+        rtpServerParam.setMediaServer(mediaServer);
+        // 获取mediaServer可用的ssrc
+        if (rtpServerParam.getPresetSsrc() != null) {
+            ssrc = rtpServerParam.getPresetSsrc();
+        } else {
+            if (rtpServerParam.isPlayback()) {
+                ssrc = ssrcFactory.getPlayBackSsrc(mediaServer.getId());
+            } else {
+                ssrc = ssrcFactory.getPlaySsrc(mediaServer.getId());
+            }
+        }
+        rtpServerParam.setSsrc(ssrc);
+
+        SSRCInfo ssrcInfo = receiveRtpServerService.openRTPServer(rtpServerParam, (code, msg, result) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode() && result != null && result.getHookData() != null) {
+                log.info("[jt1078 创建RTP服务器] 成功，code：{}，msg：{}，result：{}", code, msg, result);
+                StreamInfo streamInfo = getStreamInfoByAppAndStream(mediaServer, rtpServerParam.getApp(), rtpServerParam.getStreamId(), result.getHookData().getMediaInfo());
+                if (streamInfo == null) {
+                    if (callback != null) {
+                        callback.run(InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getCode(), InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getMsg(), null);
+                    }
+
+                    inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getCode(), InviteErrorCode.ERROR_FOR_STREAM_PARSING_EXCEPTIONS.getMsg(), null);
+                    // 清理资源：关闭RTP服务器并释放SSRC
+                    if (result != null && result.getSsrcInfo() != null) {
+                        closeRTPServer(mediaServer, result.getSsrcInfo().getStream());
+                        ssrcFactory.releaseSsrc(mediaServer.getId(), result.getSsrcInfo().getSsrc());
+                    }
+                    return;
+                }
+                if (callback != null) {
+                    callback.run(InviteErrorCode.SUCCESS.getCode(), InviteErrorCode.SUCCESS.getMsg(), streamInfo);
+
+                    InviteInfo inviteInfo = inviteStreamService.getInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+
+                    if (inviteInfo != null) {
+                        inviteInfo.setStatus(InviteSessionStatus.ok);
+                        inviteInfo.setStreamInfo(streamInfo);
+                        inviteStreamService.updateInviteInfo(inviteInfo);
+                    }
+
+                    String filePath = snapOnPlay(streamInfo.getMediaServer(), streamInfo.getApp(), streamInfo.getStream());
+                    QsDevice qsDevice = new QsDevice();
+                    qsDevice.setId(rtpServerParam.getId());
+                    qsDevice.setStreamKey(rtpServerParam.getStreamId());
+                    qsDevice.setMediaServerId(mediaServer.getId());
+                    qsDevice.setStreamStatus("1");
+                    qsDevice.setSnap(filePath);
+                    R<Boolean> r = remoteQsDeviceService.updateQsDevice(qsDevice, SecurityConstants.INNER);
+                    if (r.getCode() != Constants.SUCCESS) {
+                        throw new RuntimeException("更新设备失败");
+                    }
+                }
+            } else {
+                log.error("[jt1078 创建RTP服务器] 失败，code：{}，msg：{}，result：{}", code, msg, result);
+
+                if (callback != null) {
+                    callback.run(code, msg, null);
+                }
+
+                inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, code, msg, null);
+                inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+                // 清理资源：关闭RTP服务器并释放SSRC
+                if (result != null && result.getSsrcInfo() != null) {
+                    closeRTPServer(mediaServer, result.getSsrcInfo().getStream());
+                    ssrcFactory.releaseSsrc(mediaServer.getId(), result.getSsrcInfo().getSsrc());
+                }
+            }
+        });
+
+        if (ssrcInfo == null || ssrcInfo.getPort() <= 0) {
+            log.info("[jt1078 点播端口/SSRC] 获取失败，设备编号：{}，ssrcInfo：{}", device.getId().toString(), ssrcInfo);
+            // 释放之前获取的SSRC
+            if (rtpServerParam.getPresetSsrc() == null) {
+                ssrcFactory.releaseSsrc(mediaServer.getId(), ssrc);
+            }
+            callback.run(InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(), "获取端口或者ssrc失败", null);
+            inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getCode(), InviteErrorCode.ERROR_FOR_RESOURCE_EXHAUSTION.getMsg(), null);
+            return null;
+        }
+
+        int port = ssrcInfo.getPort();
+        String ip = mediaServer.getIp();
+        RtpServerParam rtpServer = new RtpServerParam();
+        rtpServer.setPort(port);
+        rtpServer.setIp(ip);
+        rtpServer.setId(rtpServerParam.getId());
+        rtpServer.setSsrc(rtpServerParam.getSsrc());
+        rtpServer.setMediaServerId(mediaServer.getId());
+        rtpServer.setApp(rtpServerParam.getApp());
+        rtpServer.setStream(rtpServerParam.getStreamId());
+        rtpServer.setMobileNo(jt1078Device.getMobileNo());
+        rtpServer.setType(LiveStreamType.JT1078.getCode());
+
+        log.info("[jt1078 点播开始] ===============================");
+        log.info("[jt1078] 设备ID：{}，设备手机号：{}", device.getId(), jt1078Device.getMobileNo());
+        log.info("[jt1078] ZLM媒体服务器IP：{}，收流端口：{}，流ID：{}，SSRC：{}", ip, port, ssrcInfo.getStream(), ssrcInfo.getSsrc());
+        log.info("[jt1078] =======================================");
+
+        InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getId(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), "UDP", InviteSessionType.PLAY, InviteSessionStatus.ready, userSetting.getRecordSip());
+
+        if ("1".equals(device.getEnableMp4())) {
+            inviteInfo.setRecord(true);
+        }
+
+        inviteStreamService.updateInviteInfo(inviteInfo);
+
+        R<Void> r = remoteJt1078Service.playStreamCmd(rtpServer, SecurityConstants.INNER);
+
+        if (r.getCode() != Constants.SUCCESS) {
+            log.info("[jt1078 点播失败] deviceId：{}", device.getId());
+            inviteInfo = inviteStreamService.getInviteInfo(InviteSessionType.PLAY, device.getId(), rtpServerParam.getStreamId());
+
+            if (inviteInfo != null) {
+                inviteStreamService.removeInviteInfo(inviteInfo);
+                if (inviteInfo.getSsrcInfo() != null) {
+                    ssrcFactory.releaseSsrc(mediaServer.getId(), inviteInfo.getSsrcInfo().getSsrc());
+                }
+            }
+
+            closeRTPServer(mediaServer, ssrcInfo.getStream());
+            ssrcFactory.releaseSsrc(mediaServer.getId(), ssrcInfo.getSsrc());
+
+            if (callback != null) {
+                callback.run(r.getCode(), r.getMsg(), null);
+            }
+            inviteStreamService.call(InviteSessionType.PLAY, device.getId(), null, r.getCode(), r.getMsg(), null);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAY, device.getId());
+            return ssrcInfo;
+        }
+        return ssrcInfo;
     }
 
     /**

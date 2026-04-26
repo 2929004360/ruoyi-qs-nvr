@@ -1,6 +1,7 @@
 package com.ruoyi.zlm.service;
 
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.jt1078.api.domain.Jt1078Device;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.InviteSessionType;
@@ -361,4 +362,23 @@ public interface IMediaServerService {
      * @param stream
      */
     void stopGb28181Play(InviteSessionType type, QsDevice qsDevice, Device device, String stream);
+
+    /**
+     * jt1078 播放
+     *
+     * @param qsDevice
+     * @param jt1078Device
+     * @param callback
+     */
+    void startJt1078Play(QsDevice qsDevice, Jt1078Device jt1078Device, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * jt1078 停止点播
+     *
+     * @param type
+     * @param qsDevice
+     * @param device
+     * @param stream
+     */
+    void stopJt1078Play(InviteSessionType type, QsDevice qsDevice, Jt1078Device device, String stream);
 }

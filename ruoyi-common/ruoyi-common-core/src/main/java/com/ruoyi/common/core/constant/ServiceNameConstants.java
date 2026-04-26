@@ -56,4 +56,9 @@ public class ServiceNameConstants
      * gb28181模块的serviceid
      */
     public static final String GB28181_SERVICE = "ruoyi-gb28181";
+
+    /**
+     * jt1078模块的serviceid
+     */
+    public static final String JT1078_SERVICE = "ruoyi-jt1078";
 }

@@ -30,4 +30,8 @@ public class RtpServerParam {
     private String app;
 
     private String stream;
+
+    private String mobileNo;
+
+    private String type;
 }

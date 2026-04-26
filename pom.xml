@@ -260,6 +260,13 @@
                 <artifactId>ruoyi-api-gb28181</artifactId>
                 <version>${ruoyi.version}</version>
             </dependency>
+
+            <!-- jt1078 接口 -->
+            <dependency>
+                <groupId>com.ruoyi</groupId>
+                <artifactId>ruoyi-api-jt1078</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
