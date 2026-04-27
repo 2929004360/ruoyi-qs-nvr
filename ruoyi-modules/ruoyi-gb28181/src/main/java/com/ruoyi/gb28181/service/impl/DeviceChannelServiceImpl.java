@@ -9,10 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -49,7 +46,7 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
         }
         List<DeviceChannel> deviceChannelsInRedis = redisCatchStorage.queryAllChannelsForRefresh(device.getDeviceId());
 
-        redisCatchStorage.batchAdd(device.getDeviceId(), mergeWithNewChannels(deviceChannelsInRedis, channels));
+        redisCatchStorage.batchAdd(device.getDeviceId(), mergeWithNewChannels(deviceChannelsInRedis, channels, device.isOnLine()));
     }
 
     /**
@@ -57,41 +54,75 @@ public class DeviceChannelServiceImpl implements IDeviceChannelService {
      * <p>
      * 规则：
      * - 以 deviceId 作为唯一标识。
-     * - 数据库中已存在的 deviceId 保持不变（不被新数据覆盖）。
-     * - 新数据中独有的 deviceId 被追加到结果中。
+     * - 数据库中已存在的 deviceId：更新除 status 以外的其他数据，保留原有的 status
+     * - 新数据中独有的 deviceId 被追加到结果中
+     * - 对于新通道且设备在线，状态默认为 "ON"
      *
      * @param channels          数据库中的通道列表（旧数据）
      * @param deviceChannelList 新拉取的通道列表（新数据）
-     * @return 合并后的新列表：[数据库所有数据 + 新增的通道]
+     * @param isDeviceOnline    设备是否在线
+     * @return 合并后的新列表
      */
     public static List<DeviceChannel> mergeWithNewChannels(
             List<DeviceChannel> channels,
-            List<DeviceChannel> deviceChannelList) {
+            List<DeviceChannel> deviceChannelList,
+            boolean isDeviceOnline) {
 
         // 1. 如果新拉取的数据是 null 或空，说明没有新数据，业务上通常意味着要清空旧缓存
         if (deviceChannelList == null || deviceChannelList.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 2. 如果旧数据为空，直接返回新数据
+        // 2. 如果旧数据为空，直接返回新数据，对于设备在线的情况给新通道默认状态为 "ON"
         if (channels == null || channels.isEmpty()) {
-            return new ArrayList<>(deviceChannelList);
+            List<DeviceChannel> result = new ArrayList<>(deviceChannelList);
+            if (isDeviceOnline) {
+                for (DeviceChannel channel : result) {
+                    if (channel.getStatus() == null) {
+                        channel.setStatus("ON");
+                    }
+                }
+            }
+            return result;
         }
 
         // 3. 正常合并逻辑
-        // 提取数据库中（或Redis中）已存在的 deviceId
-        Set<String> existingDeviceIds = channels.stream()
-                .map(DeviceChannel::getDeviceId)
-                .collect(Collectors.toSet());
+        // 先把旧通道映射为 map，方便查找
+        Map<String, DeviceChannel> existingChannelMap = channels.stream()
+                .collect(Collectors.toMap(DeviceChannel::getDeviceId, channel -> channel));
 
-        List<DeviceChannel> result = new ArrayList<>(channels);
+        List<DeviceChannel> result = new ArrayList<>();
 
-        // 遍历新数据，添加独有的项
+        // 遍历新数据，进行合并
         for (DeviceChannel newChannel : deviceChannelList) {
-            if (!existingDeviceIds.contains(newChannel.getDeviceId())) {
+            DeviceChannel existingChannel = existingChannelMap.get(newChannel.getDeviceId());
+            if (existingChannel != null) {
+                // 已存在的通道：保留原 status，更新其他字段
+                String originalStatus = existingChannel.getStatus();
+                
+                // 把新数据的值复制到旧对象上（除了 status）
+                // 这里我们创建一个新对象来合并
+                DeviceChannel mergedChannel = newChannel;
+                mergedChannel.setStatus(originalStatus);
+                
+                // 保留原有的 id
+                mergedChannel.setId(existingChannel.getId());
+                
+                result.add(mergedChannel);
+                
+                // 从 map 中移除，剩下的就是在旧列表中有但在新列表中没有的
+                existingChannelMap.remove(newChannel.getDeviceId());
+            } else {
+                // 新通道：添加，如果设备在线且状态为空，默认设为 "ON"
+                if (isDeviceOnline && newChannel.getStatus() == null) {
+                    newChannel.setStatus("ON");
+                }
                 result.add(newChannel);
             }
         }
+
+        // 对于旧列表中有但新列表中没有的通道，我们保留它们
+        result.addAll(existingChannelMap.values());
 
         return result;
     }

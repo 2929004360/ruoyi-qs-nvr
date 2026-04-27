@@ -49,13 +49,22 @@ public class ZlmCloudRecordController extends BaseController {
     private UserSetting userSetting;
 
     /**
-     * 查询云端录像列表
+     * 查询云端录像列表（分页）
      */
     @GetMapping("/list")
     public TableDataInfo list(ZlmCloudRecord zlmCloudRecord) {
         startPage();
         List<ZlmCloudRecord> list = zlmCloudRecordService.selectZlmCloudRecordList(zlmCloudRecord);
         return getDataTable(list);
+    }
+
+    /**
+     * 查询云端录像列表（不分页）
+     */
+    @GetMapping("/allList")
+    public AjaxResult allList(ZlmCloudRecord zlmCloudRecord) {
+        List<ZlmCloudRecord> list = zlmCloudRecordService.selectZlmCloudRecordList(zlmCloudRecord);
+        return success(list);
     }
 
     /**

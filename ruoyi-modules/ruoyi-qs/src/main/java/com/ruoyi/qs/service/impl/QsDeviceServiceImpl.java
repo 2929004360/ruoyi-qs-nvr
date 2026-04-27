@@ -103,7 +103,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         qsDevice.setDeviceStatus("ON");
         // RTSP协议
         if (LiveStreamType.RTSP.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("rtsp_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             if (!isValidRtspFormat(qsDevice.getLiveAddress())) {
                 throw new RuntimeException("RTSP地址格式不正确");
             }
@@ -111,7 +111,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // RTMP协议
         if (LiveStreamType.RTMP.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("rtmp_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             if (!isValidRtmpFormat(qsDevice.getLiveAddress())) {
                 throw new RuntimeException("RTMP地址格式不正确");
             }
@@ -119,7 +119,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // FLV协议
         if (LiveStreamType.FLV.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("flv_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             String flvType = getProtocolTypeSimple(qsDevice.getLiveAddress());
             qsDevice.setFlvType(flvType);
 
@@ -130,7 +130,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // HLS协议
         if (LiveStreamType.HLS.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("hls_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             if (!isValidHlsAddress(qsDevice.getLiveAddress())) {
                 throw new RuntimeException("HLS地址格式不正确");
             }
@@ -138,12 +138,12 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // ONVIF协议
         if (LiveStreamType.ONVIF.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("onvif_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
         }
 
         // 视频文件
         if (LiveStreamType.VIDEO_FILE.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("video_file_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             if (!isValidMp4Address(qsDevice.getLiveAddress())) {
                 throw new RuntimeException("视频文件格式不正确");
             }
@@ -151,7 +151,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // 海康SDK
         if (LiveStreamType.HIK_SDK.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("haikang_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             LoginDevice loginDevice = new LoginDevice();
             loginDevice.setIpAddress(qsDevice.getIpAddress());
             loginDevice.setPort(Short.parseShort(String.valueOf(qsDevice.getPort())));
@@ -170,7 +170,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
             // 1=主动添加
             if ("1".equals(qsDevice.getOnlineType())) {
-                qsDevice.setDeviceCode("dahua_" + IdUtil.getSnowflakeNextId());
+                qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
                 loginDevice.setIpAddress(qsDevice.getIpAddress());
                 loginDevice.setPort(qsDevice.getPort());
                 loginDevice.setUserName(qsDevice.getUserName());
@@ -203,18 +203,18 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
         // 推流模式
         if (LiveStreamType.PUSH.getCode().equals(qsDevice.getType())){
-            qsDevice.setDeviceCode("push_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
             qsDevice.setDeviceStatus("OFFLINE");
         }
 
         // gb28181协议
         if (LiveStreamType.GB28181.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("gb28181_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
         }
 
         // JT1078协议
         if (LiveStreamType.JT1078.getCode().equals(qsDevice.getType())) {
-            qsDevice.setDeviceCode("jt1078_" + IdUtil.getSnowflakeNextId());
+            qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
         }
         return qsDeviceMapper.insertQsDevice(qsDevice);
     }
