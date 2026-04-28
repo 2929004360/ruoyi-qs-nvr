@@ -23,6 +23,7 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
 
     private static final Logger log = LoggerFactory.getLogger(RemoteDaHuaFallbackFactory.class);
 
+
     @Override
     public RemoteDaHuaService create(Throwable throwable) {
         log.error("大华sdk服务调用失败:{}", throwable.getMessage());
