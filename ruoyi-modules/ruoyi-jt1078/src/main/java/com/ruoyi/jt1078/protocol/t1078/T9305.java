@@ -11,15 +11,13 @@ import lombok.experimental.Accessors;
 @ToString
 @Data
 @Accessors(chain = true)
-@Message(JT1078.云台旋转)
-public class T9301 extends JTMessage {
+@Message(JT1078.红外补光控制)
+public class T9305 extends JTMessage {
 
     @Field(length = 1, desc = "逻辑通道号")
     private int channelNo;
-    @Field(length = 1, desc = "方向：0.停止 1.上 2.下 3.左 4.右")
-    private int direction;
-    @Field(length = 1, desc = "速度（1-255）")
-    private int speed;
+    @Field(length = 1, desc = "红外补光控制：0.停止 1.开始")
+    private int control;
 
 }
 

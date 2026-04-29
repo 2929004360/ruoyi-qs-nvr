@@ -57,4 +57,92 @@ public interface RemoteJt1078Service {
      */
     @GetMapping("/api/jt1078/getAllDevices")
     R<List<Jt1078Device>> getAllDevices(@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 云台旋转
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param direction
+     * @param speed
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/ptzRotate/{mobileNo}/{channelNo}")
+    R<Void> ptzRotate(@PathVariable String mobileNo, @PathVariable int channelNo,
+                      @RequestParam int direction, @RequestParam(defaultValue = "50") int speed,
+                      @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 云台调整焦距控制
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param direction
+     * @param speed
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/ptzFocus/{mobileNo}/{channelNo}")
+    R<Void> ptzFocus(@PathVariable String mobileNo, @PathVariable int channelNo,
+                     @RequestParam int direction, @RequestParam(defaultValue = "50") int speed,
+                     @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 云台调整光圈控制
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param direction
+     * @param speed
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/ptzIris/{mobileNo}/{channelNo}")
+    R<Void> ptzIris(@PathVariable String mobileNo, @PathVariable int channelNo,
+                    @RequestParam int direction, @RequestParam(defaultValue = "50") int speed,
+                    @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 云台雨刷控制
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param control
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/ptzWiper/{mobileNo}/{channelNo}")
+    R<Void> ptzWiper(@PathVariable String mobileNo, @PathVariable int channelNo,
+                     @RequestParam int control,
+                     @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 红外补光控制
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param control
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/ptzInfrared/{mobileNo}/{channelNo}")
+    R<Void> ptzInfrared(@PathVariable String mobileNo, @PathVariable int channelNo,
+                        @RequestParam int control,
+                        @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 云台变倍控制
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param direction
+     * @param speed
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/ptzZoom/{mobileNo}/{channelNo}")
+    R<Void> ptzZoom(@PathVariable String mobileNo, @PathVariable int channelNo,
+                    @RequestParam int direction, @RequestParam(defaultValue = "50") int speed,
+                    @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

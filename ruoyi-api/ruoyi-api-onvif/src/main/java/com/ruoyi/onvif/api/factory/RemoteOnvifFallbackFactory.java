@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * onvif服务降级处理
  *
@@ -29,6 +32,36 @@ public class RemoteOnvifFallbackFactory implements FallbackFactory<RemoteOnvifSe
             @Override
             public R<OnvifDevice> login(WSOnvifDevice onvifDevice, String source) {
                 return R.fail("验证登录onvif设备失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> startPtzControl(String deviceIp, String username, String password, String direction, Integer speed, String source) {
+                return R.fail("onvif云台控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPtzControl(String deviceIp, String username, String password, String source) {
+                return R.fail("onvif云台停止失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<List<Map<String, Object>>> getPresets(String deviceIp, String username, String password, String source) {
+                return R.fail("获取onvif预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> setPreset(String deviceIp, String username, String password, Integer presetIndex, String presetName, String source) {
+                return R.fail("设置onvif预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> gotoPreset(String deviceIp, String username, String password, Integer presetIndex, Integer speed, String source) {
+                return R.fail("调用onvif预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> removePreset(String deviceIp, String username, String password, Integer presetIndex, String source) {
+                return R.fail("删除onvif预置点失败:" + throwable.getMessage());
             }
         };
     }

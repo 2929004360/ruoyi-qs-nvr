@@ -7,6 +7,9 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
+import com.ruoyi.haikang.isup.enums.HCIsupCameraAuxEnum;
+import com.ruoyi.haikang.isup.enums.HCIsupCruiseControlEnum;
+import com.ruoyi.haikang.isup.enums.HCIsupPresetControlEnum;
 import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
 import com.ruoyi.haikang.isup.service.haikang.IHaikangIsupMediaStreamService;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
@@ -14,6 +17,9 @@ import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
 import com.ruoyi.haikang.isup.utils.CommonUtil;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.sun.jna.ptr.IntByReference;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +29,7 @@ import org.springframework.stereotype.Service;
  * @Author fengcheng
  * @date 2026-03-30
  **/
+@Slf4j
 @Service
 public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
 
@@ -129,5 +136,299 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
             throw new ServiceException("未找到用户信息");
         }
         mediaStreamService.stopPlay(lUserID, device.getId(), device.getChannel(), streamKey);
+    }
+
+    /**
+     * 开始云台控制
+     *
+     * @param deviceId
+     * @param channelId
+     * @param ptzCmd
+     * @param speed
+     */
+    @Override
+    public void startPtz(Long deviceId, Integer channelId, int ptzCmd, int speed) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            throw new ServiceException("未找到用户信息");
+        }
+
+        //云台控制
+        HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM net_ehome_remote_ctrl_param = new HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM();
+        HCISUPCMS.NET_EHOME_PTZ_PARAM net_ehome_ptz_param = new HCISUPCMS.NET_EHOME_PTZ_PARAM();
+        net_ehome_ptz_param.read();
+        net_ehome_ptz_param.dwSize = net_ehome_ptz_param.size();
+        net_ehome_ptz_param.byPTZCmd = (byte) ptzCmd; //0-向上,1-向下,2-向左,3-向右，更多取值参考接口文档
+        net_ehome_ptz_param.byAction = 0; //云台动作：0- 开始云台动作，1- 停止云台动作
+        net_ehome_ptz_param.bySpeed = (byte) speed; //云台速度，取值范围：0~7，数值越大速度越快
+        net_ehome_ptz_param.write();
+        net_ehome_remote_ctrl_param.read();
+        net_ehome_remote_ctrl_param.dwSize = net_ehome_remote_ctrl_param.size();
+        net_ehome_remote_ctrl_param.lpInbuffer = net_ehome_ptz_param.getPointer();//输入控制参数
+        net_ehome_remote_ctrl_param.dwInBufferSize = net_ehome_ptz_param.size();
+
+        //条件参数输入通道号
+        int iChannel = channelId; //视频通道号
+        IntByReference channle = new IntByReference(iChannel);
+        net_ehome_remote_ctrl_param.lpCondBuffer = channle.getPointer();
+        net_ehome_remote_ctrl_param.dwCondBufferSize = 4;
+
+        net_ehome_remote_ctrl_param.write();
+
+        boolean b_ptz = CmsService.hCEhomeCMS.NET_ECMS_RemoteControl(lUserID, HCISUPCMS.NET_EHOME_PTZ_CTRL, net_ehome_remote_ctrl_param);
+        if (!b_ptz) {
+            int iErr = CmsService.hCEhomeCMS.NET_ECMS_GetLastError();
+            throw new ServiceException("NET_ECMS_XMLConfig失败，错误：" + iErr);
+        }
+    }
+
+    /**
+     * 结束云台控制
+     *
+     * @param deviceId
+     * @param channelId
+     * @param ptzCmd
+     * @param speed
+     */
+    @Override
+    public void endPtz(Long deviceId, Integer channelId, int ptzCmd, int speed) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            throw new ServiceException("未找到用户信息");
+        }
+
+        //云台控制
+        HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM net_ehome_remote_ctrl_param = new HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM();
+        HCISUPCMS.NET_EHOME_PTZ_PARAM net_ehome_ptz_param = new HCISUPCMS.NET_EHOME_PTZ_PARAM();
+        net_ehome_ptz_param.read();
+        net_ehome_ptz_param.dwSize = net_ehome_ptz_param.size();
+        net_ehome_ptz_param.byPTZCmd = (byte) ptzCmd; //0-向上,1-向下,2-向左,3-向右，更多取值参考接口文档
+        net_ehome_ptz_param.byAction = 1; //云台动作：0- 开始云台动作，1- 停止云台动作
+        net_ehome_ptz_param.bySpeed = (byte) speed; //云台速度，取值范围：0~7，数值越大速度越快
+        net_ehome_ptz_param.write();
+        net_ehome_remote_ctrl_param.read();
+        net_ehome_remote_ctrl_param.dwSize = net_ehome_remote_ctrl_param.size();
+        net_ehome_remote_ctrl_param.lpInbuffer = net_ehome_ptz_param.getPointer();//输入控制参数
+        net_ehome_remote_ctrl_param.dwInBufferSize = net_ehome_ptz_param.size();
+
+        //条件参数输入通道号
+        int iChannel = channelId; //视频通道号
+        IntByReference channle = new IntByReference(iChannel);
+        net_ehome_remote_ctrl_param.lpCondBuffer = channle.getPointer();
+        net_ehome_remote_ctrl_param.dwCondBufferSize = 4;
+
+        net_ehome_remote_ctrl_param.write();
+
+        boolean b_ptz = CmsService.hCEhomeCMS.NET_ECMS_RemoteControl(lUserID, HCISUPCMS.NET_EHOME_PTZ_CTRL, net_ehome_remote_ctrl_param);
+        if (!b_ptz) {
+            int iErr = CmsService.hCEhomeCMS.NET_ECMS_GetLastError();
+            log.error("NET_ECMS_XMLConfig failed,error：" + iErr);
+            return;
+        }
+    }
+
+    /**
+     * 执行云台控制
+     *
+     * @param lUserID
+     * @param channelId
+     * @param ptzCmd
+     * @param action
+     * @param speed
+     * @param param
+     */
+    private void executePtzControl(Integer lUserID, Integer channelId, int ptzCmd, int action, int speed, Integer param) {
+        HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM net_ehome_remote_ctrl_param = new HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM();
+        HCISUPCMS.NET_EHOME_PTZ_PARAM net_ehome_ptz_param = new HCISUPCMS.NET_EHOME_PTZ_PARAM();
+        net_ehome_ptz_param.read();
+        net_ehome_ptz_param.dwSize = net_ehome_ptz_param.size();
+        net_ehome_ptz_param.byPTZCmd = (byte) ptzCmd;
+        net_ehome_ptz_param.byAction = (byte) action; //0-开始，1-停止
+        net_ehome_ptz_param.bySpeed = (byte) speed;
+        // 如果有参数，使用 byRes 字段传递
+        if (param != null) {
+            net_ehome_ptz_param.byRes[0] = (byte) (param & 0xFF);
+            net_ehome_ptz_param.byRes[1] = (byte) ((param >> 8) & 0xFF);
+        }
+        net_ehome_ptz_param.write();
+        net_ehome_remote_ctrl_param.read();
+        net_ehome_remote_ctrl_param.dwSize = net_ehome_remote_ctrl_param.size();
+        net_ehome_remote_ctrl_param.lpInbuffer = net_ehome_ptz_param.getPointer();
+        net_ehome_remote_ctrl_param.dwInBufferSize = net_ehome_ptz_param.size();
+
+        // 条件参数输入通道号
+        int iChannel = channelId;
+        IntByReference channle = new IntByReference(iChannel);
+        net_ehome_remote_ctrl_param.lpCondBuffer = channle.getPointer();
+        net_ehome_remote_ctrl_param.dwCondBufferSize = 4;
+
+        net_ehome_remote_ctrl_param.write();
+
+        boolean b_ptz = CmsService.hCEhomeCMS.NET_ECMS_RemoteControl(lUserID, HCISUPCMS.NET_EHOME_PTZ_CTRL, net_ehome_remote_ctrl_param);
+        if (!b_ptz) {
+            int iErr = CmsService.hCEhomeCMS.NET_ECMS_GetLastError();
+            log.error("NET_ECMS_RemoteControl failed, error：" + iErr);
+            throw new ServiceException("云台控制失败，错误：" + iErr);
+        }
+    }
+
+    @Override
+    public void setPreset(Long deviceId, Integer channelId, int presetIndex) {
+        log.info("开始设置预置点，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败，deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
+
+        // 设置预置点
+        executePtzControl(lUserID, channelId, HCIsupPresetControlEnum.SET_PRESET.getCode(), 0, presetIndex, presetIndex);
+
+        log.info("设置预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+    }
+
+    @Override
+    public void clearPreset(Long deviceId, Integer channelId, int presetIndex) {
+        log.info("开始清除预置点，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败，deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
+
+        // 清除预置点
+        executePtzControl(lUserID, channelId, HCIsupPresetControlEnum.CLEAR_PRESET.getCode(), 0, presetIndex, presetIndex);
+
+        log.info("清除预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+    }
+
+    @Override
+    public void gotoPreset(Long deviceId, Integer channelId, int presetIndex) {
+        log.info("开始调用预置点，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败，deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
+
+        // 调用预置点
+        executePtzControl(lUserID, channelId, HCIsupPresetControlEnum.GOTO_PRESET.getCode(), 0, presetIndex, presetIndex);
+
+        log.info("调用预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+    }
+
+    @Override
+    public void cameraAuxControl(Long deviceId, Integer channelId, String operation, boolean isStart) {
+        log.info("开始辅助设备控制，deviceId:{}, channelId:{}, operation:{}, isStart:{}", deviceId, channelId, operation, isStart);
+
+        if (StringUtils.isEmpty(operation)) {
+            log.error("辅助设备控制失败，操作类型不能为空，deviceId:{}", deviceId);
+            throw new ServiceException("操作类型不能为空");
+        }
+
+        HCIsupCameraAuxEnum auxEnum = HCIsupCameraAuxEnum.fromValue(operation);
+        if (auxEnum == null) {
+            log.error("辅助设备控制失败，无效的操作类型，deviceId:{}, operation:{}", deviceId, operation);
+            throw new ServiceException("无效的操作类型：" + operation);
+        }
+        log.debug("操作类型验证成功，deviceId:{}, operation:{}, desc:{}", deviceId, operation, auxEnum.getDesc());
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败，deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
+
+        int action = isStart ? 0 : 1; //0-开始，1-停止
+        executePtzControl(lUserID, channelId, auxEnum.getCode(), action, 0, null);
+
+        log.info("辅助设备控制成功，deviceId:{}, channelId:{}, operation:{}, isStart:{}", deviceId, channelId, operation, isStart);
+    }
+
+    @Override
+    public void cruiseControl(Long deviceId, Integer channelId, String operation, Integer param) {
+        log.info("开始巡航控制，deviceId:{}, channelId:{}, operation:{}, param:{}", deviceId, channelId, operation, param);
+
+        if (StringUtils.isEmpty(operation)) {
+            log.error("巡航控制失败，操作类型不能为空，deviceId:{}", deviceId);
+            throw new ServiceException("操作类型不能为空");
+        }
+
+        HCIsupCruiseControlEnum cruiseEnum = HCIsupCruiseControlEnum.fromValue(operation);
+        if (cruiseEnum == null) {
+            log.error("巡航控制失败，无效的操作类型，deviceId:{}, operation:{}", deviceId, operation);
+            throw new ServiceException("无效的操作类型：" + operation);
+        }
+        log.debug("操作类型验证成功，deviceId:{}, operation:{}, desc:{}", deviceId, operation, cruiseEnum.getDesc());
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败，deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
+
+        executePtzControl(lUserID, channelId, cruiseEnum.getCode(), 0, 0, param);
+
+        log.info("巡航控制成功，deviceId:{}, channelId:{}, operation:{}, param:{}", deviceId, channelId, operation, param);
     }
 }

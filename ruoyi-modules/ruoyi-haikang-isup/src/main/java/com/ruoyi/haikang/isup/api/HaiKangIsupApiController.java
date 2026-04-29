@@ -76,4 +76,122 @@ public class HaiKangIsupApiController {
         haiKangIsupService.stopPlay(id);
         return R.ok();
     }
+
+    /**
+     * 开始云台控制
+     */
+    @InnerAuth
+    @GetMapping("/startPtz/{deviceId}/{channelId}")
+    public R<Void> startPtz(@PathVariable("deviceId") Long deviceId,
+                            @PathVariable("channelId") Integer channelId,
+                            int PTZCmd,
+                            int speed
+    ) {
+        haiKangIsupService.startPtz(deviceId, channelId, PTZCmd, speed);
+        return R.ok();
+    }
+
+    /**
+     * 结束云台控制
+     *
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/endPtz/{deviceId}/{channelId}")
+    public R<Void> endPtz(@PathVariable("deviceId") Long deviceId,
+                          @PathVariable("channelId") Integer channelId,
+                          int PTZCmd,
+                          int speed) {
+        haiKangIsupService.endPtz(deviceId, channelId, PTZCmd, speed);
+        return R.ok();
+    }
+
+    /**
+     * 设置预置点
+     *
+     * @param deviceId
+     * @param channelId
+     * @param presetIndex
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/setPreset/{deviceId}/{channelId}")
+    public R<Void> setPreset(@PathVariable("deviceId") Long deviceId,
+                             @PathVariable("channelId") Integer channelId,
+                             int presetIndex) {
+        haiKangIsupService.setPreset(deviceId, channelId, presetIndex);
+        return R.ok();
+    }
+
+    /**
+     * 清除预置点
+     *
+     * @param deviceId
+     * @param channelId
+     * @param presetIndex
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/clearPreset/{deviceId}/{channelId}")
+    public R<Void> clearPreset(@PathVariable("deviceId") Long deviceId,
+                               @PathVariable("channelId") Integer channelId,
+                               int presetIndex) {
+        haiKangIsupService.clearPreset(deviceId, channelId, presetIndex);
+        return R.ok();
+    }
+
+    /**
+     * 调用预置点
+     *
+     * @param deviceId
+     * @param channelId
+     * @param presetIndex
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/gotoPreset/{deviceId}/{channelId}")
+    public R<Void> gotoPreset(@PathVariable("deviceId") Long deviceId,
+                              @PathVariable("channelId") Integer channelId,
+                              int presetIndex) {
+        haiKangIsupService.gotoPreset(deviceId, channelId, presetIndex);
+        return R.ok();
+    }
+
+    /**
+     * 辅助设备控制（灯光、雨刮、风扇等）
+     *
+     * @param deviceId
+     * @param channelId
+     * @param operation
+     * @param isStart
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/cameraAuxControl/{deviceId}/{channelId}")
+    public R<Void> cameraAuxControl(@PathVariable("deviceId") Long deviceId,
+                                    @PathVariable("channelId") Integer channelId,
+                                    String operation,
+                                    boolean isStart) {
+        haiKangIsupService.cameraAuxControl(deviceId, channelId, operation, isStart);
+        return R.ok();
+    }
+
+    /**
+     * 巡航控制
+     *
+     * @param deviceId
+     * @param channelId
+     * @param operation
+     * @param param
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/cruiseControl/{deviceId}/{channelId}")
+    public R<Void> cruiseControl(@PathVariable("deviceId") Long deviceId,
+                                 @PathVariable("channelId") Integer channelId,
+                                 String operation,
+                                 Integer param) {
+        haiKangIsupService.cruiseControl(deviceId, channelId, operation, param);
+        return R.ok();
+    }
 }

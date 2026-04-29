@@ -45,6 +45,41 @@ public class RemoteHaiKangIsupFallbackFactory implements FallbackFactory<RemoteH
             public R<Void> stopPlay(Long id, String inner) {
                 return R.fail("海康isup停止播放失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Void> startPtz(Long deviceId, Integer channelId, int PTZCmd, int speed, String inner) {
+                return R.fail("海康isup开始云台控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> endPtz(Long deviceId, Integer channelId, int PTZCmd, int speed, String inner) {
+                return R.fail("海康isup结束云台控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> setPreset(Long deviceId, Integer channelId, int presetIndex, String inner) {
+                return R.fail("海康isup设置预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> clearPreset(Long deviceId, Integer channelId, int presetIndex, String inner) {
+                return R.fail("海康isup清除预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> gotoPreset(Long deviceId, Integer channelId, int presetIndex, String inner) {
+                return R.fail("海康isup调用预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> cameraAuxControl(Long deviceId, Integer channelId, String operation, boolean isStart, String inner) {
+                return R.fail("海康isup辅助设备控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> cruiseControl(Long deviceId, Integer channelId, String operation, Integer param, String inner) {
+                return R.fail("海康isup巡航控制失败:" + throwable.getMessage());
+            }
         };
     }
 }

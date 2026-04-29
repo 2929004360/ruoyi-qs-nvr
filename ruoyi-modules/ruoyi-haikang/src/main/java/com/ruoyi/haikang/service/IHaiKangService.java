@@ -2,6 +2,10 @@ package com.ruoyi.haikang.service;
 
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.haikang.api.domain.PresetInfo;
+
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * @FileName IHaikangService
@@ -58,4 +62,149 @@ public interface IHaiKangService {
      * @param id 设备id
      */
     void stopPlay(Long id);
+
+    /**
+     * 开始云台控制
+     *
+     * @param deviceId 设备id
+     * @param channelId 通道id
+     * @param direction 方向
+     */
+    void startPlayControl(Long deviceId, int channelId, String direction);
+
+    /**
+     * 结束云台控制
+     *
+     * @param deviceId 设备id
+     * @param channelId 通道id
+     * @param direction 方向
+     */
+    void endPlayControl(Long deviceId, int channelId, String direction);
+
+    /**
+     * 重启设备
+     *
+     * @param deviceId
+     */
+    void restartDevice(Long deviceId);
+
+    /**
+     * 关机
+     *
+     * @param deviceId
+     */
+    void shutDown(Long deviceId);
+
+    /**
+     * 获取设备音频编码参数，确定转发音频参数
+     *
+     * @param deviceId
+     * @param channelId
+     * @return
+     */
+    HashMap<String, Object> getCurrentAudio(Long deviceId, int channelId);
+
+    /**
+     * 获取预置点列表
+     *
+     * @param deviceId
+     * @param channelId
+     * @return
+     */
+    List<PresetInfo> getPresets(Long deviceId, int channelId);
+
+    /**
+     * 设置预置点
+     *
+     * @param deviceId
+     * @param channelId
+     * @param presetIndex
+     * @return
+     */
+    void setPresets(Long deviceId, int channelId, int presetIndex);
+
+    /**
+     * 清除预置点
+     *
+     * @param deviceId
+     * @param channelId
+     * @param presetIndex
+     * @return
+     */
+    void delPresets(Long deviceId, int channelId, int presetIndex);
+
+    /**
+     * 调用预置点
+     *
+     * @param deviceId
+     * @param channelId
+     * @param presetIndex
+     * @return
+     */
+    void invokePresets(Long deviceId, int channelId, int presetIndex);
+
+    /**
+     * 辅助设备控制（灯光、雨刷、风扇、加热器等）
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @param operation 操作类型
+     * @param isStart 是否开始（true开始，false停止）
+     */
+    void cameraAuxControl(Long deviceId, int channelId, String operation, boolean isStart);
+
+    /**
+     * 巡航控制
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @param operation 操作类型
+     * @param param 参数（预置点号、停顿时间、速度等，根据操作类型不同而不同）
+     */
+    void cruiseControl(Long deviceId, int channelId, String operation, Integer param);
+
+    /**
+     * 获取球机PTZ参数
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @return PTZ配置
+     */
+    HashMap<String, Object> getPTZcfg(Long deviceId, int channelId);
+
+    /**
+     * 设置球机PTZ参数
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @param p 云台水平角度
+     * @param t 云台垂直角度
+     * @param z 云台变倍倍数
+     */
+    void setPTZcfg(Long deviceId, int channelId, short p, short t, short z);
+
+    /**
+     * 获取高精度PTZ绝对位置配置
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @return PTZ绝对位置配置
+     */
+    HashMap<String, Object> getPTZAbsoluteEx(Long deviceId, int channelId);
+
+    /**
+     * 获取设备时间参数
+     *
+     * @param deviceId 设备ID
+     * @return 设备时间
+     */
+    String getDevTime(Long deviceId);
+
+    /**
+     * 设置设备时间参数
+     *
+     * @param deviceId 设备ID
+     * @param time 时间
+     */
+    void setDevTime(Long deviceId, String time);
 }

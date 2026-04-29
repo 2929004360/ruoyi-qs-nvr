@@ -503,4 +503,372 @@ public class OnvifServiceImpl implements IOnvifService {
     private static String GetProfilesUrl(String username, String nonce, String created, String passwordDigest, String profileToken) {
         return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <GetStreamUri xmlns=\"http://www.onvif.org/ver20/media/wsdl\">\n" + "      <Protocol>RtspUnicast</Protocol>\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "    </GetStreamUri>\n" + "  </s:Body>\n" + "</s:Envelope>";
     }
+
+    /**
+     * 开始云台控制
+     */
+    @Override
+    public void startPtzControl(String deviceIp, String username, String password, String direction, Integer speed) {
+        log.info("🚀 开始执行 ONVIF 云台控制... 设备IP: {}, 方向: {}, 速度: {}", deviceIp, direction, speed);
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 根据方向计算pan/tilt值
+            float pan = 0;
+            float tilt = 0;
+            float zoom = 0;
+            float speedValue = speed != null ? speed / 100.0f : 0.5f;
+            
+            switch (direction) {
+                case "left":
+                    pan = -speedValue;
+                    break;
+                case "right":
+                    pan = speedValue;
+                    break;
+                case "up":
+                    tilt = speedValue;
+                    break;
+                case "down":
+                    tilt = -speedValue;
+                    break;
+                case "left_up":
+                    pan = -speedValue;
+                    tilt = speedValue;
+                    break;
+                case "left_down":
+                    pan = -speedValue;
+                    tilt = -speedValue;
+                    break;
+                case "right_up":
+                    pan = speedValue;
+                    tilt = speedValue;
+                    break;
+                case "right_down":
+                    pan = speedValue;
+                    tilt = -speedValue;
+                    break;
+                case "zoom_in":
+                    zoom = speedValue;
+                    break;
+                case "zoom_out":
+                    zoom = -speedValue;
+                    break;
+                default:
+                    throw new RuntimeException("不支持的方向: " + direction);
+            }
+            
+            // 发送连续移动请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = ContinuousMoveSoapRequest(username, nonce, created, passwordDigest, profileToken, pan, tilt, zoom);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ ONVIF 云台控制发送成功");
+            } else {
+                log.error("❌ ONVIF 云台控制发送失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("ONVIF 云台控制发送失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 云台控制失败", e);
+            throw new RuntimeException("执行 ONVIF 云台控制失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 停止云台控制
+     */
+    @Override
+    public void stopPtzControl(String deviceIp, String username, String password) {
+        log.info("🚀 开始执行 ONVIF 云台停止... 设备IP: {}", deviceIp);
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 发送停止请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = StopSoapRequest(username, nonce, created, passwordDigest, profileToken);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ ONVIF 云台停止发送成功");
+            } else {
+                log.error("❌ ONVIF 云台停止发送失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("ONVIF 云台停止发送失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 云台停止失败", e);
+            throw new RuntimeException("执行 ONVIF 云台停止失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 获取预置点列表
+     */
+    @Override
+    public List<Map<String, Object>> getPresets(String deviceIp, String username, String password) {
+        log.info("🚀 开始获取 ONVIF 预置点列表... 设备IP: {}", deviceIp);
+        List<Map<String, Object>> presets = new ArrayList<>();
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 发送获取预置点请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = GetPresetsSoapRequest(username, nonce, created, passwordDigest, profileToken);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                presets = parsePresetsResponse(response.body());
+                log.info("✅ 获取 ONVIF 预置点列表成功，共 {} 个", presets.size());
+            } else {
+                log.error("❌ 获取 ONVIF 预置点列表失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("获取 ONVIF 预置点列表失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 获取 ONVIF 预置点列表失败", e);
+            throw new RuntimeException("获取 ONVIF 预置点列表失败: " + e.getMessage(), e);
+        }
+        return presets;
+    }
+
+    /**
+     * 设置预置点
+     */
+    @Override
+    public void setPreset(String deviceIp, String username, String password, Integer presetIndex, String presetName) {
+        log.info("🚀 开始设置 ONVIF 预置点... 设备IP: {}, 预置点索引: {}, 预置点名称: {}", deviceIp, presetIndex, presetName);
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 发送设置预置点请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = SetPresetSoapRequest(username, nonce, created, passwordDigest, profileToken, presetIndex, presetName);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ 设置 ONVIF 预置点成功");
+            } else {
+                log.error("❌ 设置 ONVIF 预置点失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("设置 ONVIF 预置点失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 设置 ONVIF 预置点失败", e);
+            throw new RuntimeException("设置 ONVIF 预置点失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 调用预置点
+     */
+    @Override
+    public void gotoPreset(String deviceIp, String username, String password, Integer presetIndex, Integer speed) {
+        log.info("🚀 开始调用 ONVIF 预置点... 设备IP: {}, 预置点索引: {}, 速度: {}", deviceIp, presetIndex, speed);
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 计算速度值
+            float speedValue = speed != null ? speed / 100.0f : 0.5f;
+            
+            // 发送调用预置点请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = GotoPresetSoapRequest(username, nonce, created, passwordDigest, profileToken, presetIndex, speedValue);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ 调用 ONVIF 预置点成功");
+            } else {
+                log.error("❌ 调用 ONVIF 预置点失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("调用 ONVIF 预置点失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 调用 ONVIF 预置点失败", e);
+            throw new RuntimeException("调用 ONVIF 预置点失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 删除预置点
+     */
+    @Override
+    public void removePreset(String deviceIp, String username, String password, Integer presetIndex) {
+        log.info("🚀 开始删除 ONVIF 预置点... 设备IP: {}, 预置点索引: {}", deviceIp, presetIndex);
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 发送删除预置点请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = RemovePresetSoapRequest(username, nonce, created, passwordDigest, profileToken, presetIndex);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ 删除 ONVIF 预置点成功");
+            } else {
+                log.error("❌ 删除 ONVIF 预置点失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("删除 ONVIF 预置点失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 删除 ONVIF 预置点失败", e);
+            throw new RuntimeException("删除 ONVIF 预置点失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 生成连续移动的SOAP请求
+     */
+    private static String ContinuousMoveSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken, float pan, float tilt, float zoom) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <ContinuousMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "      <Velocity>\n" + "        <PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + pan + "\" y=\"" + tilt + "\"/>\n" + "        <Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + zoom + "\"/>\n" + "      </Velocity>\n" + "    </ContinuousMove>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 生成停止的SOAP请求
+     */
+    private static String StopSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <Stop xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "      <PanTilt>true</PanTilt>\n" + "      <Zoom>true</Zoom>\n" + "    </Stop>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 生成获取预置点的SOAP请求
+     */
+    private static String GetPresetsSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <GetPresets xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "    </GetPresets>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 生成设置预置点的SOAP请求
+     */
+    private static String SetPresetSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken, Integer presetIndex, String presetName) {
+        String presetToken = presetIndex != null ? String.valueOf(presetIndex) : "";
+        String presetNameTag = presetName != null && !presetName.isEmpty() ? "<PresetName>" + presetName + "</PresetName>" : "";
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <SetPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + (presetToken.isEmpty() ? "" : "<PresetToken>" + presetToken + "</PresetToken>") + presetNameTag + "\n" + "    </SetPreset>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 生成调用预置点的SOAP请求
+     */
+    private static String GotoPresetSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken, Integer presetIndex, float speed) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <GotoPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "      <PresetToken>" + presetIndex + "</PresetToken>\n" + "      <Speed>\n" + "        <PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + speed + "\" y=\"" + speed + "\"/>\n" + "        <Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + speed + "\"/>\n" + "      </Speed>\n" + "    </GotoPreset>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 生成删除预置点的SOAP请求
+     */
+    private static String RemovePresetSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken, Integer presetIndex) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <RemovePreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "      <PresetToken>" + presetIndex + "</PresetToken>\n" + "    </RemovePreset>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 解析预置点响应
+     */
+    private static List<Map<String, Object>> parsePresetsResponse(String responseBody) throws Exception {
+        List<Map<String, Object>> presets = new ArrayList<>();
+        if (responseBody == null || responseBody.isEmpty()) {
+            return presets;
+        }
+        
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new java.io.ByteArrayInputStream(responseBody.getBytes("UTF-8")));
+        
+        // 查找所有Preset节点
+        NodeList presetNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver20/ptz/wsdl", "Preset");
+        for (int i = 0; i < presetNodes.getLength(); i++) {
+            Element presetElement = (Element) presetNodes.item(i);
+            String token = presetElement.getAttribute("token");
+            
+            // 获取名称
+            NodeList nameNodes = presetElement.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Name");
+            String name = nameNodes.getLength() > 0 ? nameNodes.item(0).getTextContent() : "";
+            
+            Map<String, Object> preset = new java.util.HashMap<>();
+            preset.put("token", token);
+            preset.put("name", name);
+            presets.add(preset);
+        }
+        
+        return presets;
+    }
 }

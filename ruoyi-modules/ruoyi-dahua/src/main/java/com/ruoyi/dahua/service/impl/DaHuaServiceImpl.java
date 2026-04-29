@@ -15,11 +15,16 @@ import com.ruoyi.dahua.service.IDaHuaService;
 import com.ruoyi.dahua.service.IDahuaMediaStreamService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.sun.jna.Memory;
+import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -53,14 +58,15 @@ public class DaHuaServiceImpl implements IDaHuaService {
      * @param m_strIp       设备IP
      * @param m_nPort       设备端口
      * @param m_strUser     设备用户名
-     * @param m_strPassword  设备密码
+     * @param m_strPassword 设备密码
      * @param deviceId      设备ID
      * @param onlineType    上线类型(1=主动添加, 2=主动注册)
      */
     @Override
     public NetSDKLib.LLong loginDevice(String m_strIp, int m_nPort, String m_strUser, String m_strPassword, String deviceId, String onlineType) {
+        log.info("开始登录大华设备, IP:{}, Port:{}, deviceId:{}, onlineType:{}", m_strIp, m_nPort, deviceId, onlineType);
         String loginKey = "login:handle:" + m_strIp;
-        
+
         NetSDKLib.LLong existingHandle = loginHandleHandleMap.get(loginKey);
         if (existingHandle != null && existingHandle.longValue() != 0) {
             log.warn("设备已登录，返回现有登录句柄, IP:{}, deviceId:{}", m_strIp, deviceId);
@@ -70,6 +76,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         NetSDKLib.LLong m_hLoginHandle;
         try {
             if ("2".equals(onlineType)) {
+                log.debug("使用主动注册方式登录, IP:{}, deviceId:{}", m_strIp, deviceId);
                 final int tcpSpecCap = 2;
                 final IntByReference errorReference = new IntByReference(0);
                 final NetSDKLib.NET_DEVICEINFO_Ex deviceInfo = new NetSDKLib.NET_DEVICEINFO_Ex();
@@ -85,12 +92,13 @@ public class DaHuaServiceImpl implements IDaHuaService {
                 deviceInfoMap.put("device:info:" + m_strIp, deviceInfo);
                 log.info("大华设备登录成功(主动注册), IP:{}, Port:{}, deviceId:{}", m_strIp, m_nPort, deviceId);
             } else {
+                log.debug("使用普通方式登录, IP:{}, deviceId:{}", m_strIp, deviceId);
                 NetSDKLib.NET_IN_LOGIN_WITH_HIGHLEVEL_SECURITY pstInParam = new NetSDKLib.NET_IN_LOGIN_WITH_HIGHLEVEL_SECURITY();
                 pstInParam.nPort = m_nPort;
                 pstInParam.szIP = m_strIp.getBytes();
                 pstInParam.szPassword = m_strPassword.getBytes();
                 pstInParam.szUserName = m_strUser.getBytes();
-                
+
                 NetSDKLib.NET_OUT_LOGIN_WITH_HIGHLEVEL_SECURITY pstOutParam = new NetSDKLib.NET_OUT_LOGIN_WITH_HIGHLEVEL_SECURITY();
                 NetSDKLib.NET_DEVICEINFO_Ex m_stDeviceInfo = new NetSDKLib.NET_DEVICEINFO_Ex();
                 pstOutParam.stuDeviceInfo = m_stDeviceInfo;
@@ -133,10 +141,13 @@ public class DaHuaServiceImpl implements IDaHuaService {
      */
     @Override
     public String getTime(String ip) {
+        log.info("开始获取大华设备时间, IP:{}", ip);
         NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + ip);
         if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, IP:{}", ip);
             throw new RuntimeException("大华设备未登录, IP:" + ip);
         }
+        log.debug("设备已登录, IP:{}", ip);
         NetSDKLib.NET_TIME deviceTime = new NetSDKLib.NET_TIME();
 
         if (!netsdk.CLIENT_QueryDeviceTime(m_hLoginHandle, deviceTime, 3000)) {
@@ -147,10 +158,11 @@ public class DaHuaServiceImpl implements IDaHuaService {
 
         String date = deviceTime.toStringTime();
         if (date == null) {
+            log.error("获取大华设备时间失败，时间为空, IP:{}", ip);
             throw new ServiceException("获取大华设备时间失败");
         }
         date = date.replace("/", "-");
-        log.debug("获取大华设备时间成功, IP:{}, time:{}", ip, date);
+        log.info("获取大华设备时间成功, IP:{}, time:{}", ip, date);
         return date;
     }
 
@@ -161,11 +173,13 @@ public class DaHuaServiceImpl implements IDaHuaService {
      */
     @Override
     public DahuaDevice getDahuaDevice(String ip) {
+        log.info("开始获取大华主动上线设备, IP:{}", ip);
         DahuaDevice dahuaDevice = DahuaCommandLineRunnerImpl.deviceMap.get(ip);
         if (dahuaDevice == null) {
-            log.warn("大华设备未注册, IP:{}", ip);
+            log.error("大华设备未注册, IP:{}", ip);
             throw new RuntimeException("大华设备未注册");
         }
+        log.info("获取大华主动上线设备成功, IP:{}", ip);
         return dahuaDevice;
     }
 
@@ -179,7 +193,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public Boolean logoutDevice(String ip) {
         String loginKey = "login:handle:" + ip;
         NetSDKLib.LLong lLong = loginHandleHandleMap.get(loginKey);
-        
+
         if (lLong == null || lLong.longValue() == 0) {
             log.warn("设备未登录，无需登出, IP:{}", ip);
             return true;
@@ -187,9 +201,9 @@ public class DaHuaServiceImpl implements IDaHuaService {
 
         try {
             log.info("开始登出大华设备, IP:{}", ip);
-            
+
             cleanDeviceStreamResources(ip);
-            
+
             boolean bRet = netsdk.CLIENT_Logout(lLong);
             if (bRet) {
                 lLong.setValue(0);
@@ -218,17 +232,17 @@ public class DaHuaServiceImpl implements IDaHuaService {
                     streamKeysToClean.add(streamKey);
                 }
             });
-            
+
             // 逐个清理资源
             for (String streamKey : streamKeysToClean) {
                 log.info("清理设备流媒体资源, streamKey:{}", streamKey);
                 NetSDKLib.LLong handle = StreamManager.streamKeyAndRealHandleMap.get(streamKey);
                 com.ruoyi.dahua.callback.FRealDatarTPCallback callback = StreamManager.streamKeyAndFRealDatarTPCallbackMap.get(streamKey);
                 com.ruoyi.common.core.domain.RtpServerParam rtpParam = StreamManager.streamKeyAndRtpServerParamMap.get(streamKey);
-                
+
                 mediaStreamService.cleanupResources(streamKey, rtpParam, handle, callback);
             }
-            
+
         } catch (Exception e) {
             log.error("清理设备流媒体资源异常, IP:{}", ip, e);
         }
@@ -241,21 +255,26 @@ public class DaHuaServiceImpl implements IDaHuaService {
      */
     @Override
     public void startPlay(RtpServerParam rtpServerParam) {
+        log.info("开始播放大华设备流, deviceId:{}", rtpServerParam.getId());
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", rtpServerParam.getId(), r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
         QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}, channel:{}", device.getId(), device.getIpAddress(), device.getChannel());
 
         String streamKey = "dahua:play:" + device.getId() + ":" + device.getChannel();
 
         NetSDKLib.LLong lLong = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
 
         if (lLong == null || lLong.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", device.getId(), device.getIpAddress());
             throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
         }
         log.info("开始播放大华设备流, deviceId:{}, channel:{}, streamKey:{}", device.getId(), device.getChannel(), streamKey);
         mediaStreamService.startPlay(lLong, device, streamKey, rtpServerParam);
+        log.info("播放大华设备流调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
     }
 
     /**
@@ -265,21 +284,302 @@ public class DaHuaServiceImpl implements IDaHuaService {
      */
     @Override
     public void stopPlay(Long id) {
+        log.info("开始停止播放大华设备流, deviceId:{}", id);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
         QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}, channel:{}", device.getId(), device.getIpAddress(), device.getChannel());
         String streamKey = "dahua:play:" + device.getId() + ":" + device.getChannel();
 
         NetSDKLib.LLong lLong = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
 
         if (lLong == null || lLong.longValue() == 0) {
-            log.warn("大华设备未登录，无法停止播放, IP:{}", device.getIpAddress());
+            log.warn("大华设备未登录，无法停止播放, deviceId:{}, IP:{}", id, device.getIpAddress());
             return;
         }
         log.info("停止播放大华设备流, deviceId:{}, channel:{}, streamKey:{}", device.getId(), device.getChannel(), streamKey);
         mediaStreamService.stopPlay(lLong, device.getId(), device.getChannel(), streamKey);
+        log.info("停止播放大华设备流调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
+    }
+
+    /**
+     * 大华设备云台控制（开始）
+     *
+     * @param direction 方向
+     * @param id        设备id
+     * @param speed     速度
+     * @param channelId 通道id
+     * @return
+     */
+    @Override
+    public boolean ptzControlStart(String direction, Long id, Integer speed, int channelId) {
+        log.info("开始大华设备云台控制(开始), deviceId:{}, direction:{}, speed:{}, channelId:{}", id, direction, speed, channelId);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        boolean result = false;
+        if ("up".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_UP_CONTROL, 0, speed, 0, 0);
+        } else if ("down".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_DOWN_CONTROL, 0, speed, 0, 0);
+        } else if ("left".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_LEFT_CONTROL, 0, speed, 0, 0);
+        } else if ("right".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_RIGHT_CONTROL, 0, speed, 0, 0);
+        } else if ("top-left".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_LEFTTOP, 0, speed, 0, 0);
+        } else if ("upper-right".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_RIGHTTOP, 0, speed, 0, 0);
+        } else if ("bottom-left".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_LEFTDOWN, 0, speed, 0, 0);
+        } else if ("lower-right".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_RIGHTDOWN, 0, speed, 0, 0);
+        } else if ("doubling+".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_ADD_CONTROL, 0, speed, 0, 0);
+        } else if ("doubling-".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_DEC_CONTROL, 0, speed, 0, 0);
+        } else if ("zoom+".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_ADD_CONTROL, 0, speed, 0, 0);
+        } else if ("zoom-".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_DEC_CONTROL, 0, speed, 0, 0);
+        } else if ("aperture+".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_ADD_CONTROL, 0, speed, 0, 0);
+        } else if ("aperture-".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_DEC_CONTROL, 0, speed, 0, 0);
+        } else {
+            log.warn("未知的云台控制方向, deviceId:{}, direction:{}", id, direction);
+        }
+
+        log.info("大华设备云台控制(开始)完成, deviceId:{}, direction:{}, result:{}", id, direction, result);
+        return result;
+    }
+
+    /**
+     * 大华设备云台控制（停止）
+     *
+     * @param direction 方向
+     * @param id        设备id
+     * @param channelId 通道id
+     * @return
+     */
+    @Override
+    public boolean ptzControlUpEnd(String direction, Long id, int channelId) {
+        log.info("开始大华设备云台控制(停止), deviceId:{}, direction:{}, channelId:{}", id, direction, channelId);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        boolean result = false;
+        if ("up".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_UP_CONTROL, 0, 0, 0, 1);
+        } else if ("down".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_DOWN_CONTROL, 0, 0, 0, 1);
+        } else if ("left".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_LEFT_CONTROL, 0, 0, 0, 1);
+        } else if ("right".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_RIGHT_CONTROL, 0, 0, 0, 1);
+        } else if ("top-left".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_LEFTTOP, 0, 0, 0, 1);
+        } else if ("upper-right".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_RIGHTTOP, 0, 0, 0, 1);
+        } else if ("bottom-left".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_LEFTDOWN, 0, 0, 0, 1);
+        } else if ("lower-right".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_RIGHTDOWN, 0, 0, 0, 1);
+        } else if ("doubling+".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_ADD_CONTROL, 0, 0, 0, 1);
+        } else if ("doubling-".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_DEC_CONTROL, 0, 0, 0, 1);
+        } else if ("zoom+".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_ADD_CONTROL, 0, 0, 0, 1);
+        } else if ("zoom-".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_DEC_CONTROL, 0, 0, 0, 1);
+        } else if ("aperture+".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_ADD_CONTROL, 0, 0, 0, 1);
+        } else if ("aperture-".equals(direction)) {
+            result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_DEC_CONTROL, 0, 0, 0, 1);
+        } else {
+            log.warn("未知的云台控制方向, deviceId:{}, direction:{}", id, direction);
+        }
+
+        log.info("大华设备云台控制(停止)完成, deviceId:{}, direction:{}, result:{}", id, direction, result);
+        return result;
+    }
+
+    /**
+     * 大华设备获取预置点列表
+     *
+     * @param id
+     * @param channelId
+     */
+    @Override
+    public ArrayList<HashMap<String, Object>> getPresetList(Long id, int channelId) {
+        log.info("开始获取大华设备预置点列表, deviceId:{}, channelId:{}", id, channelId);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        NetSDKLib.NET_PTZ_PRESET_LIST ptzPresetList = new NetSDKLib.NET_PTZ_PRESET_LIST();
+        ptzPresetList.dwSize = ptzPresetList.size();
+        ptzPresetList.dwMaxPresetNum = 255;
+        ptzPresetList.dwRetPresetNum = 10;
+        Pointer presetMemory = new Memory(ptzPresetList.dwMaxPresetNum * new NetSDKLib.NET_PTZ_PRESET().size());
+        ptzPresetList.pstuPtzPorsetList = presetMemory;
+        ptzPresetList.write();
+        IntByReference pRetLen = new IntByReference(0);
+        boolean bResult = netsdk.CLIENT_QueryRemotDevState(m_hLoginHandle, NetSDKLib.NET_DEVSTATE_PTZ_PRESET_LIST, channelId,
+                ptzPresetList.getPointer(), ptzPresetList.size(), pRetLen, 1000);
+        if (!bResult) {
+            log.error("获取预置点失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+        } else {
+            ptzPresetList.read();
+            int returnedPresetNum = ptzPresetList.dwRetPresetNum;
+            log.debug("获取到预置点数量, deviceId:{}, count:{}", id, returnedPresetNum);
+            Pointer presetListPointer = ptzPresetList.pstuPtzPorsetList;
+
+            ArrayList<HashMap<String, Object>> presetList = new ArrayList<>();
+
+            for (int i = 0; i < returnedPresetNum; i++) {
+                NetSDKLib.NET_PTZ_PRESET preset = new NetSDKLib.NET_PTZ_PRESET();
+                Pointer presetPointer = presetListPointer.share(i * preset.size());
+                preset.nIndex = presetPointer.getInt(0);
+                preset.szName = presetPointer.getByteArray(4, NetSDKLib.PTZ_PRESET_NAME_LEN);
+                preset.szReserve = presetPointer.getByteArray(4 + NetSDKLib.PTZ_PRESET_NAME_LEN, 64);
+
+                HashMap<String, Object> map = new HashMap<>();
+                map.put("index", preset.nIndex);
+                map.put("name", new String(preset.szName, Charset.forName("GBK")).trim());
+
+                presetList.add(map);
+            }
+
+            log.info("获取大华设备预置点列表成功, deviceId:{}, count:{}", id, presetList.size());
+            return presetList;
+        }
+        log.warn("获取大华设备预置点列表返回空列表, deviceId:{}", id);
+        return new ArrayList<>();
+    }
+
+    /**
+     * 大华设备设置预置点
+     *
+     * @param id
+     * @param channelId
+     * @param presetIndex
+     */
+    @Override
+    public void setPreset(Long id, int channelId, int presetIndex) {
+        log.info("开始设置大华设备预置点, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_POINT_SET_CONTROL,
+                0,
+                presetIndex,
+                0,
+                0);
+        log.info("设置大华设备预置点完成, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
+    }
+
+    @Override
+    public void delPreset(Long id, int channelId, int presetIndex) {
+        log.info("开始删除大华设备预置点, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_POINT_DEL_CONTROL,
+                0,
+                presetIndex,
+                0,
+                0);
+        log.info("删除大华设备预置点完成, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
+    }
+
+    @Override
+    public void invokePreset(Long id, int channelId, int presetIndex) {
+        log.info("开始调用大华设备预置点, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_POINT_MOVE_CONTROL,
+                0,
+                presetIndex,
+                0,
+                0);
+        log.info("调用大华设备预置点完成, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
     }
 
     /**
@@ -289,5 +589,277 @@ public class DaHuaServiceImpl implements IDaHuaService {
      */
     public static String getErrorCodePrint() {
         return "error code: (0x80000000|" + (netsdk.CLIENT_GetLastError() & 0x7fffffff) + "), error info:" + ErrorCode.getErrorCode(netsdk.CLIENT_GetLastError());
+    }
+
+    @Override
+    public void controlLight(Long id, int channelId, int action) {
+        log.info("开始控制大华设备灯光, deviceId:{}, channelId:{}, action:{}", id, channelId, action);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_LAMP_CONTROL,
+                0,
+                action,
+                0,
+                0);
+        log.info("控制大华设备灯光完成, deviceId:{}, channelId:{}, action:{}", id, channelId, action);
+    }
+
+    @Override
+    public void controlWiper(Long id, int channelId, int action) {
+        log.info("开始控制大华设备雨刷, deviceId:{}, channelId:{}, action:{}", id, channelId, action);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_LAMP_CONTROL,
+                1,
+                action,
+                0,
+                0);
+        log.info("控制大华设备雨刷完成, deviceId:{}, channelId:{}, action:{}", id, channelId, action);
+    }
+
+    @Override
+    public void startTour(Long id, int channelId, int tourIndex) {
+        log.info("开始大华设备巡航, deviceId:{}, channelId:{}, tourIndex:{}", id, channelId, tourIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_POINT_LOOP_CONTROL,
+                tourIndex,
+                1,
+                0,
+                0);
+        log.info("大华设备巡航开始完成, deviceId:{}, channelId:{}, tourIndex:{}", id, channelId, tourIndex);
+    }
+
+    @Override
+    public void stopTour(Long id, int channelId) {
+        log.info("开始停止大华设备巡航, deviceId:{}, channelId:{}", id, channelId);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_PTZ_ControlType.NET_PTZ_POINT_LOOP_CONTROL,
+                0,
+                0,
+                0,
+                0);
+        log.info("停止大华设备巡航完成, deviceId:{}, channelId:{}", id, channelId);
+    }
+
+    @Override
+    public void addPresetToTour(Long id, int channelId, int tourIndex, int presetIndex) {
+        log.info("开始添加预置点到巡航线路, deviceId:{}, channelId:{}, tourIndex:{}, presetIndex:{}", id, channelId, tourIndex, presetIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_ADDTOLOOP,
+                tourIndex,
+                presetIndex,
+                0,
+                0);
+        log.info("添加预置点到巡航线路完成, deviceId:{}, channelId:{}, tourIndex:{}, presetIndex:{}", id, channelId, tourIndex, presetIndex);
+    }
+
+    @Override
+    public void removePresetFromTour(Long id, int channelId, int tourIndex, int presetIndex) {
+        log.info("开始从巡航线路删除预置点, deviceId:{}, channelId:{}, tourIndex:{}, presetIndex:{}", id, channelId, tourIndex, presetIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_DELFROMLOOP,
+                tourIndex,
+                presetIndex,
+                0,
+                0);
+        log.info("从巡航线路删除预置点完成, deviceId:{}, channelId:{}, tourIndex:{}, presetIndex:{}", id, channelId, tourIndex, presetIndex);
+    }
+
+    @Override
+    public void clearTour(Long id, int channelId, int tourIndex) {
+        log.info("开始清除巡航线路, deviceId:{}, channelId:{}, tourIndex:{}", id, channelId, tourIndex);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle,
+                channelId,
+                NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_CLOSELOOP,
+                tourIndex,
+                0,
+                0,
+                0);
+        log.info("清除巡航线路完成, deviceId:{}, channelId:{}, tourIndex:{}", id, channelId, tourIndex);
+    }
+
+    @Override
+    public boolean setTime(Long id, String date, boolean type) {
+        log.info("开始设置大华设备时间, deviceId:{}, date:{}, type:{}", id, date, type);
+        
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        NetSDKLib.NET_TIME deviceTime = new NetSDKLib.NET_TIME();
+        String originalDate = date;
+        if (date == null || date.isEmpty()) {
+            java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            date = dateFormat.format(new java.util.Date());
+            log.debug("使用当前时间作为设备时间, deviceId:{}, currentTime:{}", id, date);
+        }
+
+        try {
+            String[] dateTime = date.split(" ");
+            String[] arrDate = dateTime[0].split("-");
+            String[] arrTime = dateTime[1].split(":");
+            deviceTime.dwYear = Integer.parseInt(arrDate[0]);
+            deviceTime.dwMonth = Integer.parseInt(arrDate[1]);
+            deviceTime.dwDay = Integer.parseInt(arrDate[2]);
+            deviceTime.dwHour = Integer.parseInt(arrTime[0]);
+            deviceTime.dwMinute = Integer.parseInt(arrTime[1]);
+            deviceTime.dwSecond = Integer.parseInt(arrTime[2]);
+            log.debug("解析日期时间成功, deviceId:{}, year:{}, month:{}, day:{}, hour:{}, minute:{}, second:{}", 
+                    id, deviceTime.dwYear, deviceTime.dwMonth, deviceTime.dwDay, 
+                    deviceTime.dwHour, deviceTime.dwMinute, deviceTime.dwSecond);
+        } catch (Exception e) {
+            log.error("解析日期时间失败, deviceId:{}, date:{}, error:{}", id, date, e.getMessage(), e);
+            throw new RuntimeException("解析日期时间失败: " + e.getMessage(), e);
+        }
+
+        boolean success = netsdk.CLIENT_SetupDeviceTime(m_hLoginHandle, deviceTime);
+        if (success) {
+            log.info("设置大华设备时间成功, deviceId:{}, IP:{}, originalDate:{}, finalDate:{}", 
+                    id, device.getIpAddress(), originalDate, date);
+        } else {
+            log.error("设置大华设备时间失败, deviceId:{}, IP:{}, date:{}, error:{}", 
+                    id, device.getIpAddress(), date, getErrorCodePrint());
+        }
+        return success;
+    }
+
+    @Override
+    public boolean reboot(Long id) {
+        log.info("开始重启大华设备, deviceId:{}", id);
+        
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        boolean success = netsdk.CLIENT_ControlDevice(m_hLoginHandle, NetSDKLib.CtrlType.CTRLTYPE_CTRL_REBOOT, null, 3000);
+        if (success) {
+            log.info("重启大华设备成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+        } else {
+            log.error("重启大华设备失败, deviceId:{}, IP:{}, error:{}", 
+                    id, device.getIpAddress(), getErrorCodePrint());
+        }
+        return success;
     }
 }

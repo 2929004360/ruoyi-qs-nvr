@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+
 /**
  * 大华sdk服务降级处理
  *
@@ -44,6 +47,16 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             }
 
             @Override
+            public R<Boolean> setTime(Long id, String date, boolean type, String source) {
+                return R.fail("大华sdk设备设置时间失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> reboot(Long id, String source) {
+                return R.fail("大华sdk设备重启失败:" + throwable.getMessage());
+            }
+
+            @Override
             public R<DahuaDevice> getDahuaDevice(String ip, String source) {
                 return R.fail("大华sdk获取主动上线设备失败:" + throwable.getMessage());
             }
@@ -61,6 +74,71 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             @Override
             public R<Void> stopPlay(Long id, String source) {
                 return R.fail("大华sdk停止播放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> ptzControlUpStart(Long id, int channelId, String direction, Integer speed, String source) {
+                return R.fail("大华sdk云台控制开始失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Boolean> ptzControlUpEnd(Long id, int channelId, String direction, String source) {
+                return R.fail("大华sdk云台控制停止失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<ArrayList<HashMap<String, Object>>> getPresetList(Long id, int channelId, String source) {
+                return R.fail("大华sdk获取预置点列表失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> setPreset(Long id, int channelId, int presetIndex, String source) {
+                return R.fail("大华sdk设置预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> delPreset(Long id, int channelId, int presetIndex, String source) {
+                return R.fail("大华sdk删除预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> invokePreset(Long id, int channelId, int presetIndex, String source) {
+                return R.fail("大华sdk调用预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> controlLight(Long id, int channelId, int action, String source) {
+                return R.fail("大华sdk灯光控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> controlWiper(Long id, int channelId, int action, String source) {
+                return R.fail("大华sdk雨刷控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> startTour(Long id, int channelId, int tourIndex, String source) {
+                return R.fail("大华sdk开始巡航失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopTour(Long id, int channelId, String source) {
+                return R.fail("大华sdk停止巡航失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> addPresetToTour(Long id, int channelId, int tourIndex, int presetIndex, String source) {
+                return R.fail("大华sdk添加预置点到巡航线路失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> removePresetFromTour(Long id, int channelId, int tourIndex, int presetIndex, String source) {
+                return R.fail("大华sdk从巡航线路删除预置点失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> clearTour(Long id, int channelId, int tourIndex, String source) {
+                return R.fail("大华sdk清除巡航线路失败:" + throwable.getMessage());
             }
         };
     }

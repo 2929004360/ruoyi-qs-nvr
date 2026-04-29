@@ -8,19 +8,18 @@ import lombok.Data;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
-/**
- * @author yezhihao
- * https://gitee.com/yezhihao/jt808-server
- */
 @ToString
 @Data
 @Accessors(chain = true)
-@Message({JT1078.云台调整焦距控制, JT1078.云台调整光圈控制, JT1078.云台雨刷控制, JT1078.红外补光控制, JT1078.云台变倍控制})
+@Message(JT1078.云台调整焦距控制)
 public class T9302 extends JTMessage {
 
     @Field(length = 1, desc = "逻辑通道号")
     private int channelNo;
-    @Field(length = 1, desc = "参数(0.调大 1.调小)|(0.停止 1.启动)")
-    private int param;
+    @Field(length = 1, desc = "方向：0.停止 1.焦距调大 2.焦距调小")
+    private int direction;
+    @Field(length = 1, desc = "速度（1-255）")
+    private int speed;
 
 }
+

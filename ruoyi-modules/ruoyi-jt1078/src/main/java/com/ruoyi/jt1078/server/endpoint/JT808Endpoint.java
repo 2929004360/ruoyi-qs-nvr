@@ -35,11 +35,9 @@ import static com.ruoyi.jt1078.protocol.commons.JT808.*;
 @RequiredArgsConstructor
 public class JT808Endpoint {
 
-    @Value("${jt-server.heartBeatInterval}")
-    private int heartBeatInterval;
+    private int heartBeatInterval = 30;
 
-    @Value("${jt-server.heartBeatCount}")
-    private int heartBeatCount;
+    private int heartBeatCount = 3;
 
     private final IRedisCatchStorage redisCatchStorage;
 

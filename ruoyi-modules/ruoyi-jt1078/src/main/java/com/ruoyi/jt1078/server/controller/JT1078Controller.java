@@ -89,30 +89,30 @@ public class JT1078Controller {
     @Operation(summary = "9302 云台调整焦距控制")
     @PostMapping("9302")
     public Mono<T0001> T9302(@RequestBody T9302 request) {
-        return messageManager.request(request.setMessageId(JT1078.云台调整焦距控制), T0001.class);
+        return messageManager.request(request, T0001.class);
     }
 
     @Operation(summary = "9303 云台调整光圈控制")
     @PostMapping("9303")
-    public Mono<T0001> T9303(@RequestBody T9302 request) {
-        return messageManager.request(request.setMessageId(JT1078.云台调整光圈控制), T0001.class);
+    public Mono<T0001> T9303(@RequestBody T9303 request) {
+        return messageManager.request(request, T0001.class);
     }
 
     @Operation(summary = "9304 云台雨刷控制")
     @PostMapping("9304")
-    public Mono<T0001> T9304(@RequestBody T9302 request) {
-        return messageManager.request(request.setMessageId(JT1078.云台雨刷控制), T0001.class);
+    public Mono<T0001> T9304(@RequestBody T9304 request) {
+        return messageManager.request(request, T0001.class);
     }
 
     @Operation(summary = "9305 红外补光控制")
     @PostMapping("9305")
-    public Mono<T0001> T9305(@RequestBody T9302 request) {
-        return messageManager.request(request.setMessageId(JT1078.红外补光控制), T0001.class);
+    public Mono<T0001> T9305(@RequestBody T9305 request) {
+        return messageManager.request(request, T0001.class);
     }
 
     @Operation(summary = "9306 云台变倍控制")
     @PostMapping("9306")
-    public Mono<T0001> T9306(@RequestBody T9302 request) {
-        return messageManager.request(request.setMessageId(JT1078.云台变倍控制), T0001.class);
+    public Mono<T0001> T9306(@RequestBody T9306 request) {
+        return messageManager.request(request, T0001.class);
     }
 }

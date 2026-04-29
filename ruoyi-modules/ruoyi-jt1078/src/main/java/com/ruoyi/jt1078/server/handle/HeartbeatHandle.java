@@ -22,11 +22,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class HeartbeatHandle {
 
-    @Value("${jt-server.heartBeatInterval}")
-    private int heartBeatInterval;
+    private int heartBeatInterval = 30;
 
-    @Value("${jt-server.heartBeatCount}")
-    private int heartBeatCount;
+    private int heartBeatCount = 3;
 
     private final DeviceStatusTaskRunner deviceStatusTaskRunner;
 

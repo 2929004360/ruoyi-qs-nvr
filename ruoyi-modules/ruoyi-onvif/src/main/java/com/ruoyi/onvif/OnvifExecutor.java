@@ -209,9 +209,16 @@ public class OnvifExecutor {
                 return device.getPath().getProfilesPath();
             case GET_STREAM_URI:
                 return device.getPath().getStreamURIPath();
+            case CONTINUOUS_MOVE:
+            case STOP:
+            case GET_PRESETS:
+            case SET_PRESET:
+            case GOTO_PRESET:
+            case REMOVE_PRESET:
+                return device.getPath().getPTZPath() != null ? device.getPath().getPTZPath() : device.getPath().getServicesPath();
+            default:
+                return device.getPath().getServicesPath();
         }
-
-        return device.getPath().getServicesPath();
     }
 
     private String bodyToString(Request request) {

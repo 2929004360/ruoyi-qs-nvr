@@ -11,12 +11,12 @@ import lombok.experimental.Accessors;
 @ToString
 @Data
 @Accessors(chain = true)
-@Message(JT1078.云台旋转)
-public class T9301 extends JTMessage {
+@Message(JT1078.云台调整光圈控制)
+public class T9303 extends JTMessage {
 
     @Field(length = 1, desc = "逻辑通道号")
     private int channelNo;
-    @Field(length = 1, desc = "方向：0.停止 1.上 2.下 3.左 4.右")
+    @Field(length = 1, desc = "方向：0.停止 1.光圈放大 2.光圈缩小")
     private int direction;
     @Field(length = 1, desc = "速度（1-255）")
     private int speed;
