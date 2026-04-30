@@ -4,6 +4,9 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
+
+import java.util.List;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -193,5 +196,19 @@ public class HaiKangIsupApiController {
                                  Integer param) {
         haiKangIsupService.cruiseControl(deviceId, channelId, operation, param);
         return R.ok();
+    }
+
+    /**
+     * 获取预置点列表
+     *
+     * @param deviceId
+     * @param channelId
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/getPresetList/{deviceId}/{channelId}")
+    public R<List<HaiKangIsupPresetInfo>> getPresetList(@PathVariable("deviceId") Long deviceId,
+                                                        @PathVariable("channelId") Integer channelId) {
+        return R.ok(haiKangIsupService.getPresetList(deviceId, channelId));
     }
 }

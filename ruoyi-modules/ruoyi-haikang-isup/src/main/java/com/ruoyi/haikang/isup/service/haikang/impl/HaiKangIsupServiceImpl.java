@@ -6,6 +6,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.enums.HCIsupCameraAuxEnum;
 import com.ruoyi.haikang.isup.enums.HCIsupCruiseControlEnum;
@@ -20,6 +21,9 @@ import com.ruoyi.qs.api.domain.QsDevice;
 import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -430,5 +434,19 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         executePtzControl(lUserID, channelId, cruiseEnum.getCode(), 0, 0, param);
 
         log.info("巡航控制成功，deviceId:{}, channelId:{}, operation:{}, param:{}", deviceId, channelId, operation, param);
+    }
+
+    @Override
+    public List<HaiKangIsupPresetInfo> getPresetList(Long deviceId, Integer channelId) {
+        log.info("开始获取预置点列表，deviceId:{}, channelId:{}", deviceId, channelId);
+
+        List<HaiKangIsupPresetInfo> presetList = new ArrayList<>();
+        // 海康ISUP预置点编号范围是1到255
+        for (int i = 1; i <= 255; i++) {
+            presetList.add(new HaiKangIsupPresetInfo(i, "预置点" + i));
+        }
+
+        log.info("获取预置点列表成功，deviceId:{}, channelId:{}, count:{}", deviceId, channelId, presetList.size());
+        return presetList;
     }
 }

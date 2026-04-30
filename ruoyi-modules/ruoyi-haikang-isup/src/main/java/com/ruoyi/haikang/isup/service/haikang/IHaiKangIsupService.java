@@ -2,6 +2,9 @@ package com.ruoyi.haikang.isup.service.haikang;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
+
+import java.util.List;
 
 /**
  * 海康isup 服务接口
@@ -100,4 +103,13 @@ public interface IHaiKangIsupService {
      * @param param
      */
     void cruiseControl(Long deviceId, Integer channelId, String operation, Integer param);
+
+    /**
+     * 获取预置点列表
+     *
+     * @param deviceId
+     * @param channelId
+     * @return
+     */
+    List<HaiKangIsupPresetInfo> getPresetList(Long deviceId, Integer channelId);
 }

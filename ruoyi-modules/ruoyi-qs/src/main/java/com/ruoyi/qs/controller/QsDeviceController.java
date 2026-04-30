@@ -357,6 +357,67 @@ public class QsDeviceController extends BaseController {
     }
 
     /**
+     * 获取预置点列表
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @return 预置点列表
+     */
+    @Log(title = "预置点控制", businessType = BusinessType.OTHER)
+    @GetMapping("/preset/list/{id}")
+    public AjaxResult getPresetList(@PathVariable Long id, @RequestParam(required = false) Integer channelId) {
+        List<Preset> presetList = qsDeviceService.getPresetList(id, channelId);
+        return AjaxResult.success(presetList);
+    }
+
+    /**
+     * 设置预置点
+     *
+     * @param id          设备id
+     * @param channelId   通道id
+     * @param presetIndex 预置点索引
+     * @param presetName  预置点名称
+     * @return 结果
+     */
+    @Log(title = "预置点控制", businessType = BusinessType.OTHER)
+    @GetMapping("/preset/set/{id}")
+    public AjaxResult setPreset(@PathVariable Long id, @RequestParam(required = false) Integer channelId, @RequestParam Integer presetIndex, @RequestParam(required = false) String presetName) {
+        qsDeviceService.setPreset(id, channelId, presetIndex, presetName);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 调用预置点
+     *
+     * @param id          设备id
+     * @param channelId   通道id
+     * @param presetIndex 预置点索引
+     * @param speed       速度
+     * @return 结果
+     */
+    @Log(title = "预置点控制", businessType = BusinessType.OTHER)
+    @GetMapping("/preset/goto/{id}")
+    public AjaxResult gotoPreset(@PathVariable Long id, @RequestParam(required = false) Integer channelId, @RequestParam Integer presetIndex, @RequestParam(required = false) Integer speed) {
+        qsDeviceService.gotoPreset(id, channelId, presetIndex, speed);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 删除预置点
+     *
+     * @param id          设备id
+     * @param channelId   通道id
+     * @param presetIndex 预置点索引
+     * @return 结果
+     */
+    @Log(title = "预置点控制", businessType = BusinessType.OTHER)
+    @GetMapping("/preset/delete/{id}")
+    public AjaxResult deletePreset(@PathVariable Long id, @RequestParam(required = false) Integer channelId, @RequestParam Integer presetIndex) {
+        qsDeviceService.deletePreset(id, channelId, presetIndex);
+        return AjaxResult.success();
+    }
+
+    /**
      * 将网络访问路径转换为本地文件物理路径
      */
     public String convertUrlToPath(String url, String domain, String prefix, String localBasePath) {

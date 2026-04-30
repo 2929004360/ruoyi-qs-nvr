@@ -388,4 +388,42 @@ public interface IQsDeviceService {
      * @param controlSpeed 控制速度
      */
     void endPtz(Long id, String direction, Integer controlSpeed);
+
+    /**
+     * 获取预置点列表
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @return 预置点列表
+     */
+    List<Preset> getPresetList(Long id, Integer channelId);
+
+    /**
+     * 设置预置点
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param presetIndex 预置点索引
+     * @param presetName 预置点名称
+     */
+    void setPreset(Long id, Integer channelId, Integer presetIndex, String presetName);
+
+    /**
+     * 调用预置点
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param presetIndex 预置点索引
+     * @param speed      速度
+     */
+    void gotoPreset(Long id, Integer channelId, Integer presetIndex, Integer speed);
+
+    /**
+     * 删除预置点
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param presetIndex 预置点索引
+     */
+    void deletePreset(Long id, Integer channelId, Integer presetIndex);
 }

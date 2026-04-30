@@ -5,6 +5,9 @@ import com.ruoyi.common.core.constant.ServiceNameConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
+
+import java.util.List;
 import com.ruoyi.haikang.isup.api.factory.RemoteHaiKangIsupFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
@@ -170,4 +173,17 @@ public interface RemoteHaiKangIsupService {
                            @RequestParam String operation,
                            @RequestParam Integer param,
                            @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 获取预置点列表
+     *
+     * @param deviceId  设备ID
+     * @param channelId 通道ID
+     * @param inner       请求来源
+     * @return
+     */
+    @GetMapping("/api/haikang/isup/getPresetList/{deviceId}/{channelId}")
+    R<List<HaiKangIsupPresetInfo>> getPresetList(@PathVariable("deviceId") Long deviceId,
+                                                 @PathVariable("channelId") Integer channelId,
+                                                 @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

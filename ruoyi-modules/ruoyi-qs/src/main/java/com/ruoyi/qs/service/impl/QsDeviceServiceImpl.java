@@ -12,6 +12,7 @@ import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.LoginDevice;
 import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
 import com.ruoyi.gb28181.api.RemoteGb28181Service;
 import com.ruoyi.jt1078.api.RemoteJt1078Service;
 import com.ruoyi.onvif.api.RemoteOnvifService;
@@ -36,7 +37,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -1359,6 +1362,182 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
                     remoteJt1078Service.ptzIris(mobileNo, channel, 0, speed, SecurityConstants.INNER);
                     break;
             }
+        }
+    }
+
+    @Override
+    public List<Preset> getPresetList(Long id, Integer channelId) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        String deviceType = device.getType();
+        Integer channel = channelId != null ? channelId : (device.getChannel() != null ? device.getChannel() : 0);
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            R<List<com.ruoyi.haikang.api.domain.PresetInfo>> result = remoteHaiKangService.getPresets(id, channel, SecurityConstants.INNER);
+            List<com.ruoyi.haikang.api.domain.PresetInfo> presetInfoList = result.getData();
+            List<Preset> presetList = new ArrayList<>();
+            if (presetInfoList != null) {
+                for (com.ruoyi.haikang.api.domain.PresetInfo presetInfo : presetInfoList) {
+                    Preset preset = new Preset();
+                    preset.setIndex(presetInfo.getIndex());
+                    preset.setName(presetInfo.getName());
+                    presetList.add(preset);
+                }
+            }
+            return presetList;
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            R<List<HaiKangIsupPresetInfo>> result = remoteHaiKangIsupService.getPresetList(id, channel, SecurityConstants.INNER);
+            List<HaiKangIsupPresetInfo> presetInfoList = result.getData();
+            List<Preset> presetList = new ArrayList<>();
+            if (presetInfoList != null) {
+                for (HaiKangIsupPresetInfo presetInfo : presetInfoList) {
+                    Preset preset = new Preset();
+                    preset.setIndex(presetInfo.index);
+                    preset.setName(presetInfo.name);
+                    presetList.add(preset);
+                }
+            }
+            return presetList;
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            R<ArrayList<HashMap<String, Object>>> result = remoteDaHuaService.getPresetList(id, channel, SecurityConstants.INNER);
+            ArrayList<HashMap<String, Object>> presetMapList = result.getData();
+            List<Preset> presetList = new ArrayList<>();
+            if (presetMapList != null) {
+                for (HashMap<String, Object> map : presetMapList) {
+                    Preset preset = new Preset();
+                    preset.setIndex((Integer) map.get("index"));
+                    preset.setName((String) map.get("name"));
+                    presetList.add(preset);
+                }
+            }
+            return presetList;
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            R<List<Map<String, Object>>> result = remoteOnvifService.getPresets(device.getIpAddress(), device.getUserName(), device.getPassword(), SecurityConstants.INNER);
+            List<Map<String, Object>> presetMapList = result.getData();
+            List<Preset> presetList = new ArrayList<>();
+            if (presetMapList != null) {
+                for (Map<String, Object> map : presetMapList) {
+                    Preset preset = new Preset();
+                    Object indexObj = map.get("index");
+                    Object nameObj = map.get("name");
+                    preset.setIndex(indexObj != null ? Integer.parseInt(indexObj.toString()) : null);
+                    preset.setName(nameObj != null ? nameObj.toString() : null);
+                    presetList.add(preset);
+                }
+            }
+            return presetList;
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            R<Object> result = remoteGb28181Service.queryPreset(device.getGbDeviceId(), device.getGbChannelId(), SecurityConstants.INNER);
+            Object data = result.getData();
+            List<Preset> presetList = new ArrayList<>();
+            if (data instanceof List) {
+                List<?> list = (List<?>) data;
+                for (Object item : list) {
+                    if (item instanceof Map) {
+                        Map<?, ?> map = (Map<?, ?>) item;
+                        Preset preset = new Preset();
+                        Object indexObj = map.get("index");
+                        Object nameObj = map.get("name");
+                        preset.setIndex(indexObj != null ? Integer.parseInt(indexObj.toString()) : null);
+                        preset.setName(nameObj != null ? nameObj.toString() : null);
+                        presetList.add(preset);
+                    }
+                }
+            }
+            return presetList;
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    @Override
+    public void setPreset(Long id, Integer channelId, Integer presetIndex, String presetName) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        String deviceType = device.getType();
+        Integer channel = channelId != null ? channelId : (device.getChannel() != null ? device.getChannel() : 0);
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            remoteHaiKangService.setPresets(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            remoteHaiKangIsupService.setPreset(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            remoteDaHuaService.setPreset(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            remoteOnvifService.setPreset(device.getIpAddress(), device.getUserName(), device.getPassword(), presetIndex, presetName, SecurityConstants.INNER);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            remoteGb28181Service.addPreset(device.getGbDeviceId(), device.getGbChannelId(), presetIndex, SecurityConstants.INNER);
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    @Override
+    public void gotoPreset(Long id, Integer channelId, Integer presetIndex, Integer speed) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        String deviceType = device.getType();
+        Integer channel = channelId != null ? channelId : (device.getChannel() != null ? device.getChannel() : 0);
+        Integer useSpeed = speed != null ? speed : 50;
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            remoteHaiKangService.invokePresets(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            remoteHaiKangIsupService.gotoPreset(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            remoteDaHuaService.invokePreset(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            remoteOnvifService.gotoPreset(device.getIpAddress(), device.getUserName(), device.getPassword(), presetIndex, useSpeed, SecurityConstants.INNER);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            remoteGb28181Service.callPreset(device.getGbDeviceId(), device.getGbChannelId(), presetIndex, SecurityConstants.INNER);
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    @Override
+    public void deletePreset(Long id, Integer channelId, Integer presetIndex) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        String deviceType = device.getType();
+        Integer channel = channelId != null ? channelId : (device.getChannel() != null ? device.getChannel() : 0);
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            remoteHaiKangService.delPresets(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            remoteHaiKangIsupService.clearPreset(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            remoteDaHuaService.delPreset(id, channel, presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            remoteOnvifService.removePreset(device.getIpAddress(), device.getUserName(), device.getPassword(), presetIndex, SecurityConstants.INNER);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            remoteGb28181Service.deletePreset(device.getGbDeviceId(), device.getGbChannelId(), presetIndex, SecurityConstants.INNER);
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
         }
     }
 }

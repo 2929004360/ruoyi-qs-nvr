@@ -4,6 +4,9 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
+
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -79,6 +82,11 @@ public class RemoteHaiKangIsupFallbackFactory implements FallbackFactory<RemoteH
             @Override
             public R<Void> cruiseControl(Long deviceId, Integer channelId, String operation, Integer param, String inner) {
                 return R.fail("海康isup巡航控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<List<HaiKangIsupPresetInfo>> getPresetList(Long deviceId, Integer channelId, String inner) {
+                return R.fail("海康isup获取预置点列表失败:" + throwable.getMessage());
             }
         };
     }
