@@ -2,12 +2,15 @@ package com.ruoyi.gb28181.service;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
+import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 
 import javax.sip.InvalidArgumentException;
+import javax.sip.PeerUnavailableException;
 import javax.sip.SipException;
 import java.text.ParseException;
+import java.util.List;
 
 public interface ISIPCommander {
 
@@ -62,4 +65,25 @@ public interface ISIPCommander {
      * @param rtpServer
      */
     void stopStreamCmd(Device device, RtpServerParam rtpServer) throws SipException, InvalidArgumentException, ParseException;
+
+    /**
+     * 通用前端控制命令(参考国标文档A.3.1指令格式)
+     *
+     * @param device       设备
+     * @param channelId    通道国标编号
+     * @param cmdCode      指令码(对应国标文档指令格式中的字节4)
+     * @param parameter1   数据一(对应国标文档指令格式中的字节5, 范围0-255)
+     * @param parameter2   数据二(对应国标文档指令格式中的字节6, 范围0-255)
+     * @param combindCode2 组合码二(对应国标文档指令格式中的字节7, 范围0-15)
+     */
+    void frontEndCmd(Device device, String channelId, Integer cmdCode, Integer parameter1, Integer parameter2, Integer combindCode2) throws InvalidArgumentException, SipException, ParseException;
+
+    /**
+     * 查询预置位
+     *
+     * @param device    设备国标编号
+     * @param channelId 通道国标编号
+     * @param callback
+     */
+    void presetQuery(Device device, String channelId, ErrorCallback<List<Preset>> callback) throws InvalidArgumentException, SipException, ParseException;
 }

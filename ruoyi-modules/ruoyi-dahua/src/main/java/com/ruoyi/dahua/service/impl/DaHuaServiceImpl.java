@@ -348,17 +348,17 @@ public class DaHuaServiceImpl implements IDaHuaService {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_LEFTDOWN, 0, speed, 0, 0);
         } else if ("lower-right".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_RIGHTDOWN, 0, speed, 0, 0);
-        } else if ("doubling+".equals(direction)) {
+        } else if ("doubling+".equals(direction) || "zoomin".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_ADD_CONTROL, 0, speed, 0, 0);
-        } else if ("doubling-".equals(direction)) {
+        } else if ("doubling-".equals(direction) || "zoomout".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_DEC_CONTROL, 0, speed, 0, 0);
-        } else if ("zoom+".equals(direction)) {
+        } else if ("zoom+".equals(direction) || "near".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_ADD_CONTROL, 0, speed, 0, 0);
-        } else if ("zoom-".equals(direction)) {
+        } else if ("zoom-".equals(direction) || "far".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_DEC_CONTROL, 0, speed, 0, 0);
-        } else if ("aperture+".equals(direction)) {
+        } else if ("aperture+".equals(direction) || "in".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_ADD_CONTROL, 0, speed, 0, 0);
-        } else if ("aperture-".equals(direction)) {
+        } else if ("aperture-".equals(direction) || "out".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_DEC_CONTROL, 0, speed, 0, 0);
         } else {
             log.warn("未知的云台控制方向, deviceId:{}, direction:{}", id, direction);
@@ -410,17 +410,17 @@ public class DaHuaServiceImpl implements IDaHuaService {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_LEFTDOWN, 0, 0, 0, 1);
         } else if ("lower-right".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_EXTPTZ_ControlType.NET_EXTPTZ_RIGHTDOWN, 0, 0, 0, 1);
-        } else if ("doubling+".equals(direction)) {
+        } else if ("doubling+".equals(direction) || "zoomin".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_ADD_CONTROL, 0, 0, 0, 1);
-        } else if ("doubling-".equals(direction)) {
+        } else if ("doubling-".equals(direction) || "zoomout".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_ZOOM_DEC_CONTROL, 0, 0, 0, 1);
-        } else if ("zoom+".equals(direction)) {
+        } else if ("zoom+".equals(direction) || "near".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_ADD_CONTROL, 0, 0, 0, 1);
-        } else if ("zoom-".equals(direction)) {
+        } else if ("zoom-".equals(direction) || "far".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_FOCUS_DEC_CONTROL, 0, 0, 0, 1);
-        } else if ("aperture+".equals(direction)) {
+        } else if ("aperture+".equals(direction) || "in".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_ADD_CONTROL, 0, 0, 0, 1);
-        } else if ("aperture-".equals(direction)) {
+        } else if ("aperture-".equals(direction) || "out".equals(direction)) {
             result = netsdk.CLIENT_DHPTZControlEx(m_hLoginHandle, channelId, NetSDKLib.NET_PTZ_ControlType.NET_PTZ_APERTURE_DEC_CONTROL, 0, 0, 0, 1);
         } else {
             log.warn("未知的云台控制方向, deviceId:{}, direction:{}", id, direction);

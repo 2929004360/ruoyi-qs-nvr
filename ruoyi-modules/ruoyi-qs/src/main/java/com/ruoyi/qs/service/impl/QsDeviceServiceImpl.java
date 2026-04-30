@@ -11,6 +11,10 @@ import com.ruoyi.dahua.api.RemoteDaHuaService;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.haikang.api.RemoteHaiKangService;
 import com.ruoyi.haikang.api.domain.LoginDevice;
+import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
+import com.ruoyi.gb28181.api.RemoteGb28181Service;
+import com.ruoyi.jt1078.api.RemoteJt1078Service;
+import com.ruoyi.onvif.api.RemoteOnvifService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.api.domain.QsGroup;
 import com.ruoyi.qs.api.domain.QsRegion;
@@ -55,6 +59,18 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
     @Autowired
     private RemoteDaHuaService remoteDaHuaService;
+
+    @Autowired
+    private RemoteOnvifService remoteOnvifService;
+
+    @Autowired
+    private RemoteJt1078Service remoteJt1078Service;
+
+    @Autowired
+    private RemoteHaiKangIsupService remoteHaiKangIsupService;
+
+    @Autowired
+    private RemoteGb28181Service remoteGb28181Service;
 
     @Autowired
     private RemoteZlmService remoteZlmService;
@@ -1045,5 +1061,304 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         }
 
         return null;
+    }
+
+    /**
+     * 将方向字符串转换为海康 ISUP PTZ 命令码
+     */
+    private int convertDirectionToHikIsupPtz(String direction) {
+        if (direction == null || direction.isEmpty()) {
+            throw new RuntimeException("云台控制方向不能为空");
+        }
+        String lowerDir = direction.toLowerCase();
+        switch (lowerDir) {
+            case "up":
+            case "tilt_up":
+                return 0; // PTZ_UP
+            case "down":
+            case "tilt_down":
+                return 1; // PTZ_DOWN
+            case "left":
+            case "pan_left":
+                return 2; // PTZ_LEFT
+            case "right":
+            case "pan_right":
+                return 3; // PTZ_RIGHT
+            case "upleft":
+            case "up_left":
+                return 4; // PTZ_UPLEFT
+            case "downleft":
+            case "down_left":
+                return 5; // PTZ_DOWNLEFT
+            case "upright":
+            case "up_right":
+                return 6; // PTZ_UPRIGHT
+            case "downright":
+            case "down_right":
+                return 7; // PTZ_DOWNRIGHT
+            case "zoomin":
+            case "zoom_in":
+                return 8; // PTZ_ZOOMIN
+            case "zoomout":
+            case "zoom_out":
+                return 9; // PTZ_ZOOMOUT
+            case "near":
+            case "focus_near":
+                return 10; // PTZ_FOCUSNEAR
+            case "far":
+            case "focus_far":
+                return 11; // PTZ_FOCUSFAR
+            case "in":
+            case "iris_open":
+                return 12; // PTZ_IRISSTARTUP
+            case "out":
+            case "iris_close":
+                return 13; // PTZ_IRISSTOPDOWN
+            default:
+                throw new RuntimeException("不支持的云台控制方向: " + direction);
+        }
+    }
+
+    @Override
+    public void startPtz(Long id, String direction, Integer controlSpeed) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        Integer channel = device.getChannel() != null ? device.getChannel() : 0;
+        String deviceType = device.getType();
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            // 海康SDK
+            remoteHaiKangService.startPlayControl(id, channel, direction, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            // 海康ISUP
+            int ptzCmd = convertDirectionToHikIsupPtz(direction);
+            remoteHaiKangIsupService.startPtz(id, channel, ptzCmd, controlSpeed != null ? controlSpeed : 5, SecurityConstants.INNER);
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            // 大华SDK
+            remoteDaHuaService.ptzControlUpStart(id, channel, direction, controlSpeed, SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            // ONVIF协议
+            remoteOnvifService.startPtzControl(device.getIpAddress(), device.getUserName(), device.getPassword(), direction, controlSpeed, SecurityConstants.INNER);
+        } else if (LiveStreamType.JT1078.getCode().equals(deviceType)) {
+            // JT1078协议
+            startJt1078Ptz(device, channel, direction, controlSpeed);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            // GB28181协议
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            // 根据控制类型调用不同的 GB28181 接口
+            String controlType = getPtzControlType(direction);
+            Integer speed = (controlSpeed != null) ? controlSpeed : 50;
+            
+            switch (controlType) {
+                case "rotate":
+                    Integer horizonSpeed = speed;
+                    Integer verticalSpeed = speed;
+                    Integer zoomSpeed = (speed / 10);
+                    remoteGb28181Service.ptz(device.getGbDeviceId(), device.getGbChannelId(), direction, horizonSpeed, verticalSpeed, zoomSpeed, SecurityConstants.INNER);
+                    break;
+                case "focus":
+                    remoteGb28181Service.focus(device.getGbDeviceId(), device.getGbChannelId(), direction, speed, SecurityConstants.INNER);
+                    break;
+                case "iris":
+                    remoteGb28181Service.iris(device.getGbDeviceId(), device.getGbChannelId(), direction, speed, SecurityConstants.INNER);
+                    break;
+                case "zoom":
+                    // GB28181 的缩放通过 ptz 接口处理
+                    Integer horizonSpeedForZoom = 0;
+                    Integer verticalSpeedForZoom = 0;
+                    Integer zoomSpeedForZoom = speed;
+                    remoteGb28181Service.ptz(device.getGbDeviceId(), device.getGbChannelId(), direction, horizonSpeedForZoom, verticalSpeedForZoom, zoomSpeedForZoom, SecurityConstants.INNER);
+                    break;
+                default:
+                    throw new RuntimeException("不支持的云台控制类型: " + controlType);
+            }
+
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    private void startJt1078Ptz(QsDevice device, int channel, String direction, Integer speed) {
+        String mobileNo = device.getJtMobileNo();
+        if (mobileNo == null || mobileNo.isEmpty()) {
+            throw new RuntimeException("设备未配置 JT1078 手机号");
+        }
+
+        int jtDirection = convertDirectionToJt1078(direction, true);
+        speed = speed != null ? speed : 50;
+
+        switch (getPtzControlType(direction)) {
+            case "rotate":
+                remoteJt1078Service.ptzRotate(mobileNo, channel, jtDirection, speed, SecurityConstants.INNER);
+                break;
+            case "zoom":
+                remoteJt1078Service.ptzZoom(mobileNo, channel, jtDirection, speed, SecurityConstants.INNER);
+                break;
+            case "focus":
+                remoteJt1078Service.ptzFocus(mobileNo, channel, jtDirection, speed, SecurityConstants.INNER);
+                break;
+            case "iris":
+                remoteJt1078Service.ptzIris(mobileNo, channel, jtDirection, speed, SecurityConstants.INNER);
+                break;
+            default:
+                throw new RuntimeException("不支持的云台控制类型: " + direction);
+        }
+    }
+
+    private int convertDirectionToJt1078(String direction, boolean isStart) {
+        if (!isStart) {
+            return 0; // 停止
+        }
+        switch (direction) {
+            case "up":
+                return 1;
+            case "down":
+                return 2;
+            case "left":
+                return 3;
+            case "right":
+                return 4;
+            case "zoomin":
+                return 1;
+            case "zoomout":
+                return 2;
+            case "near":
+                return 1;
+            case "far":
+                return 2;
+            case "in":
+                return 1;
+            case "out":
+                return 2;
+            default:
+                return 0;
+        }
+    }
+
+    private String getPtzControlType(String direction) {
+        switch (direction) {
+            case "up":
+            case "down":
+            case "left":
+            case "right":
+                return "rotate";
+            case "zoomin":
+            case "zoomout":
+                return "zoom";
+            case "near":
+            case "far":
+                return "focus";
+            case "in":
+            case "out":
+                return "iris";
+            default:
+                return "rotate";
+        }
+    }
+
+    @Override
+    public void endPtz(Long id, String direction, Integer controlSpeed) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        Integer channel = device.getChannel() != null ? device.getChannel() : 0;
+        String deviceType = device.getType();
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            // 海康SDK
+            remoteHaiKangService.endPlayControl(id, channel, direction, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            // 海康ISUP
+            if (direction == null || direction.isEmpty() || "stop".equals(direction)) {
+                // 如果方向为空或无效，我们尝试所有方向停止
+                int[] allPtzCmds = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+                for (int cmd : allPtzCmds) {
+                    remoteHaiKangIsupService.endPtz(id, channel, cmd, controlSpeed != null ? controlSpeed : 5, SecurityConstants.INNER);
+                }
+            } else {
+                int ptzCmd = convertDirectionToHikIsupPtz(direction);
+                remoteHaiKangIsupService.endPtz(id, channel, ptzCmd, controlSpeed != null ? controlSpeed : 5, SecurityConstants.INNER);
+            }
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            // 大华SDK
+            remoteDaHuaService.ptzControlUpEnd(id, channel, direction, SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            // ONVIF协议
+            remoteOnvifService.stopPtzControl(device.getIpAddress(), device.getUserName(), device.getPassword(), SecurityConstants.INNER);
+        } else if (LiveStreamType.JT1078.getCode().equals(deviceType)) {
+            // JT1078协议
+            endJt1078Ptz(device, channel, direction);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            // GB28181协议
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            // 根据控制类型调用不同的 GB28181 停止接口
+            String controlType = getPtzControlType(direction);
+            String stopCommand = "stop";
+            Integer stopSpeed = 0;
+            
+            switch (controlType) {
+                case "rotate":
+                    remoteGb28181Service.ptz(device.getGbDeviceId(), device.getGbChannelId(), stopCommand, 0, 0, 0, SecurityConstants.INNER);
+                    break;
+                case "focus":
+                    remoteGb28181Service.focus(device.getGbDeviceId(), device.getGbChannelId(), stopCommand, stopSpeed, SecurityConstants.INNER);
+                    break;
+                case "iris":
+                    remoteGb28181Service.iris(device.getGbDeviceId(), device.getGbChannelId(), stopCommand, stopSpeed, SecurityConstants.INNER);
+                    break;
+                case "zoom":
+                    remoteGb28181Service.ptz(device.getGbDeviceId(), device.getGbChannelId(), stopCommand, 0, 0, 0, SecurityConstants.INNER);
+                    break;
+                default:
+                    // 默认调用 ptz 停止
+                    remoteGb28181Service.ptz(device.getGbDeviceId(), device.getGbChannelId(), stopCommand, 0, 0, 0, SecurityConstants.INNER);
+                    break;
+            }
+
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    private void endJt1078Ptz(QsDevice device, int channel, String direction) {
+        String mobileNo = device.getJtMobileNo();
+        if (mobileNo == null || mobileNo.isEmpty()) {
+            throw new RuntimeException("设备未配置 JT1078 手机号");
+        }
+
+        int speed = 50;
+
+        // 对于停止操作，我们需要停止所有相关的云台控制类型
+        // 或者根据 direction 判断要停止的类型
+        boolean stopAll = (direction == null || direction.isEmpty() || "stop".equals(direction));
+        String[] controlTypes = stopAll ?
+            new String[]{"rotate", "zoom", "focus", "iris"} :
+            new String[]{getPtzControlType(direction)};
+
+        for (String controlType : controlTypes) {
+            switch (controlType) {
+                case "rotate":
+                    remoteJt1078Service.ptzRotate(mobileNo, channel, 0, speed, SecurityConstants.INNER);
+                    break;
+                case "zoom":
+                    remoteJt1078Service.ptzZoom(mobileNo, channel, 0, speed, SecurityConstants.INNER);
+                    break;
+                case "focus":
+                    remoteJt1078Service.ptzFocus(mobileNo, channel, 0, speed, SecurityConstants.INNER);
+                    break;
+                case "iris":
+                    remoteJt1078Service.ptzIris(mobileNo, channel, 0, speed, SecurityConstants.INNER);
+                    break;
+            }
+        }
     }
 }

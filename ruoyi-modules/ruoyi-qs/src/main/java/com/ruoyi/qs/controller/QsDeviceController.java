@@ -1,5 +1,6 @@
 package com.ruoyi.qs.controller;
 
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.web.controller.BaseController;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.core.web.page.TableDataInfo;
@@ -323,6 +324,36 @@ public class QsDeviceController extends BaseController {
         }
 
         return success();
+    }
+
+    /**
+     * 开始云台控制
+     *
+     * @param id           设备id
+     * @param direction    方向
+     * @param controlSpeed 控制速度
+     * @return 结果
+     */
+    @Log(title = "云台控制", businessType = BusinessType.OTHER)
+    @GetMapping("/startPtz/{id}")
+    public AjaxResult startPtz(@PathVariable Long id, @RequestParam String direction, @RequestParam Integer controlSpeed) {
+        qsDeviceService.startPtz(id, direction, controlSpeed);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 结束云台控制
+     *
+     * @param id           设备id
+     * @param direction    方向
+     * @param controlSpeed 控制速度
+     * @return 结果
+     */
+    @Log(title = "云台控制", businessType = BusinessType.OTHER)
+    @GetMapping("/endPtz/{id}")
+    public AjaxResult endPtz(@PathVariable Long id, @RequestParam String direction, @RequestParam Integer controlSpeed) {
+        qsDeviceService.endPtz(id, direction, controlSpeed);
+        return AjaxResult.success();
     }
 
     /**

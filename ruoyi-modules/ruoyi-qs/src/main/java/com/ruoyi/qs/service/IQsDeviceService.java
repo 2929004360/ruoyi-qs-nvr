@@ -370,4 +370,22 @@ public interface IQsDeviceService {
      * @return
      */
     Boolean updateDeviceStatusByJtMobileNo(String jtMobileNo, String deviceStatus);
+
+    /**
+     * 开始云台控制
+     *
+     * @param id        设备id
+     * @param direction 方向
+     * @param controlSpeed 控制速度
+     */
+    void startPtz(Long id, String direction, Integer controlSpeed);
+
+    /**
+     * 结束云台控制
+     *
+     * @param id        设备id
+     * @param direction 方向
+     * @param controlSpeed 控制速度
+     */
+    void endPtz(Long id, String direction, Integer controlSpeed);
 }

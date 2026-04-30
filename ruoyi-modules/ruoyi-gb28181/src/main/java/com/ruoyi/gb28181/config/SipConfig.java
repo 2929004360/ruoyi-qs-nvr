@@ -32,8 +32,6 @@ public class SipConfig {
 
 	private String password;
 
-	Integer ptzSpeed = 50;
-
 	Integer registerTimeInterval = 120;
 
 	private boolean alarm = false;

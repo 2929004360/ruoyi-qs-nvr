@@ -60,11 +60,37 @@ public enum HCPlayControlEnum {
         if (value == null || value.isEmpty()) {
             return null;
         }
-        for (HCPlayControlEnum item : HCPlayControlEnum.values()) {
-            if (item.value.equalsIgnoreCase(value)) {
-                return item;
-            }
+        // 支持前端短名称和完整名称两种格式
+        String lowerValue = value.toLowerCase();
+        switch (lowerValue) {
+            case "up":
+                return TILT_UP;
+            case "down":
+                return TILT_DOWN;
+            case "left":
+                return PAN_LEFT;
+            case "right":
+                return PAN_RIGHT;
+            case "zoomin":
+                return ZOOM_IN;
+            case "zoomout":
+                return ZOOM_OUT;
+            case "near":
+                return FOCUS_NEAR;
+            case "far":
+                return FOCUS_FAR;
+            case "in":
+                return IRIS_OPEN;
+            case "out":
+                return IRIS_CLOSE;
+            default:
+                // 尝试匹配完整名称
+                for (HCPlayControlEnum item : HCPlayControlEnum.values()) {
+                    if (item.value.equalsIgnoreCase(value)) {
+                        return item;
+                    }
+                }
+                return null;
         }
-        return null;
     }
 }

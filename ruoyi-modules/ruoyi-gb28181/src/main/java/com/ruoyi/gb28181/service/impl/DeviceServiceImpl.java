@@ -2,12 +2,16 @@ package com.ruoyi.gb28181.service.impl;
 
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.common.core.exception.ServiceException;
+import com.ruoyi.gb28181.api.bean.ErrorCallback;
+import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.gb28181.api.domain.GbCode;
 import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.gb28181.api.utils.DateUtil;
+import com.ruoyi.gb28181.common.ErrorCode;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.service.IDeviceService;
 import com.ruoyi.gb28181.service.IRedisCatchStorage;
@@ -336,20 +340,20 @@ public class DeviceServiceImpl implements IDeviceService {
         // 清理设备相关的视频流会话
         List<SsrcTransaction> ssrcTransactions = sessionManager.getSsrcTransactionByDeviceId(device.getDeviceId());
         if (ssrcTransactions != null && !ssrcTransactions.isEmpty()) {
-            log.info("[设备离线] 清理设备相关的视频流会话, deviceId: {}, 会话数量: {}", 
+            log.info("[设备离线] 清理设备相关的视频流会话, deviceId: {}, 会话数量: {}",
                     device.getDeviceId(), ssrcTransactions.size());
             for (SsrcTransaction ssrcTransaction : ssrcTransactions) {
                 try {
-                    log.info("[BYE 清理资源] deviceId: {}, channelId: {}, app: {}, stream: {}, ssrc: {}", 
-                            ssrcTransaction.getDeviceId(), 
-                            ssrcTransaction.getChannelId(), 
-                            ssrcTransaction.getApp(), 
-                            ssrcTransaction.getStream(), 
+                    log.info("[BYE 清理资源] deviceId: {}, channelId: {}, app: {}, stream: {}, ssrc: {}",
+                            ssrcTransaction.getDeviceId(),
+                            ssrcTransaction.getChannelId(),
+                            ssrcTransaction.getApp(),
+                            ssrcTransaction.getStream(),
                             ssrcTransaction.getSsrc());
 
                     sessionManager.removeByCallId(ssrcTransaction.getCallId());
                     remoteZlmService.releaseSsrc(ssrcTransaction.getMediaServerId(), ssrcTransaction.getSsrc(), SecurityConstants.INNER);
-                    
+
                     RtpServerParam rtpServerParam = new RtpServerParam();
                     rtpServerParam.setMediaServerId(ssrcTransaction.getMediaServerId());
                     rtpServerParam.setApp(ssrcTransaction.getApp());
@@ -359,7 +363,7 @@ public class DeviceServiceImpl implements IDeviceService {
                     rtpServerParam.setGbChannelId(ssrcTransaction.getChannelId());
                     remoteZlmService.closeRTPServer(ssrcTransaction.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
                 } catch (Exception e) {
-                    log.error("[设备离线] 清理视频流会话异常, deviceId: {}, ssrc: {}", 
+                    log.error("[设备离线] 清理视频流会话异常, deviceId: {}, ssrc: {}",
                             device.getDeviceId(), ssrcTransaction.getSsrc(), e);
                 }
             }
@@ -397,5 +401,43 @@ public class DeviceServiceImpl implements IDeviceService {
     @Override
     public List<DeviceChannel> getChannelsByDeviceId(String gbDeviceId) {
         return redisCatchStorage.queryAllChannelsForRefresh(gbDeviceId);
+    }
+
+    /**
+     * 通用前端控制命令(参考国标文档A.3.1指令格式)
+     *
+     * @param device       设备
+     * @param channelId    通道国标编号
+     * @param cmdCode      指令码(对应国标文档指令格式中的字节4)
+     * @param parameter1   数据一(对应国标文档指令格式中的字节5, 范围0-255)
+     * @param parameter2   数据二(对应国标文档指令格式中的字节6, 范围0-255)
+     * @param combindCode2 组合码二(对应国标文档指令格式中的字节7, 范围0-15)
+     */
+    @Override
+    public void frontEndCommand(Device device, String channelId, Integer cmdCode, Integer parameter1, Integer parameter2, Integer combindCode2) {
+        try {
+            commander.frontEndCmd(device, channelId, cmdCode, parameter1, parameter2, combindCode2);
+        } catch (SipException | InvalidArgumentException | ParseException e) {
+            log.error("[命令发送失败] 前端控制: {}", e.getMessage());
+            throw new ServiceException("命令发送失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询预置位
+     *
+     * @param device    设备国标编号
+     * @param channelId 通道国标编号
+     * @param callback
+     */
+    @Override
+    public void queryPreset(Device device, String channelId, ErrorCallback<List<Preset>> callback) {
+        try {
+            commander.presetQuery(device, channelId, callback);
+        } catch (InvalidArgumentException | SipException | ParseException e) {
+            log.error("[命令发送失败] 预制位查询: {}", e.getMessage());
+            callback.run(ErrorCode.ERROR100.getCode(), "命令发送: " + e.getMessage(), null);
+            throw new ServiceException("命令发送失败: " + e.getMessage());
+        }
     }
 }

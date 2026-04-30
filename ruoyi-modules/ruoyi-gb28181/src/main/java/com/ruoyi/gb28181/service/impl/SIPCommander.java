@@ -3,6 +3,7 @@ package com.ruoyi.gb28181.service.impl;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
+import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.common.InviteSessionType;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.SsrcTransaction;
@@ -19,6 +20,7 @@ import com.ruoyi.gb28181.transmit.event.MessageSubscribe;
 import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 import com.ruoyi.gb28181.transmit.event.sip.MessageEvent;
 import com.ruoyi.zlm.api.RemoteZlmService;
+import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,10 +29,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.ObjectUtils;
 
 import javax.sip.InvalidArgumentException;
+import javax.sip.PeerUnavailableException;
 import javax.sip.ResponseEvent;
 import javax.sip.SipException;
 import javax.sip.message.Request;
 import java.text.ParseException;
+import java.util.List;
 
 /**
  * @description:设备能力接口，用于定义设备的控制、查询能力
@@ -308,5 +312,96 @@ public class SIPCommander implements ISIPCommander {
             log.warn("[停止播放] 未找到会话信息 app: {}, stream: {}",
                     rtpServer.getApp(), rtpServer.getStream());
         }
+    }
+
+    /**
+     * 通用前端控制命令(参考国标文档A.3.1指令格式)
+     *
+     * @param device       设备
+     * @param channelId    通道国标编号
+     * @param cmdCode      指令码(对应国标文档指令格式中的字节4)
+     * @param parameter1   数据一(对应国标文档指令格式中的字节5, 范围0-255)
+     * @param parameter2   数据二(对应国标文档指令格式中的字节6, 范围0-255)
+     * @param combindCode2 组合码二(对应国标文档指令格式中的字节7, 范围0-15)
+     */
+    @Override
+    public void frontEndCmd(Device device, String channelId, Integer cmdCode, Integer parameter1, Integer parameter2, Integer combindCode2) throws InvalidArgumentException, SipException, ParseException {
+        String cmdStr = frontEndCmdString(cmdCode, parameter1, parameter2, combindCode2);
+        StringBuffer ptzXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        ptzXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        ptzXml.append("<Control>\r\n");
+        ptzXml.append("<CmdType>DeviceControl</CmdType>\r\n");
+        ptzXml.append("<SN>" + (int) ((Math.random() * 9 + 1) * 100000) + "</SN>\r\n");
+        ptzXml.append("<DeviceID>" + channelId + "</DeviceID>\r\n");
+        ptzXml.append("<PTZCmd>" + cmdStr + "</PTZCmd>\r\n");
+        ptzXml.append("<Info>\r\n");
+        ptzXml.append("<ControlPriority>5</ControlPriority>\r\n");
+        ptzXml.append("</Info>\r\n");
+        ptzXml.append("</Control>\r\n");
+
+        SIPRequest request = (SIPRequest) headerProvider.createMessageRequest(device, ptzXml.toString(), SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null,sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()),device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()),request);
+    }
+
+    /**
+     * 查询预置位
+     *
+     * @param device    设备国标编号
+     * @param channelId 通道国标编号
+     * @param callback
+     */
+    @Override
+    public void presetQuery(Device device, String channelId, ErrorCallback<List<Preset>> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "PresetQuery";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+
+        StringBuffer cmdXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Query>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        if (ObjectUtils.isEmpty(channelId)) {
+            cmdXml.append("<DeviceID>" + device.getDeviceId() + "</DeviceID>\r\n");
+        } else {
+            cmdXml.append("<DeviceID>" + channelId + "</DeviceID>\r\n");
+        }
+        cmdXml.append("</Query>\r\n");
+
+        MessageEvent<List<Preset>> messageEvent = MessageEvent.getInstance(cmdType, sn + "", channelId, 4000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[预置位查询] 设备编号： {}， 通道编号： {}， SN： {}", device.getDeviceId(), channelId, sn);
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null,sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()),device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+        });
+    }
+
+    /**
+     * 云台指令码计算
+     *
+     * @param cmdCode      指令码
+     * @param parameter1   数据1
+     * @param parameter2   数据2
+     * @param combineCode2 组合码2
+     */
+    public static String frontEndCmdString(int cmdCode, int parameter1, int parameter2, int combineCode2) {
+        StringBuilder builder = new StringBuilder("A50F01");
+        String strTmp;
+        strTmp = String.format("%02X", cmdCode);
+        builder.append(strTmp, 0, 2);
+        strTmp = String.format("%02X", parameter1);
+        builder.append(strTmp, 0, 2);
+        strTmp = String.format("%02X", parameter2);
+        builder.append(strTmp, 0, 2);
+        strTmp = String.format("%02X", combineCode2 << 4);
+        builder.append(strTmp, 0, 2);
+        //计算校验码
+        int checkCode = (0XA5 + 0X0F + 0X01 + cmdCode + parameter1 + parameter2 + (combineCode2 << 4)) % 0X100;
+        strTmp = String.format("%02X", checkCode);
+        builder.append(strTmp, 0, 2);
+        return builder.toString();
     }
 }

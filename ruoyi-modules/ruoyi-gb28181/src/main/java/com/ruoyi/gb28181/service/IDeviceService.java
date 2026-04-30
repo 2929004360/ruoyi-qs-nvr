@@ -1,5 +1,7 @@
 package com.ruoyi.gb28181.service;
 
+import com.ruoyi.gb28181.api.bean.ErrorCallback;
+import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
@@ -44,6 +46,7 @@ public interface IDeviceService {
 
     /**
      * 设备下线
+     *
      * @param deviceId 设备编号
      */
     void offline(String deviceId, String reason);
@@ -78,4 +81,25 @@ public interface IDeviceService {
      * @return 通道列表
      */
     List<DeviceChannel> getChannelsByDeviceId(String gbDeviceId);
+
+    /**
+     * 通用前端控制命令(参考国标文档A.3.1指令格式)
+     *
+     * @param device       设备
+     * @param channelId    通道国标编号
+     * @param cmdCode      指令码(对应国标文档指令格式中的字节4)
+     * @param parameter1   数据一(对应国标文档指令格式中的字节5, 范围0-255)
+     * @param parameter2   数据二(对应国标文档指令格式中的字节6, 范围0-255)
+     * @param combindCode2 组合码二(对应国标文档指令格式中的字节7, 范围0-15)
+     */
+    void frontEndCommand(Device device, String channelId, Integer cmdCode, Integer parameter1, Integer parameter2, Integer combindCode2);
+
+    /**
+     * 查询预置位
+     *
+     * @param device    设备国标编号
+     * @param channelId 通道国标编号
+     * @param callback
+     */
+    void queryPreset(Device device, String channelId, ErrorCallback<List<Preset>> callback);
 }

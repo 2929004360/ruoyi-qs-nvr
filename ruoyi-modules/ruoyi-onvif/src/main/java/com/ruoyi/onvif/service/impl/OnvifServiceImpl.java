@@ -523,7 +523,7 @@ public class OnvifServiceImpl implements IOnvifService {
             }
             String profileToken = profileTokens.get(0);
             
-            // 根据方向计算pan/tilt值
+            // 根据方向计算pan/tilt/zoom值
             float pan = 0;
             float tilt = 0;
             float zoom = 0;
@@ -558,12 +558,19 @@ public class OnvifServiceImpl implements IOnvifService {
                     pan = speedValue;
                     tilt = -speedValue;
                     break;
-                case "zoom_in":
+                case "zoomin":
                     zoom = speedValue;
                     break;
-                case "zoom_out":
+                case "zoomout":
                     zoom = -speedValue;
                     break;
+                case "near":
+                case "far":
+                case "in":
+                case "out":
+                    // 对于聚焦和光圈控制，我们使用专门的SOAP请求
+                    sendFocusIrisControl(deviceIp, username, password, profileToken, direction, speedValue);
+                    return;
                 default:
                     throw new RuntimeException("不支持的方向: " + direction);
             }
@@ -586,6 +593,50 @@ public class OnvifServiceImpl implements IOnvifService {
         } catch (Exception e) {
             log.error("❌ 执行 ONVIF 云台控制失败", e);
             throw new RuntimeException("执行 ONVIF 云台控制失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 发送聚焦和光圈控制请求
+     */
+    private void sendFocusIrisControl(String deviceIp, String username, String password, String profileToken, String direction, float speedValue) {
+        try {
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            float focus = 0;
+            float iris = 0;
+            
+            switch (direction) {
+                case "near":
+                    focus = -speedValue;
+                    break;
+                case "far":
+                    focus = speedValue;
+                    break;
+                case "in":
+                    iris = speedValue;
+                    break;
+                case "out":
+                    iris = -speedValue;
+                    break;
+            }
+            
+            String soapRequest = ContinuousMoveFocusIrisSoapRequest(username, nonce, created, passwordDigest, profileToken, focus, iris);
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ ONVIF 聚焦/光圈控制发送成功");
+            } else {
+                log.error("❌ ONVIF 聚焦/光圈控制发送失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("ONVIF 聚焦/光圈控制发送失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 聚焦/光圈控制失败", e);
+            throw new RuntimeException("执行 ONVIF 聚焦/光圈控制失败: " + e.getMessage(), e);
         }
     }
 
@@ -807,6 +858,20 @@ public class OnvifServiceImpl implements IOnvifService {
      */
     private static String StopSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken) {
         return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <Stop xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "      <PanTilt>true</PanTilt>\n" + "      <Zoom>true</Zoom>\n" + "    </Stop>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    /**
+     * 生成聚焦和光圈控制的SOAP请求
+     * 注意：ONVIF标准PTZ规范主要支持PanTilt和Zoom，Focus和Iris通常通过设备IO服务或厂商扩展实现
+     * 这里我们尝试使用PTZ的ContinuousMove来模拟，部分设备可能支持Focus和Iris通过Zoom参数或扩展字段
+     */
+    private static String ContinuousMoveFocusIrisSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken, float focus, float iris) {
+        // 由于ONVIF标准PTZ规范没有明确的Focus和Iris控制字段，我们尝试两种方式：
+        // 1. 将Focus映射到Zoom（有些设备这样实现）
+        // 2. 对于Iris，通常通过设备IO服务或厂商扩展实现，这里我们先尝试通过Zoom参数
+        float zoomValue = focus != 0 ? focus : iris;
+        
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <ContinuousMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "      <Velocity>\n" + "        <PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"0\" y=\"0\"/>\n" + "        <Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + zoomValue + "\"/>\n" + "      </Velocity>\n" + "    </ContinuousMove>\n" + "  </s:Body>\n" + "</s:Envelope>";
     }
 
     /**
