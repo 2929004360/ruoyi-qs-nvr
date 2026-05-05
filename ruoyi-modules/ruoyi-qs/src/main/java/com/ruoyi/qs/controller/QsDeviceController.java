@@ -1,6 +1,5 @@
 package com.ruoyi.qs.controller;
 
-import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.web.controller.BaseController;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.core.web.page.TableDataInfo;
@@ -293,11 +292,11 @@ public class QsDeviceController extends BaseController {
     @PutMapping("/getVideoSnapshot/{id}")
     public AjaxResult getVideoSnapshot(@PathVariable("id") Long id) {
         QsDevice device = qsDeviceService.selectQsDeviceById(id);
-        
+
         if (device == null) {
             return error("设备不存在");
         }
-        
+
         if (device.getLiveAddress() == null || device.getLiveAddress().isEmpty()) {
             return error("设备直播地址为空");
         }
@@ -359,8 +358,8 @@ public class QsDeviceController extends BaseController {
     /**
      * 获取预置点列表
      *
-     * @param id         设备id
-     * @param channelId  通道id
+     * @param id        设备id
+     * @param channelId 通道id
      * @return 预置点列表
      */
     @Log(title = "预置点控制", businessType = BusinessType.OTHER)
@@ -414,6 +413,36 @@ public class QsDeviceController extends BaseController {
     @GetMapping("/preset/delete/{id}")
     public AjaxResult deletePreset(@PathVariable Long id, @RequestParam(required = false) Integer channelId, @RequestParam Integer presetIndex) {
         qsDeviceService.deletePreset(id, channelId, presetIndex);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 灯光控制
+     *
+     * @param id        设备id
+     * @param channelId 通道id
+     * @param isOn      true-开, false-关
+     * @return 结果
+     */
+    @Log(title = "灯光控制", businessType = BusinessType.OTHER)
+    @GetMapping("/light/{id}")
+    public AjaxResult controlLight(@PathVariable Long id, @RequestParam(required = false) Integer channelId, @RequestParam Boolean isOn) {
+        qsDeviceService.controlLight(id, channelId, isOn);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 雨刷控制
+     *
+     * @param id        设备id
+     * @param channelId 通道id
+     * @param isOn      true-开, false-关
+     * @return 结果
+     */
+    @Log(title = "雨刷控制", businessType = BusinessType.OTHER)
+    @GetMapping("/wiper/{id}")
+    public AjaxResult controlWiper(@PathVariable Long id, @RequestParam(required = false) Integer channelId, @RequestParam Boolean isOn) {
+        qsDeviceService.controlWiper(id, channelId, isOn);
         return AjaxResult.success();
     }
 

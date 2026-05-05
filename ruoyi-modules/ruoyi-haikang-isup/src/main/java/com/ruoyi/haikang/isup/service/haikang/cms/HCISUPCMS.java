@@ -321,9 +321,9 @@ public interface HCISUPCMS extends Library {
     }
 
     ;
-
     //云台相关结构体
     public static final int NET_EHOME_PTZ_CTRL = 1000;   //云镜控制
+    public static final int NET_EHOME_PRESET_CTRL = 1001;   //预置点控制
 
     public static class NET_EHOME_REMOTE_CTRL_PARAM extends HIKSDKStructure {
         public int dwSize;
@@ -342,6 +342,16 @@ public interface HCISUPCMS extends Library {
         public byte byAction; //云台动作，0-开始云台动作，1-停止云台动作
         public byte bySpeed;  //云台速度，0-7，数值越大速度越快
         public byte[] byRes = new byte[29];
+    }
+    
+    ;
+    
+    public static class NET_EHOME_PRESET_PARAM extends HIKSDKStructure {
+        public int dwSize;                 //结构体大小
+        public byte byPresetCmd;           //预置点控制命令：1-设置预置点，2-删除预置点，3-调用预置点
+        public byte[] byRes1 = new byte[3];//保留，设为0。最大长度为3字节
+        public int dwPresetIndex;          //预置点编号
+        public byte[] byRes2 = new byte[32];//保留，设为0。最大长度为32字节
     }
 
     ;

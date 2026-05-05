@@ -94,4 +94,63 @@ public interface IOnvifService {
      * @param presetIndex 预置点索引
      */
     void removePreset(String deviceIp, String username, String password, Integer presetIndex);
+
+    /**
+     * 灯光控制
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param on true为开灯，false为关灯
+     */
+    void controlLight(String deviceIp, String username, String password, boolean on);
+
+    /**
+     * 雨刷控制
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param on true为开雨刷，false为关雨刷
+     */
+    void controlWiper(String deviceIp, String username, String password, boolean on);
+
+    /**
+     * 设备重启
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     */
+    void restartDevice(String deviceIp, String username, String password);
+
+    /**
+     * 恢复出厂设置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param factoryDefault 恢复模式："Full"为完全恢复，"Partial"为部分恢复
+     */
+    void factoryReset(String deviceIp, String username, String password, String factoryDefault);
+
+    /**
+     * 获取设备时间
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 设备时间信息
+     */
+    Map<String, Object> getDeviceTime(String deviceIp, String username, String password);
+
+    /**
+     * 设备校时
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param dateTime 要设置的时间，格式：yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
+     */
+    void syncDeviceTime(String deviceIp, String username, String password, String dateTime);
 }

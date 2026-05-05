@@ -154,4 +154,114 @@ public class OnvifApiController {
         onvifService.removePreset(deviceIp, username, password, presetIndex);
         return R.ok();
     }
+
+    /**
+     * 灯光控制
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param on true为开灯，false为关灯
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/controlLight/{deviceIp}")
+    public R<Void> controlLight(@PathVariable("deviceIp") String deviceIp,
+                                 @RequestParam("username") String username,
+                                 @RequestParam("password") String password,
+                                 @RequestParam("on") boolean on) {
+        onvifService.controlLight(deviceIp, username, password, on);
+        return R.ok();
+    }
+
+    /**
+     * 雨刷控制
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param on true为开雨刷，false为关雨刷
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/controlWiper/{deviceIp}")
+    public R<Void> controlWiper(@PathVariable("deviceIp") String deviceIp,
+                                 @RequestParam("username") String username,
+                                 @RequestParam("password") String password,
+                                 @RequestParam("on") boolean on) {
+        onvifService.controlWiper(deviceIp, username, password, on);
+        return R.ok();
+    }
+
+    /**
+     * 设备重启
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/restartDevice/{deviceIp}")
+    public R<Void> restartDevice(@PathVariable("deviceIp") String deviceIp,
+                                  @RequestParam("username") String username,
+                                  @RequestParam("password") String password) {
+        onvifService.restartDevice(deviceIp, username, password);
+        return R.ok();
+    }
+
+    /**
+     * 恢复出厂设置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param factoryDefault 恢复模式："Full"为完全恢复，"Partial"为部分恢复
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/factoryReset/{deviceIp}")
+    public R<Void> factoryReset(@PathVariable("deviceIp") String deviceIp,
+                                 @RequestParam("username") String username,
+                                 @RequestParam("password") String password,
+                                 @RequestParam("factoryDefault") String factoryDefault) {
+        onvifService.factoryReset(deviceIp, username, password, factoryDefault);
+        return R.ok();
+    }
+
+    /**
+     * 获取设备时间
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 设备时间信息
+     */
+    @InnerAuth
+    @GetMapping("/getDeviceTime/{deviceIp}")
+    public R<Map<String, Object>> getDeviceTime(@PathVariable("deviceIp") String deviceIp,
+                                                 @RequestParam("username") String username,
+                                                 @RequestParam("password") String password) {
+        Map<String, Object> timeInfo = onvifService.getDeviceTime(deviceIp, username, password);
+        return R.ok(timeInfo);
+    }
+
+    /**
+     * 设备校时
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param dateTime 要设置的时间，格式：yyyy-MM-dd'T'HH:mm:ss
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/syncDeviceTime/{deviceIp}")
+    public R<Void> syncDeviceTime(@PathVariable("deviceIp") String deviceIp,
+                                   @RequestParam("username") String username,
+                                   @RequestParam("password") String password,
+                                   @RequestParam("dateTime") String dateTime) {
+        onvifService.syncDeviceTime(deviceIp, username, password, dateTime);
+        return R.ok();
+    }
 }

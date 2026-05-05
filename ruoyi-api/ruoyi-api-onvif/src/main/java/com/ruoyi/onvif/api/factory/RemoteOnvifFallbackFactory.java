@@ -63,6 +63,16 @@ public class RemoteOnvifFallbackFactory implements FallbackFactory<RemoteOnvifSe
             public R<Void> removePreset(String deviceIp, String username, String password, Integer presetIndex, String source) {
                 return R.fail("删除onvif预置点失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Void> controlLight(String deviceIp, String username, String password, boolean on, String source) {
+                return R.fail("onvif灯光控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> controlWiper(String deviceIp, String username, String password, boolean on, String source) {
+                return R.fail("onvif雨刷控制失败:" + throwable.getMessage());
+            }
         };
     }
 }

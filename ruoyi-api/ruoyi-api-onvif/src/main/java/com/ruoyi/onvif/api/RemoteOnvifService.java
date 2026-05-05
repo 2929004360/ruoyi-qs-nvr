@@ -141,4 +141,38 @@ public interface RemoteOnvifService {
                         @RequestParam("password") String password,
                         @RequestParam("presetIndex") Integer presetIndex,
                         @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 灯光控制
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param on true为开灯，false为关灯
+     * @param source 请求来源
+     * @return
+     */
+    @GetMapping("/api/onvif/controlLight/{deviceIp}")
+    R<Void> controlLight(@PathVariable("deviceIp") String deviceIp,
+                         @RequestParam("username") String username,
+                         @RequestParam("password") String password,
+                         @RequestParam("on") boolean on,
+                         @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 雨刷控制
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param on true为开雨刷，false为关雨刷
+     * @param source 请求来源
+     * @return
+     */
+    @GetMapping("/api/onvif/controlWiper/{deviceIp}")
+    R<Void> controlWiper(@PathVariable("deviceIp") String deviceIp,
+                         @RequestParam("username") String username,
+                         @RequestParam("password") String password,
+                         @RequestParam("on") boolean on,
+                         @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

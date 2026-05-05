@@ -1421,7 +1421,7 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             if (presetMapList != null) {
                 for (Map<String, Object> map : presetMapList) {
                     Preset preset = new Preset();
-                    Object indexObj = map.get("index");
+                    Object indexObj = map.get("token");
                     Object nameObj = map.get("name");
                     preset.setIndex(indexObj != null ? Integer.parseInt(indexObj.toString()) : null);
                     preset.setName(nameObj != null ? nameObj.toString() : null);
@@ -1442,8 +1442,8 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
                     if (item instanceof Map) {
                         Map<?, ?> map = (Map<?, ?>) item;
                         Preset preset = new Preset();
-                        Object indexObj = map.get("index");
-                        Object nameObj = map.get("name");
+                        Object indexObj = map.get("presetId");
+                        Object nameObj = map.get("presetName");
                         preset.setIndex(indexObj != null ? Integer.parseInt(indexObj.toString()) : null);
                         preset.setName(nameObj != null ? nameObj.toString() : null);
                         presetList.add(preset);
@@ -1536,6 +1536,62 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
                 throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
             }
             remoteGb28181Service.deletePreset(device.getGbDeviceId(), device.getGbChannelId(), presetIndex, SecurityConstants.INNER);
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    @Override
+    public void controlLight(Long id, Integer channelId, Boolean isOn) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        String deviceType = device.getType();
+        Integer channel = channelId != null ? channelId : (device.getChannel() != null ? device.getChannel() : 0);
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            remoteHaiKangService.cameraAuxControl(id, channel, "light", isOn, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            remoteHaiKangIsupService.cameraAuxControl(id, channel, "light", isOn, SecurityConstants.INNER);
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            remoteDaHuaService.controlLight(id, channel, isOn ? 1 : 0, SecurityConstants.INNER);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            remoteGb28181Service.auxiliarySwitch(device.getGbDeviceId(), device.getGbChannelId(), isOn ? "on" : "off", 1, SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            remoteOnvifService.controlLight(device.getIpAddress(), device.getUserName(), device.getPassword(), isOn, SecurityConstants.INNER);
+        } else {
+            throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    @Override
+    public void controlWiper(Long id, Integer channelId, Boolean isOn) {
+        QsDevice device = selectQsDeviceById(id);
+        if (device == null) {
+            throw new RuntimeException("设备不存在");
+        }
+
+        String deviceType = device.getType();
+        Integer channel = channelId != null ? channelId : (device.getChannel() != null ? device.getChannel() : 0);
+
+        if (LiveStreamType.HIK_SDK.getCode().equals(deviceType)) {
+            remoteHaiKangService.cameraAuxControl(id, channel, "wiper", isOn, SecurityConstants.INNER);
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(deviceType)) {
+            remoteHaiKangIsupService.cameraAuxControl(id, channel, "wiper", isOn, SecurityConstants.INNER);
+        } else if (LiveStreamType.DAHUA_SDK.getCode().equals(deviceType)) {
+            remoteDaHuaService.controlWiper(id, channel, isOn ? 1 : 0, SecurityConstants.INNER);
+        } else if (LiveStreamType.GB28181.getCode().equals(deviceType)) {
+            if (device.getGbDeviceId() == null || device.getGbChannelId() == null) {
+                throw new RuntimeException("设备未配置 GB28181 设备ID或通道ID");
+            }
+            remoteGb28181Service.wiper(device.getGbDeviceId(), device.getGbChannelId(), isOn ? "on" : "off", SecurityConstants.INNER);
+        } else if (LiveStreamType.ONVIF.getCode().equals(deviceType)) {
+            remoteOnvifService.controlWiper(device.getIpAddress(), device.getUserName(), device.getPassword(), isOn, SecurityConstants.INNER);
         } else {
             throw new RuntimeException("不支持的设备类型: " + deviceType);
         }

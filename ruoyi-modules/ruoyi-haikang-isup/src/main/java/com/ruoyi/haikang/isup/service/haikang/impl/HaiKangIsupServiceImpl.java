@@ -244,7 +244,7 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
     }
 
     /**
-     * 执行云台控制
+     * 执行云台控制 (PTZ控制)
      *
      * @param lUserID
      * @param channelId
@@ -287,6 +287,52 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
             throw new ServiceException("云台控制失败，错误：" + iErr);
         }
     }
+    
+    /**
+     * 专门用于预置点控制的方法 - 使用正确的SDK结构
+     */
+    private void executePresetControl(Integer lUserID, Integer channelId, int byPresetCmd, int presetIndex) {
+        log.info("开始执行预置点控制, lUserID={}, channelId={}, byPresetCmd={}, dwPresetIndex={}", 
+            lUserID, channelId, byPresetCmd, presetIndex);
+        
+        HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM net_ehome_remote_ctrl_param = new HCISUPCMS.NET_EHOME_REMOTE_CTRL_PARAM();
+        HCISUPCMS.NET_EHOME_PRESET_PARAM net_ehome_preset_param = new HCISUPCMS.NET_EHOME_PRESET_PARAM();
+        
+        // 填充NET_EHOME_PRESET_PARAM结构
+        net_ehome_preset_param.read();
+        net_ehome_preset_param.dwSize = net_ehome_preset_param.size();
+        net_ehome_preset_param.byPresetCmd = (byte) byPresetCmd;  // 1-设置，2-删除，3-调用
+        net_ehome_preset_param.byRes1 = new byte[3];         // 保留，设为0
+        net_ehome_preset_param.dwPresetIndex = presetIndex;  // 预置点编号
+        net_ehome_preset_param.byRes2 = new byte[32];        // 保留，设为0
+        net_ehome_preset_param.write();
+        log.info("NET_EHOME_PRESET_PARAM填充完成: dwSize={}, byPresetCmd={}, dwPresetIndex={}", 
+            net_ehome_preset_param.dwSize, net_ehome_preset_param.byPresetCmd, net_ehome_preset_param.dwPresetIndex);
+        
+        // 填充NET_EHOME_REMOTE_CTRL_PARAM结构
+        net_ehome_remote_ctrl_param.read();
+        net_ehome_remote_ctrl_param.dwSize = net_ehome_remote_ctrl_param.size();
+        net_ehome_remote_ctrl_param.lpInbuffer = net_ehome_preset_param.getPointer();
+        net_ehome_remote_ctrl_param.dwInBufferSize = net_ehome_preset_param.size();
+
+        // 条件参数输入通道号
+        int iChannel = channelId;
+        IntByReference channle = new IntByReference(iChannel);
+        net_ehome_remote_ctrl_param.lpCondBuffer = channle.getPointer();
+        net_ehome_remote_ctrl_param.dwCondBufferSize = 4;
+
+        net_ehome_remote_ctrl_param.write();
+        log.info("准备调用NET_ECMS_RemoteControl, dwCommand=NET_EHOME_PRESET_CTRL(1001)");
+
+        boolean b_ptz = CmsService.hCEhomeCMS.NET_ECMS_RemoteControl(lUserID, HCISUPCMS.NET_EHOME_PRESET_CTRL, net_ehome_remote_ctrl_param);
+        if (!b_ptz) {
+            int iErr = CmsService.hCEhomeCMS.NET_ECMS_GetLastError();
+            log.error("NET_ECMS_RemoteControl failed, error={}", iErr);
+            throw new ServiceException("云台控制失败，错误：" + iErr);
+        } else {
+            log.info("NET_ECMS_RemoteControl调用成功！");
+        }
+    }
 
     @Override
     public void setPreset(Long deviceId, Integer channelId, int presetIndex) {
@@ -307,15 +353,15 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         }
         log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
 
-        // 设置预置点
-        executePtzControl(lUserID, channelId, HCIsupPresetControlEnum.SET_PRESET.getCode(), 0, presetIndex, presetIndex);
+        // 设置预置点 - 使用专门的预置点控制方法
+        executePresetControl(lUserID, channelId, HCIsupPresetControlEnum.SET_PRESET.getCode(), presetIndex);
 
         log.info("设置预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
     }
 
     @Override
     public void clearPreset(Long deviceId, Integer channelId, int presetIndex) {
-        log.info("开始清除预置点，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+        log.info("开始删除预置点，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
@@ -332,10 +378,10 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         }
         log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
 
-        // 清除预置点
-        executePtzControl(lUserID, channelId, HCIsupPresetControlEnum.CLEAR_PRESET.getCode(), 0, presetIndex, presetIndex);
+        // 删除预置点 - 使用专门的预置点控制方法
+        executePresetControl(lUserID, channelId, HCIsupPresetControlEnum.CLEAR_PRESET.getCode(), presetIndex);
 
-        log.info("清除预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
+        log.info("删除预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
     }
 
     @Override
@@ -357,8 +403,8 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         }
         log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
 
-        // 调用预置点
-        executePtzControl(lUserID, channelId, HCIsupPresetControlEnum.GOTO_PRESET.getCode(), 0, presetIndex, presetIndex);
+        // 调用预置点 - 使用专门的预置点控制方法
+        executePresetControl(lUserID, channelId, HCIsupPresetControlEnum.GOTO_PRESET.getCode(), presetIndex);
 
         log.info("调用预置点成功，deviceId:{}, channelId:{}, presetIndex:{}", deviceId, channelId, presetIndex);
     }

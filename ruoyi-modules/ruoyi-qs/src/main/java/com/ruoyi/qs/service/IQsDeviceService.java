@@ -426,4 +426,22 @@ public interface IQsDeviceService {
      * @param presetIndex 预置点索引
      */
     void deletePreset(Long id, Integer channelId, Integer presetIndex);
+
+    /**
+     * 灯光控制
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param isOn       true-开, false-关
+     */
+    void controlLight(Long id, Integer channelId, Boolean isOn);
+
+    /**
+     * 雨刷控制
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param isOn       true-开, false-关
+     */
+    void controlWiper(Long id, Integer channelId, Boolean isOn);
 }

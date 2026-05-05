@@ -12,15 +12,15 @@ public enum HCIsupPresetControlEnum {
     /**
      * 设置预置点
      */
-    SET_PRESET(8, "设置预置点", "set_preset"),
+    SET_PRESET(1, "设置预置点", "set_preset"),
     /**
-     * 清除预置点
+     * 删除预置点
      */
-    CLEAR_PRESET(9, "清除预置点", "clear_preset"),
+    CLEAR_PRESET(2, "删除预置点", "clear_preset"),
     /**
      * 调用预置点
      */
-    GOTO_PRESET(39, "调用预置点", "goto_preset");
+    GOTO_PRESET(3, "调用预置点", "goto_preset");
 
     private final int code;
     private final String desc;

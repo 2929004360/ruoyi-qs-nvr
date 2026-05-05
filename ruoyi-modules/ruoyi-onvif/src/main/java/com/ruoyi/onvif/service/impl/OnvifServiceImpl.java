@@ -742,21 +742,52 @@ public class OnvifServiceImpl implements IOnvifService {
             }
             String profileToken = profileTokens.get(0);
             
-            // 发送设置预置点请求
-            byte[] nonceBytes = RandomUtil.randomBytes(16);
-            String nonce = Base64.encode(nonceBytes);
-            String created = Instant.now().toString();
-            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
-            String soapRequest = SetPresetSoapRequest(username, nonce, created, passwordDigest, profileToken, presetIndex, presetName);
             String url = "http://" + deviceIp + "/onvif/ptz_service";
-            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
             
-            if (response.getStatus() == 200) {
+            // 尝试1: ver20 + 带PresetToken
+            log.info("🔄 尝试方案1: ver20 + 带PresetToken");
+            byte[] nonceBytes1 = RandomUtil.randomBytes(16);
+            String nonce1 = Base64.encode(nonceBytes1);
+            String created1 = Instant.now().toString();
+            String passwordDigest1 = calculatePasswordDigest(nonceBytes1, created1, password);
+            String soapRequest1 = SetPresetSoapRequest(username, nonce1, created1, passwordDigest1, profileToken, presetIndex, presetName);
+            HttpResponse response1 = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest1).execute();
+            
+            if (response1.getStatus() == 200) {
                 log.info("✅ 设置 ONVIF 预置点成功");
-            } else {
-                log.error("❌ 设置 ONVIF 预置点失败，状态码: {}", response.getStatus());
-                throw new RuntimeException("设置 ONVIF 预置点失败，状态码: " + response.getStatus());
+                return;
             }
+            
+            // 尝试2: ver10 + 带PresetToken
+            log.info("🔄 尝试方案2: ver10 + 带PresetToken");
+            byte[] nonceBytes2 = RandomUtil.randomBytes(16);
+            String nonce2 = Base64.encode(nonceBytes2);
+            String created2 = Instant.now().toString();
+            String passwordDigest2 = calculatePasswordDigest(nonceBytes2, created2, password);
+            String soapRequest2 = SetPresetSoapRequestV10(username, nonce2, created2, passwordDigest2, profileToken, presetIndex, presetName);
+            HttpResponse response2 = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest2).execute();
+            
+            if (response2.getStatus() == 200) {
+                log.info("✅ 设置 ONVIF 预置点成功");
+                return;
+            }
+        
+            // 尝试3: ver20 + 不带PresetToken（让设备自动分配）
+            log.info("🔄 尝试方案3: ver20 + 不带PresetToken");
+            byte[] nonceBytes3 = RandomUtil.randomBytes(16);
+            String nonce3 = Base64.encode(nonceBytes3);
+            String created3 = Instant.now().toString();
+            String passwordDigest3 = calculatePasswordDigest(nonceBytes3, created3, password);
+            String soapRequest3 = SetPresetSoapRequest(username, nonce3, created3, passwordDigest3, profileToken, null, presetName);
+            HttpResponse response3 = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest3).execute();
+            
+            if (response3.getStatus() == 200) {
+                log.info("✅ 设置 ONVIF 预置点成功");
+                return;
+            }
+       
+            // 所有方案都失败
+            throw new RuntimeException("无法设置 ONVIF 预置点");
         } catch (Exception e) {
             log.error("❌ 设置 ONVIF 预置点失败", e);
             throw new RuntimeException("设置 ONVIF 预置点失败: " + e.getMessage(), e);
@@ -889,6 +920,15 @@ public class OnvifServiceImpl implements IOnvifService {
         String presetNameTag = presetName != null && !presetName.isEmpty() ? "<PresetName>" + presetName + "</PresetName>" : "";
         return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <SetPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + (presetToken.isEmpty() ? "" : "<PresetToken>" + presetToken + "</PresetToken>") + presetNameTag + "\n" + "    </SetPreset>\n" + "  </s:Body>\n" + "</s:Envelope>";
     }
+    
+    /**
+     * 生成设置预置点的SOAP请求（ver10版本）
+     */
+    private static String SetPresetSoapRequestV10(String username, String nonce, String created, String passwordDigest, String profileToken, Integer presetIndex, String presetName) {
+        String presetToken = presetIndex != null ? String.valueOf(presetIndex) : "";
+        String presetNameTag = presetName != null && !presetName.isEmpty() ? "<tt:PresetName>" + presetName + "</tt:PresetName>" : "";
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <SetPreset xmlns=\"http://www.onvif.org/ver10/ptz/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + (presetToken.isEmpty() ? "" : "<PresetToken>" + presetToken + "</PresetToken>") + presetNameTag + "\n" + "    </SetPreset>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
 
     /**
      * 生成调用预置点的SOAP请求
@@ -935,5 +975,462 @@ public class OnvifServiceImpl implements IOnvifService {
         }
         
         return presets;
+    }
+
+    /**
+     * 灯光控制
+     */
+    @Override
+    public void controlLight(String deviceIp, String username, String password, boolean on) {
+        log.info("🚀 开始执行 ONVIF 灯光控制... 设备IP: {}, 操作: {}", deviceIp, on ? "开灯" : "关灯");
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+
+            // 发送Auxiliary命令 - 尝试多种格式
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            // 准备不同格式的辅助命令
+            String[] commandFormats = {
+                on ? "http://www.onvif.org/ver20/ptz/wsdl#LightOn" : "http://www.onvif.org/ver20/ptz/wsdl#LightOff",
+                on ? "http://www.onvif.org/ver10/ptz/wsdl#LightOn" : "http://www.onvif.org/ver10/ptz/wsdl#LightOff",
+                on ? "LightOn" : "LightOff"
+            };
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+
+            // 尝试不同的命令格式和命名空间组合
+            boolean success = false;
+            for (String command : commandFormats) {
+                for (boolean useVer10 : new boolean[]{false, true}) {
+                    log.info("尝试命令: {} (使用{}命名空间)", command, useVer10 ? "ver10" : "ver20");
+                    success = sendAuxiliaryCommand(username, nonce, created, passwordDigest, profileToken, command, url, useVer10);
+                    if (success) {
+                        log.info("✅ 找到成功的组合: 命令={}, 命名空间={}", command, useVer10 ? "ver10" : "ver20");
+                        break;
+                    }
+                }
+                if (success) {
+                    break;
+                }
+            }
+
+            if (!success) {
+                throw new RuntimeException("ONVIF 灯光控制发送失败，所有组合都失败了");
+            }
+
+            log.info("✅ ONVIF 灯光控制发送成功");
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 灯光控制失败", e);
+            throw new RuntimeException("执行 ONVIF 灯光控制失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 发送Auxiliary命令的辅助方法
+     */
+    private boolean sendAuxiliaryCommand(String username, String nonce, String created, String passwordDigest, String profileToken, String auxiliaryCommand, String url, boolean useVer10) {
+        try {
+            String soapRequest = SendAuxiliaryCommandSoapRequest(username, nonce, created, passwordDigest, profileToken, auxiliaryCommand, useVer10);
+            
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+
+            return response.getStatus() == 200;
+        } catch (Exception e) {
+            log.error("发送Auxiliary命令失败 ({}): {}", useVer10 ? "ver10" : "ver20", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 雨刷控制
+     */
+    @Override
+    public void controlWiper(String deviceIp, String username, String password, boolean on) {
+        log.info("🚀 开始执行 ONVIF 雨刷控制... 设备IP: {}, 操作: {}", deviceIp, on ? "开雨刷" : "关雨刷");
+        try {
+            // 获取profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+
+            // 发送Auxiliary命令 - 尝试多种格式
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            // 准备不同格式的辅助命令
+            String[] commandFormats = {
+                on ? "http://www.onvif.org/ver20/ptz/wsdl#WiperOn" : "http://www.onvif.org/ver20/ptz/wsdl#WiperOff",
+                on ? "http://www.onvif.org/ver10/ptz/wsdl#WiperOn" : "http://www.onvif.org/ver10/ptz/wsdl#WiperOff",
+                on ? "WiperOn" : "WiperOff"
+            };
+            String url = "http://" + deviceIp + "/onvif/ptz_service";
+
+            // 尝试不同的命令格式和命名空间组合
+            boolean success = false;
+            for (String command : commandFormats) {
+                for (boolean useVer10 : new boolean[]{false, true}) {
+                    log.info("尝试命令: {} (使用{}命名空间)", command, useVer10 ? "ver10" : "ver20");
+                    success = sendAuxiliaryCommand(username, nonce, created, passwordDigest, profileToken, command, url, useVer10);
+                    if (success) {
+                        log.info("✅ 找到成功的组合: 命令={}, 命名空间={}", command, useVer10 ? "ver10" : "ver20");
+                        break;
+                    }
+                }
+                if (success) {
+                    break;
+                }
+            }
+
+            if (!success) {
+                throw new RuntimeException("ONVIF 雨刷控制发送失败，所有组合都失败了");
+            }
+
+            log.info("✅ ONVIF 雨刷控制发送成功");
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 雨刷控制失败", e);
+            throw new RuntimeException("执行 ONVIF 雨刷控制失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 生成SendAuxiliaryCommand的SOAP请求
+     */
+    private static String SendAuxiliaryCommandSoapRequest(String username, String nonce, String created, String passwordDigest, String profileToken, String auxiliaryCommand, boolean useVer10) {
+        String namespace = useVer10 ? "http://www.onvif.org/ver10/ptz/wsdl" : "http://www.onvif.org/ver20/ptz/wsdl";
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+               "  <s:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </s:Header>\n" +
+               "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" +
+               "    <SendAuxiliaryCommand xmlns=\"" + namespace + "\">\n" +
+               "      <ProfileToken>" + profileToken + "</ProfileToken>\n" +
+               "      <AuxiliaryCommand>" + auxiliaryCommand + "</AuxiliaryCommand>\n" +
+               "    </SendAuxiliaryCommand>\n" +
+               "  </s:Body>\n" +
+               "</s:Envelope>";
+    }
+
+    /**
+     * 设备重启
+     */
+    @Override
+    public void restartDevice(String deviceIp, String username, String password) {
+        log.info("🚀 开始执行 ONVIF 设备重启... 设备IP: {}", deviceIp);
+        try {
+            // 发送SystemReboot请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = SystemRebootSoapRequest(username, nonce, created, passwordDigest);
+            String url = "http://" + deviceIp + "/onvif/device_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ ONVIF 设备重启命令发送成功");
+            } else {
+                log.error("❌ ONVIF 设备重启命令发送失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("ONVIF 设备重启命令发送失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 设备重启失败", e);
+            throw new RuntimeException("执行 ONVIF 设备重启失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 生成SystemReboot的SOAP请求
+     */
+    private static String SystemRebootSoapRequest(String username, String nonce, String created, String passwordDigest) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+               "  <s:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </s:Header>\n" +
+               "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" +
+               "    <SystemReboot xmlns=\"http://www.onvif.org/ver10/device/wsdl\" />\n" +
+               "  </s:Body>\n" +
+               "</s:Envelope>";
+    }
+
+    /**
+     * 恢复出厂设置
+     */
+    @Override
+    public void factoryReset(String deviceIp, String username, String password, String factoryDefault) {
+        log.info("🚀 开始执行 ONVIF 设备恢复出厂设置... 设备IP: {}, 模式: {}", deviceIp, factoryDefault);
+        try {
+            // 发送FactoryReset请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = FactoryResetSoapRequest(username, nonce, created, passwordDigest, factoryDefault);
+            String url = "http://" + deviceIp + "/onvif/device_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ ONVIF 设备恢复出厂设置命令发送成功");
+            } else {
+                log.error("❌ ONVIF 设备恢复出厂设置命令发送失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("ONVIF 设备恢复出厂设置命令发送失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 设备恢复出厂设置失败", e);
+            throw new RuntimeException("执行 ONVIF 设备恢复出厂设置失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 生成FactoryReset的SOAP请求
+     */
+    private static String FactoryResetSoapRequest(String username, String nonce, String created, String passwordDigest, String factoryDefault) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+               "  <s:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </s:Header>\n" +
+               "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" +
+               "    <FactoryReset xmlns=\"http://www.onvif.org/ver10/device/wsdl\">\n" +
+               "      <FactoryDefault>" + factoryDefault + "</FactoryDefault>\n" +
+               "    </FactoryReset>\n" +
+               "  </s:Body>\n" +
+               "</s:Envelope>";
+    }
+
+    /**
+     * 获取设备时间
+     */
+    @Override
+    public Map<String, Object> getDeviceTime(String deviceIp, String username, String password) {
+        log.info("🚀 开始获取 ONVIF 设备时间... 设备IP: {}", deviceIp);
+        try {
+            // 发送GetSystemDateAndTime请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            String soapRequest = GetSystemDateAndTimeSoapRequest(username, nonce, created, passwordDigest);
+            String url = "http://" + deviceIp + "/onvif/device_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                Map<String, Object> timeInfo = parseSystemDateAndTimeResponse(response.body());
+                log.info("✅ 获取 ONVIF 设备时间成功: {}", timeInfo);
+                return timeInfo;
+            } else {
+                log.error("❌ 获取 ONVIF 设备时间失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("获取 ONVIF 设备时间失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 获取 ONVIF 设备时间失败", e);
+            throw new RuntimeException("获取 ONVIF 设备时间失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 生成GetSystemDateAndTime的SOAP请求
+     */
+    private static String GetSystemDateAndTimeSoapRequest(String username, String nonce, String created, String passwordDigest) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+               "  <s:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </s:Header>\n" +
+               "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" +
+               "    <GetSystemDateAndTime xmlns=\"http://www.onvif.org/ver10/device/wsdl\" />\n" +
+               "  </s:Body>\n" +
+               "</s:Envelope>";
+    }
+
+    /**
+     * 解析系统时间响应
+     */
+    private static Map<String, Object> parseSystemDateAndTimeResponse(String responseBody) throws Exception {
+        Map<String, Object> result = new java.util.HashMap<>();
+        if (responseBody == null || responseBody.isEmpty()) {
+            return result;
+        }
+        
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new java.io.ByteArrayInputStream(responseBody.getBytes("UTF-8")));
+        
+        // 查找DateTimeType节点
+        NodeList dateTimeTypeNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/device/wsdl", "DateTimeType");
+        if (dateTimeTypeNodes.getLength() > 0) {
+            result.put("dateTimeType", dateTimeTypeNodes.item(0).getTextContent());
+        }
+        
+        // 查找TimeZone节点
+        NodeList timeZoneNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "TZ");
+        if (timeZoneNodes.getLength() > 0) {
+            result.put("timeZone", timeZoneNodes.item(0).getTextContent());
+        }
+        
+        // 查找UTCDateTime节点
+        NodeList utcDateTimeNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "UTCDateTime");
+        if (utcDateTimeNodes.getLength() > 0) {
+            Element utcDateTime = (Element) utcDateTimeNodes.item(0);
+            NodeList dateNodes = utcDateTime.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Date");
+            NodeList timeNodes = utcDateTime.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Time");
+            
+            if (dateNodes.getLength() > 0) {
+                Element date = (Element) dateNodes.item(0);
+                result.put("year", getElementTextByTag(date, "Year", "http://www.onvif.org/ver10/schema"));
+                result.put("month", getElementTextByTag(date, "Month", "http://www.onvif.org/ver10/schema"));
+                result.put("day", getElementTextByTag(date, "Day", "http://www.onvif.org/ver10/schema"));
+            }
+            
+            if (timeNodes.getLength() > 0) {
+                Element time = (Element) timeNodes.item(0);
+                result.put("hour", getElementTextByTag(time, "Hour", "http://www.onvif.org/ver10/schema"));
+                result.put("minute", getElementTextByTag(time, "Minute", "http://www.onvif.org/ver10/schema"));
+                result.put("second", getElementTextByTag(time, "Second", "http://www.onvif.org/ver10/schema"));
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * 获取元素文本内容的辅助方法
+     */
+    private static String getElementTextByTag(Element parent, String tagName, String namespace) {
+        NodeList nodes = parent.getElementsByTagNameNS(namespace, tagName);
+        if (nodes.getLength() > 0) {
+            return nodes.item(0).getTextContent();
+        }
+        return "";
+    }
+
+    /**
+     * 设备校时
+     */
+    @Override
+    public void syncDeviceTime(String deviceIp, String username, String password, String dateTime) {
+        log.info("🚀 开始执行 ONVIF 设备校时... 设备IP: {}, 时间: {}", deviceIp, dateTime);
+        try {
+            // 发送SetSystemDateAndTime请求
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            // 解析时间字符串
+            java.time.LocalDateTime localDateTime = java.time.LocalDateTime.parse(dateTime, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            int year = localDateTime.getYear();
+            int month = localDateTime.getMonthValue();
+            int day = localDateTime.getDayOfMonth();
+            int hour = localDateTime.getHour();
+            int minute = localDateTime.getMinute();
+            int second = localDateTime.getSecond();
+            
+            String soapRequest = SetSystemDateAndTimeSoapRequest(username, nonce, created, passwordDigest, year, month, day, hour, minute, second);
+            String url = "http://" + deviceIp + "/onvif/device_service";
+            HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+            
+            if (response.getStatus() == 200) {
+                log.info("✅ ONVIF 设备校时命令发送成功");
+            } else {
+                log.error("❌ ONVIF 设备校时命令发送失败，状态码: {}", response.getStatus());
+                throw new RuntimeException("ONVIF 设备校时命令发送失败，状态码: " + response.getStatus());
+            }
+        } catch (Exception e) {
+            log.error("❌ 执行 ONVIF 设备校时失败", e);
+            throw new RuntimeException("执行 ONVIF 设备校时失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 生成SetSystemDateAndTime的SOAP请求
+     */
+    private static String SetSystemDateAndTimeSoapRequest(String username, String nonce, String created, String passwordDigest, 
+                                                          int year, int month, int day, int hour, int minute, int second) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" +
+               "  <s:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </s:Header>\n" +
+               "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" +
+               "    <SetSystemDateAndTime xmlns=\"http://www.onvif.org/ver10/device/wsdl\">\n" +
+               "      <DateTimeType>Manual</DateTimeType>\n" +
+               "      <DaylightSavings>true</DaylightSavings>\n" +
+               "      <TimeZone>\n" +
+               "        <TZ>UTC</TZ>\n" +
+               "      </TimeZone>\n" +
+               "      <UTCDateTime>\n" +
+               "        <Date>\n" +
+               "          <Year>" + year + "</Year>\n" +
+               "          <Month>" + month + "</Month>\n" +
+               "          <Day>" + day + "</Day>\n" +
+               "        </Date>\n" +
+               "        <Time>\n" +
+               "          <Hour>" + hour + "</Hour>\n" +
+               "          <Minute>" + minute + "</Minute>\n" +
+               "          <Second>" + second + "</Second>\n" +
+               "        </Time>\n" +
+               "      </UTCDateTime>\n" +
+               "    </SetSystemDateAndTime>\n" +
+               "  </s:Body>\n" +
+               "</s:Envelope>";
     }
 }
