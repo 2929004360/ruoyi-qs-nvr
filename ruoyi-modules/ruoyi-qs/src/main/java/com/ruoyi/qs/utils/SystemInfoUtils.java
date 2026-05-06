@@ -11,6 +11,8 @@ import oshi.software.os.OperatingSystem;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileStore;
+import java.nio.file.FileSystems;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -148,27 +150,76 @@ public class SystemInfoUtils {
 
     public static List<Map<String, Object>> getDiskInfo() {
         List<Map<String, Object>> result = new ArrayList<>();
-
+        try {
+            // 使用 Java NIO 的 FileStore 获取所有挂载的文件系统，这种方式在所有系统上都适用
+            for (FileStore store : FileSystems.getDefault().getFileStores()) {
+                try {
+                    Map<String, Object> infoMap = new HashMap<>();
+                    // 获取文件系统的路径
+                    String path = store.toString();
+                    // 处理 Windows 盘符，格式通常是 "C:\ (NTFS)"，需要提取盘符
+                    if (path.contains(":\\")) {
+                        path = path.substring(0, path.indexOf(":\\")) + ":";
+                    } else if (path.contains(" (")) {
+                        // 处理其他格式，比如 "/dev/sda1 (ext4)"，提取挂载点
+                        path = path.substring(0, path.indexOf(" ("));
+                    }
+                    infoMap.put("path", path);
+                    
+                    // 获取总空间和可用空间（单位：GB）
+                    long total = store.getTotalSpace();
+                    long usable = store.getUsableSpace();
+                    infoMap.put("use", (total - usable) / 1024 / 1024 / 1024D);
+                    infoMap.put("free", usable / 1024 / 1024 / 1024D);
+                    
+                    result.add(infoMap);
+                } catch (Exception e) {
+                    // 某些文件系统可能无法访问（比如网络磁盘），跳过即可
+                    log.debug("[系统信息] 无法访问文件系统: {}", store, e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("[系统信息] 获取磁盘信息失败", e);
+            // 如果 NIO 方式失败，回退到原有的方法
+            return getDiskInfoFallback();
+        }
+        return result;
+    }
+    
+    /**
+     * 备用方法，当 NIO 方式失败时使用
+     */
+    private static List<Map<String, Object>> getDiskInfoFallback() {
+        List<Map<String, Object>> result = new ArrayList<>();
         String osName = System.getProperty("os.name");
         List<String> pathArray = new ArrayList<>();
-        if (osName.startsWith("Mac OS")) {
-            // 苹果
-            pathArray.add("/");
-        } else if (osName.startsWith("Windows")) {
-            // windows
-            pathArray.add("C:");
+        
+        if (osName.startsWith("Windows")) {
+            // Windows - 获取所有盘符
+            File[] roots = File.listRoots();
+            if (roots != null) {
+                for (File root : roots) {
+                    if (root.exists()) {
+                        pathArray.add(root.getPath());
+                    }
+                }
+            }
         } else {
+            // Mac 和 Linux
             pathArray.add("/");
-            pathArray.add("/home");
         }
+        
         for (String path : pathArray) {
-            Map<String, Object> infoMap = new HashMap<>();
-            infoMap.put("path", path);
-            File partitionFile = new File(path);
-            // 单位： GB
-            infoMap.put("use", (partitionFile.getTotalSpace() - partitionFile.getFreeSpace()) / 1024 / 1024 / 1024D);
-            infoMap.put("free", partitionFile.getFreeSpace() / 1024 / 1024 / 1024D);
-            result.add(infoMap);
+            try {
+                Map<String, Object> infoMap = new HashMap<>();
+                infoMap.put("path", path);
+                File partitionFile = new File(path);
+                infoMap.put("use", (partitionFile.getTotalSpace() - partitionFile.getFreeSpace()) / 1024 / 1024 / 1024D);
+                infoMap.put("free", partitionFile.getFreeSpace() / 1024 / 1024 / 1024D);
+                result.add(infoMap);
+            } catch (Exception e) {
+                log.debug("[系统信息] 无法访问路径: {}", path, e);
+            }
         }
         return result;
     }
