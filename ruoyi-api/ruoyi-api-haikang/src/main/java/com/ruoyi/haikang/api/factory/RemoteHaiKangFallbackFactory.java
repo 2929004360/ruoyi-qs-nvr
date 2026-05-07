@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -139,6 +140,11 @@ public class RemoteHaiKangFallbackFactory implements FallbackFactory<RemoteHaiKa
             @Override
             public R<Void> setDevTime(Long deviceId, String time, String source) {
                 return R.fail("海康sdk设置设备时间参数失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<ArrayList<HashMap<String, Object>>> getRecMonth(Long deviceId, int channelId, String startTime, String endTime, String source) {
+                return R.fail("海康sdk查询录像失败:" + throwable.getMessage());
             }
         };
     }

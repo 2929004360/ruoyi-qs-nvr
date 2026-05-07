@@ -12,6 +12,7 @@ import com.ruoyi.haikang.api.factory.RemoteHaiKangFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -251,4 +252,16 @@ public interface RemoteHaiKangService {
      */
     @GetMapping("/api/haikang/setDevTime/{deviceId}")
     R<Void> setDevTime(@PathVariable("deviceId") Long deviceId, @RequestParam String time, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 海康设备查询录像
+     *
+     * @param deviceId 设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @param source 请求来源
+     */
+    @GetMapping("/api/haikang/getRecMonth/{deviceId}/{channelId}")
+    R<ArrayList<HashMap<String, Object>>> getRecMonth(@PathVariable("deviceId") Long deviceId, @PathVariable("channelId") int channelId, @RequestParam String startTime, @RequestParam String endTime, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

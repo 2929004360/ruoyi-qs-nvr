@@ -136,7 +136,7 @@ public interface IDaHuaService {
      *
      * @param id
      * @param channelId
-     * @param action 0-关,1-开
+     * @param action    0-关,1-开
      */
     void controlLight(Long id, int channelId, int action);
 
@@ -145,7 +145,7 @@ public interface IDaHuaService {
      *
      * @param id
      * @param channelId
-     * @param action 0-关,1-开
+     * @param action    0-关,1-开
      */
     void controlWiper(Long id, int channelId, int action);
 
@@ -171,7 +171,7 @@ public interface IDaHuaService {
      *
      * @param id
      * @param channelId
-     * @param tourIndex 巡航线路号
+     * @param tourIndex   巡航线路号
      * @param presetIndex 预置点号
      */
     void addPresetToTour(Long id, int channelId, int tourIndex, int presetIndex);
@@ -181,7 +181,7 @@ public interface IDaHuaService {
      *
      * @param id
      * @param channelId
-     * @param tourIndex 巡航线路号
+     * @param tourIndex   巡航线路号
      * @param presetIndex 预置点号
      */
     void removePresetFromTour(Long id, int channelId, int tourIndex, int presetIndex);
@@ -198,9 +198,9 @@ public interface IDaHuaService {
     /**
      * 大华设备设置时间
      *
-     * @param id     设备ID
-     * @param date   日期时间字符串
-     * @param type   类型
+     * @param id   设备ID
+     * @param date 日期时间字符串
+     * @param type 类型
      * @return 是否成功
      */
     boolean setTime(Long id, String date, boolean type);
@@ -208,8 +208,19 @@ public interface IDaHuaService {
     /**
      * 大华设备重启
      *
-     * @param id     设备ID
+     * @param id 设备ID
      * @return 是否成功
      */
     boolean reboot(Long id);
+
+    /**
+     * 大华设备查询录像
+     *
+     * @param id        设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return
+     */
+    ArrayList<HashMap<String, Object>> queryRecord(Long id, int channelId, String startTime, String endTime);
 }

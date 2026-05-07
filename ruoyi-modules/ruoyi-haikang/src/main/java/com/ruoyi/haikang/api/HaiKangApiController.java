@@ -1,15 +1,20 @@
 package com.ruoyi.haikang.api;
 
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.common.log.annotation.Log;
+import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.api.domain.LoginDevice;
-import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.api.domain.PresetInfo;
 import com.ruoyi.haikang.service.IHaiKangService;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -22,6 +27,7 @@ import java.util.List;
  * @Author fengcheng
  * @date 2026-03-28
  **/
+@Validated
 @RestController
 @RequestMapping("/api/haikang")
 public class HaiKangApiController {
@@ -212,10 +218,10 @@ public class HaiKangApiController {
     /**
      * 辅助设备控制（灯光、雨刷、风扇、加热器等）
      *
-     * @param deviceId 设备ID
+     * @param deviceId  设备ID
      * @param channelId 通道ID
      * @param operation 操作类型
-     * @param isStart 是否开始（true开始，false停止）
+     * @param isStart   是否开始（true开始，false停止）
      * @return
      */
     @InnerAuth
@@ -228,10 +234,10 @@ public class HaiKangApiController {
     /**
      * 巡航控制
      *
-     * @param deviceId 设备ID
+     * @param deviceId  设备ID
      * @param channelId 通道ID
      * @param operation 操作类型
-     * @param param 参数（预置点号、停顿时间、速度等，根据操作类型不同而不同）
+     * @param param     参数（预置点号、停顿时间、速度等，根据操作类型不同而不同）
      * @return
      */
     @InnerAuth
@@ -287,5 +293,14 @@ public class HaiKangApiController {
     public R<Void> setDevTime(@PathVariable("deviceId") Long deviceId, String time) {
         haiKangService.setDevTime(deviceId, time);
         return R.ok();
+    }
+
+    /**
+     * 海康设备查询录像
+     */
+    @Log(title = "海康设备", businessType = BusinessType.OTHER)
+    @GetMapping("/getRecMonth/{deviceId}/{channelId}")
+    public R<ArrayList<HashMap<String, Object>>> getRecMonth(@PathVariable("deviceId") Long deviceId, @PathVariable("channelId") int channelId, @NotBlank(message = "开始时间不能为空") String startTime, @NotBlank(message = "结束时间不能为空") String endTime) {
+        return R.ok(haiKangService.queryRecord(deviceId, channelId, startTime, endTime));
     }
 }

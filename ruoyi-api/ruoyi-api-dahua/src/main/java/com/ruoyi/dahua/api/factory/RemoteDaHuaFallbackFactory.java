@@ -140,6 +140,11 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             public R<Void> clearTour(Long id, int channelId, int tourIndex, String source) {
                 return R.fail("大华sdk清除巡航线路失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<ArrayList<HashMap<String, Object>>> queryRecord(Long id, int channelId, String startTime, String endTime, String source) {
+                return R.fail("大华sdk查询录像失败:" + throwable.getMessage());
+            }
         };
     }
 }

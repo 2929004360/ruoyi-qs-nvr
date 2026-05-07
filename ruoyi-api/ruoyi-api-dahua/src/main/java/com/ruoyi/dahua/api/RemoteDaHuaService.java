@@ -270,4 +270,17 @@ public interface RemoteDaHuaService {
      */
     @GetMapping(value = "/api/dahua/clearTour/{id}/{channelId}")
     R<Void> clearTour(@PathVariable Long id, @PathVariable int channelId, @RequestParam int tourIndex, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 大华设备查询录像
+     *
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param startTime  开始时间
+     * @param endTime    结束时间
+     * @param source     请求来源
+     * @return
+     */
+    @GetMapping(value = "/api/dahua/queryRecord/{id}/{channelId}")
+    R<ArrayList<HashMap<String, Object>>> queryRecord(@PathVariable Long id, @PathVariable int channelId, @RequestParam String startTime, @RequestParam String endTime, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

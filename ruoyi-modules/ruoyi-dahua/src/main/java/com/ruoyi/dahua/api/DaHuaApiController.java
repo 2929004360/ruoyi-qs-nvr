@@ -7,6 +7,7 @@ import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.api.domain.LoginDevice;
 import com.ruoyi.dahua.service.IDaHuaService;
+import jakarta.validation.constraints.NotBlank;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -311,5 +312,13 @@ public class DaHuaApiController {
     public R<Void> clearTour(@PathVariable Long id, @PathVariable int channelId, int tourIndex) {
         daHuaService.clearTour(id, channelId, tourIndex);
         return R.ok();
+    }
+
+    /**
+     * 大华设备查询录像
+     */
+    @GetMapping("/queryRecord/{id}/{channelId}")
+    public R<ArrayList<HashMap<String, Object>>> queryRecord(@PathVariable Long id, @PathVariable int channelId, @NotBlank(message = "开始时间不能为空") String startTime, @NotBlank(message = "结束时间不能为空") String endTime) {
+        return R.ok(daHuaService.queryRecord(id, channelId, startTime, endTime));
     }
 }

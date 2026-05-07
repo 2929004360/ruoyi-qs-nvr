@@ -7,6 +7,7 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.common.ErrorCode;
+import com.ruoyi.dahua.common.Res;
 import com.ruoyi.dahua.lib.NetSDKLib;
 import com.ruoyi.dahua.lib.ToolKits;
 import com.ruoyi.dahua.manager.StreamManager;
@@ -783,7 +784,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     @Override
     public boolean setTime(Long id, String date, boolean type) {
         log.info("开始设置大华设备时间, deviceId:{}, date:{}, type:{}", id, date, type);
-        
+
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
@@ -816,8 +817,8 @@ public class DaHuaServiceImpl implements IDaHuaService {
             deviceTime.dwHour = Integer.parseInt(arrTime[0]);
             deviceTime.dwMinute = Integer.parseInt(arrTime[1]);
             deviceTime.dwSecond = Integer.parseInt(arrTime[2]);
-            log.debug("解析日期时间成功, deviceId:{}, year:{}, month:{}, day:{}, hour:{}, minute:{}, second:{}", 
-                    id, deviceTime.dwYear, deviceTime.dwMonth, deviceTime.dwDay, 
+            log.debug("解析日期时间成功, deviceId:{}, year:{}, month:{}, day:{}, hour:{}, minute:{}, second:{}",
+                    id, deviceTime.dwYear, deviceTime.dwMonth, deviceTime.dwDay,
                     deviceTime.dwHour, deviceTime.dwMinute, deviceTime.dwSecond);
         } catch (Exception e) {
             log.error("解析日期时间失败, deviceId:{}, date:{}, error:{}", id, date, e.getMessage(), e);
@@ -826,10 +827,10 @@ public class DaHuaServiceImpl implements IDaHuaService {
 
         boolean success = netsdk.CLIENT_SetupDeviceTime(m_hLoginHandle, deviceTime);
         if (success) {
-            log.info("设置大华设备时间成功, deviceId:{}, IP:{}, originalDate:{}, finalDate:{}", 
+            log.info("设置大华设备时间成功, deviceId:{}, IP:{}, originalDate:{}, finalDate:{}",
                     id, device.getIpAddress(), originalDate, date);
         } else {
-            log.error("设置大华设备时间失败, deviceId:{}, IP:{}, date:{}, error:{}", 
+            log.error("设置大华设备时间失败, deviceId:{}, IP:{}, date:{}, error:{}",
                     id, device.getIpAddress(), date, getErrorCodePrint());
         }
         return success;
@@ -838,7 +839,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     @Override
     public boolean reboot(Long id) {
         log.info("开始重启大华设备, deviceId:{}", id);
-        
+
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
         if (r.getCode() != Constants.SUCCESS) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
@@ -857,9 +858,150 @@ public class DaHuaServiceImpl implements IDaHuaService {
         if (success) {
             log.info("重启大华设备成功, deviceId:{}, IP:{}", id, device.getIpAddress());
         } else {
-            log.error("重启大华设备失败, deviceId:{}, IP:{}, error:{}", 
+            log.error("重启大华设备失败, deviceId:{}, IP:{}, error:{}",
                     id, device.getIpAddress(), getErrorCodePrint());
         }
         return success;
+    }
+
+    /**
+     * 大华设备查询录像
+     *
+     * @param id        设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return
+     */
+    @Override
+    public ArrayList<HashMap<String, Object>> queryRecord(Long id, int channelId, String startTime, String endTime) {
+        log.info("开始查询大华设备录像, deviceId:{}, channelId:{}, startTime:{}, endTime:{}", id, channelId, startTime, endTime);
+        
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+        log.debug("大华设备登录句柄获取成功, deviceId:{}, IP:{}, handle:{}", id, device.getIpAddress(), m_hLoginHandle.longValue());
+
+        // 开始时间
+        NetSDKLib.NET_TIME stTimeStart = new NetSDKLib.NET_TIME();
+
+        // 结束时间
+        NetSDKLib.NET_TIME stTimeEnd = new NetSDKLib.NET_TIME();
+
+        // 开始时间
+        String[] dateStartByFile = startTime.split(" ");
+        String[] dateStart1 = dateStartByFile[0].split("-");
+        String[] dateStart2 = dateStartByFile[1].split(":");
+
+        stTimeStart.dwYear = Integer.parseInt(dateStart1[0]);
+        stTimeStart.dwMonth = Integer.parseInt(dateStart1[1]);
+        stTimeStart.dwDay = Integer.parseInt(dateStart1[2]);
+
+        stTimeStart.dwHour = Integer.parseInt(dateStart2[0]);
+        stTimeStart.dwMinute = Integer.parseInt(dateStart2[1]);
+        stTimeStart.dwSecond = Integer.parseInt(dateStart2[2]);
+
+
+        // 结束时间
+        String[] dateEndByFile = endTime.split(" ");
+        String[] dateEnd1 = dateEndByFile[0].split("-");
+        String[] dateEnd2 = dateEndByFile[1].split(":");
+
+        stTimeEnd.dwYear = Integer.parseInt(dateEnd1[0]);
+        stTimeEnd.dwMonth = Integer.parseInt(dateEnd1[1]);
+        stTimeEnd.dwDay = Integer.parseInt(dateEnd1[2]);
+
+        stTimeEnd.dwHour = Integer.parseInt(dateEnd2[0]);
+        stTimeEnd.dwMinute = Integer.parseInt(dateEnd2[1]);
+        stTimeEnd.dwSecond = Integer.parseInt(dateEnd2[2]);
+        
+        log.debug("时间参数解析成功, deviceId:{}, 开始时间:{}-{}-{} {}:{}:{}, 结束时间:{}-{}-{} {}:{}:{}",
+                id, stTimeStart.dwYear, stTimeStart.dwMonth, stTimeStart.dwDay,
+                stTimeStart.dwHour, stTimeStart.dwMinute, stTimeStart.dwSecond,
+                stTimeEnd.dwYear, stTimeEnd.dwMonth, stTimeEnd.dwDay,
+                stTimeEnd.dwHour, stTimeEnd.dwMinute, stTimeEnd.dwSecond);
+
+
+        if (stTimeStart.dwYear != stTimeEnd.dwYear || stTimeStart.dwMonth != stTimeEnd.dwMonth || (stTimeEnd.dwDay - stTimeStart.dwDay > 1)) {
+            log.error("时间间隔超过一天, deviceId:{}, 开始时间:{}-{}-{}, 结束时间:{}-{}-{}",
+                    id, stTimeStart.dwYear, stTimeStart.dwMonth, stTimeStart.dwDay,
+                    stTimeEnd.dwYear, stTimeEnd.dwMonth, stTimeEnd.dwDay);
+            throw new ServiceException("时间间隔不能超过一天");
+        }
+
+//        int time = 0;
+//        if (stTimeEnd.dwDay - stTimeStart.dwDay == 1) {
+//            time = (24 + stTimeEnd.dwHour) * 60 * 60 + stTimeEnd.dwMinute * 60 + stTimeEnd.dwSecond - stTimeStart.dwHour * 60 * 60 - stTimeStart.dwMinute * 60 - stTimeStart.dwSecond;
+//        } else {
+//            time = stTimeEnd.dwHour * 60 * 60 + stTimeEnd.dwMinute * 60 + stTimeEnd.dwSecond - stTimeStart.dwHour * 60 * 60 - stTimeStart.dwMinute * 60 - stTimeStart.dwSecond;
+//        }
+
+//        if (time > 6 * 60 * 60 || time <= 0) {
+//            throw new ServiceException("时间间隔不能超过6小时");
+//        }
+
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<HashMap<String, Object>>();
+
+        // 录像文件信息
+        NetSDKLib.NET_RECORDFILE_INFO[] stFileInfo = (NetSDKLib.NET_RECORDFILE_INFO[]) new NetSDKLib.NET_RECORDFILE_INFO().toArray(2000);
+
+        IntByReference nFindCount = new IntByReference(0);
+
+        if (!queryRecordFile(channelId, stTimeStart, stTimeEnd, stFileInfo, nFindCount, m_hLoginHandle)) {
+            log.error("查询录像失败, deviceId:{}, channelId:{}", id, channelId);
+            throw new RuntimeException("查询不到录像");
+        } else {
+            int totalCount = nFindCount.getValue();
+
+            if (nFindCount.getValue() == 0) {
+                log.warn("未查询到录像文件, deviceId:{}, channelId:{}", id, channelId);
+                throw new RuntimeException("查询不到录像");
+            }
+
+            log.debug("查询到录像文件, deviceId:{}, channelId:{}, 数量:{}", id, channelId, totalCount);
+
+            // 🔥 核心：遍历 stFileInfo，存入 list
+            for (int j = 0; j < totalCount; j++) {
+                String ch = String.valueOf(stFileInfo[j].ch + 1);
+                String type = Res.string().getRecordTypeStr(stFileInfo[j].nRecordFileType);
+                String start = stFileInfo[j].starttime.toStringTime();
+                String end = stFileInfo[j].endtime.toStringTime();
+                HashMap<String, Object> record = new HashMap<>(16);
+                record.put("channel", ch);
+                record.put("type", type);
+                record.put("start", start);
+                record.put("end", end);
+                recordList.add(record);
+            }
+        }
+        
+        log.info("查询大华设备录像完成, deviceId:{}, channelId:{}, 共查询到 {} 条录像记录", id, channelId, recordList.size());
+        return recordList;
+    }
+
+    public boolean queryRecordFile(int nChannelId, NetSDKLib.NET_TIME stTimeStart, NetSDKLib.NET_TIME stTimeEnd, NetSDKLib.NET_RECORDFILE_INFO[] stFileInfo, IntByReference nFindCount, NetSDKLib.LLong m_hLoginHandle) {
+        // RecordFileType 录像类型 0:所有录像  1:外部报警  2:动态监测报警  3:所有报警  4:卡号查询   5:组合条件查询
+        // 6:录像位置与偏移量长度   8:按卡号查询图片(目前仅HB-U和NVS特殊型号的设备支持)  9:查询图片(目前仅HB-U和NVS特殊型号的设备支持)
+        // 10:按字段查询    15:返回网络数据结构(金桥网吧)  16:查询所有透明串数据录像文件
+        int nRecordFileType = 0;
+        boolean bRet = netsdk.CLIENT_QueryRecordFile(m_hLoginHandle, nChannelId, nRecordFileType, stTimeStart, stTimeEnd, null, stFileInfo, stFileInfo.length * stFileInfo[0].size(), nFindCount, 5000, false);
+
+        if (bRet) {
+            System.out.println("QueryRecordFile  Succeed! \n" + "查询到的视频个数：" + nFindCount.getValue());
+        } else {
+            System.err.println("QueryRecordFile  Failed!");
+            return false;
+        }
+        return true;
     }
 }

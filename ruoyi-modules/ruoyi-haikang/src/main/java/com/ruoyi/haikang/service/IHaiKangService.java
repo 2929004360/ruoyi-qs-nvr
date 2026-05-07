@@ -4,6 +4,7 @@ import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.api.domain.PresetInfo;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -207,4 +208,15 @@ public interface IHaiKangService {
      * @param time 时间
      */
     void setDevTime(Long deviceId, String time);
+
+    /**
+     * 海康设备查询录像
+     *
+     * @param deviceId  设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return
+     */
+    ArrayList<HashMap<String, Object>> queryRecord(Long deviceId, int channelId, String startTime, String endTime);
 }

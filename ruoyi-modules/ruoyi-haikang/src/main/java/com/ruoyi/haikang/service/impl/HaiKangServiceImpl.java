@@ -1055,4 +1055,169 @@ public class HaiKangServiceImpl implements IHaiKangService {
 
         log.info("设置设备时间参数成功, deviceId:{}", deviceId);
     }
+
+    /**
+     * 海康设备查询录像
+     *
+     * @param deviceId  设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return
+     */
+    @Override
+    public ArrayList<HashMap<String, Object>> queryRecord(Long deviceId, int channelId, String startTime, String endTime) {
+        log.info("开始查询海康设备录像, deviceId:{}, channelId:{}, startTime:{}, endTime:{}", deviceId, channelId, startTime, endTime);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效, deviceId:{}, userId:{}", deviceId, lUserID);
+
+        // 开始时间
+        HCNetSDK.NET_DVR_FILECOND_V40 fileCondition = new HCNetSDK.NET_DVR_FILECOND_V40();
+
+        // 开始时间
+        String[] dateStartByFile = startTime.split(" ");
+        String[] dateStart1 = dateStartByFile[0].split("-");
+        String[] dateStart2 = dateStartByFile[1].split(":");
+
+        fileCondition.struStartTime.dwYear = Integer.parseInt(dateStart1[0]);
+        fileCondition.struStartTime.dwMonth = Integer.parseInt(dateStart1[1]);
+        fileCondition.struStartTime.dwDay = Integer.parseInt(dateStart1[2]);
+        fileCondition.struStartTime.dwHour = Integer.parseInt(dateStart2[0]);
+        fileCondition.struStartTime.dwMinute = Integer.parseInt(dateStart2[1]);
+        fileCondition.struStartTime.dwSecond = Integer.parseInt(dateStart2[2]);
+
+        // 结束时间
+        String[] dateEndByFile = endTime.split(" ");
+        String[] dateEnd1 = dateEndByFile[0].split("-");
+        String[] dateEnd2 = dateEndByFile[1].split(":");
+
+        fileCondition.struStopTime.dwYear = Integer.parseInt(dateEnd1[0]);
+        fileCondition.struStopTime.dwMonth = Integer.parseInt(dateEnd1[1]);
+        fileCondition.struStopTime.dwDay = Integer.parseInt(dateEnd1[2]);
+        fileCondition.struStopTime.dwHour = Integer.parseInt(dateEnd2[0]);
+        fileCondition.struStopTime.dwMinute = Integer.parseInt(dateEnd2[1]);
+        fileCondition.struStopTime.dwSecond = Integer.parseInt(dateEnd2[2]);
+
+        log.debug("时间参数解析成功, deviceId:{}, 开始时间:{}-{}-{} {}:{}:{}, 结束时间:{}-{}-{} {}:{}:{}",
+                deviceId, fileCondition.struStartTime.dwYear, fileCondition.struStartTime.dwMonth, fileCondition.struStartTime.dwDay,
+                fileCondition.struStartTime.dwHour, fileCondition.struStartTime.dwMinute, fileCondition.struStartTime.dwSecond,
+                fileCondition.struStopTime.dwYear, fileCondition.struStopTime.dwMonth, fileCondition.struStopTime.dwDay,
+                fileCondition.struStopTime.dwHour, fileCondition.struStopTime.dwMinute, fileCondition.struStopTime.dwSecond);
+
+        // 设置其他查询条件
+        fileCondition.lChannel = channelId;
+        fileCondition.dwFileType = 0xff; // 全部类型
+        fileCondition.dwIsLocked = 0xff; // 所有文件
+        fileCondition.byStreamType = 0; // 主码流
+
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+
+        // 开始查找文件
+        int findHandle = client.hCNetSDK.NET_DVR_FindFile_V40(lUserID, fileCondition);
+        if (findHandle == -1) {
+            log.error("开始查找录像文件失败, deviceId:{}, channelId:{}, 错误码:{}", deviceId, channelId, client.hCNetSDK.NET_DVR_GetLastError());
+            throw new ServiceException("查找录像文件失败");
+        }
+
+        try {
+            HCNetSDK.NET_DVR_FINDDATA_V40 findData = new HCNetSDK.NET_DVR_FINDDATA_V40();
+            int findNextResult;
+
+            while (true) {
+                findNextResult = client.hCNetSDK.NET_DVR_FindNextFile_V40(findHandle, findData);
+                if (findNextResult == 1) { // 找到文件
+                    findData.read();
+
+                    String fileName = CommonUtil.parseHikvisionString(findData.sFileName);
+                    String start = String.format("%04d-%02d-%02d %02d:%02d:%02d",
+                            findData.struStartTime.dwYear, findData.struStartTime.dwMonth, findData.struStartTime.dwDay,
+                            findData.struStartTime.dwHour, findData.struStartTime.dwMinute, findData.struStartTime.dwSecond);
+                    String stop = String.format("%04d-%02d-%02d %02d:%02d:%02d",
+                            findData.struStopTime.dwYear, findData.struStopTime.dwMonth, findData.struStopTime.dwDay,
+                            findData.struStopTime.dwHour, findData.struStopTime.dwMinute, findData.struStopTime.dwSecond);
+
+                    HashMap<String, Object> record = new HashMap<>(16);
+                    record.put("channel", String.valueOf(channelId));
+                    record.put("type", getRecordTypeString(findData.byFileType));
+                    record.put("start", start);
+                    record.put("end", stop);
+                    record.put("fileName", fileName);
+                    record.put("fileSize", findData.dwFileSize);
+                    recordList.add(record);
+                } else if (findNextResult == 2) { // 查找结束
+                    log.debug("查找录像文件结束, deviceId:{}, channelId:{}", deviceId, channelId);
+                    break;
+                } else { // 查找出错
+                    log.error("查找下一个录像文件失败, deviceId:{}, channelId:{}, 错误码:{}", deviceId, channelId, client.hCNetSDK.NET_DVR_GetLastError());
+                    break;
+                }
+            }
+
+            if (recordList.isEmpty()) {
+                log.warn("未查询到录像文件, deviceId:{}, channelId:{}", deviceId, channelId);
+                throw new ServiceException("未查询到录像文件");
+            }
+
+        } finally {
+            // 关闭查找句柄
+            client.hCNetSDK.NET_DVR_FindClose_V30(findHandle);
+        }
+
+        log.info("查询海康设备录像完成, deviceId:{}, channelId:{}, 共查询到 {} 条录像记录", deviceId, channelId, recordList.size());
+        return recordList;
+    }
+
+    /**
+     * 将海康设备的录像类型转换为可读字符串
+     *
+     * @param fileType 海康设备返回的文件类型
+     * @return 可读的录像类型字符串
+     */
+    private String getRecordTypeString(byte fileType) {
+        switch (fileType) {
+            case 0:
+                return "定时录像";
+            case 1:
+                return "移动侦测";
+            case 2:
+                return "报警触发";
+            case 3:
+                return "报警|移动侦测";
+            case 4:
+                return "报警&移动侦测";
+            case 5:
+                return "命令触发";
+            case 6:
+                return "手动录像";
+            case 7:
+                return "震动报警";
+            case 8:
+                return "环境报警";
+            case 9:
+                return "智能报警";
+            case 10:
+                return "PIR报警";
+            case 11:
+                return "无线报警";
+            case 12:
+                return "呼救报警";
+            case 14:
+                return "智能交通事件";
+            default:
+                return "未知类型(" + fileType + ")";
+        }
+    }
 }
