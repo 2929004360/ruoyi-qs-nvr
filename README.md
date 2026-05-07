@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="logo" src="https://img.cdn1.vip/i/69e87044d75c6_1776840772.webp" width="100" height="100">
+  <img alt="logo" src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/logo.png" width="100" height="100">
 </p>
 
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">泉视视频监控系统-nvr</h1>
@@ -134,28 +134,28 @@ com.ruoyi
 
 <table>
     <tr>
-        <td><img src="https://img.cdn1.vip/i/69dfba274564f_1776269863.webp"/></td>
-        <td><img src="https://img.cdn1.vip/i/69dfb92b21084_1776269611.webp"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/1.png"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/2.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://img.cdn1.vip/i/69dfb9746ac0a_1776269684.webp"/></td>
-        <td><img src="https://img.cdn1.vip/i/69dfb9842dc2e_1776269700.webp"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/3.png"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/4.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://img.cdn1.vip/i/69dfb990b40d3_1776269712.webp"/></td>
-        <td><img src="https://img.cdn1.vip/i/69dfb9b3c3dc2_1776269747.webp"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/5.png"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/6.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://img.cdn1.vip/i/69dfb90785b7b_1776269575.webp"/></td>
-        <td><img src="https://img.cdn1.vip/i/69dfb9e769f6c_1776269799.webp"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/7.png"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/8.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://img.cdn1.vip/i/69dfb9f426816_1776269812.webp"/></td>
-        <td><img src="https://img.cdn1.vip/i/69dfba087dd08_1776269832.webp"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/9.png"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/10.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://img.cdn1.vip/i/69dfba12efc81_1776269842.webp"/></td>
-        <td><img src="https://img.cdn1.vip/i/69dfba1d4cf50_1776269853.webp"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/11.png"/></td>
+        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/12.png"/></td>
     </tr>
 </table>
 
