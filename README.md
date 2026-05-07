@@ -166,3 +166,4 @@ com.ruoyi
 * 感谢作者[ruoyi](https://doc.ruoyi.vip/ruoyi-cloud/) 开源这么好用的框架。
 * 感谢作者[剑器近](https://gitee.com/yezhihao/jt808-server) 开源这么好用部标808和部标1078的框架。
 * 感谢作者[panll](https://gitee.com/pan648540858/wvp-GB28181-pro) 开源这么好用国标28181的框架。
+* 感谢作者[胖虎](https://gitee.com/daofuli) 提供技术支持
