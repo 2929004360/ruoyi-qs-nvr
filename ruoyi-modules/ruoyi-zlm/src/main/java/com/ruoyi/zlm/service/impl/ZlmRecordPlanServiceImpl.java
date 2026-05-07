@@ -6,6 +6,7 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.enums.LiveStreamType;
 import com.ruoyi.common.core.utils.DateUtils;
+import com.ruoyi.common.security.utils.SecurityUtils;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.MediaInfo;
@@ -368,5 +369,15 @@ public class ZlmRecordPlanServiceImpl implements IZlmRecordPlanService {
 
         // 查询现在需要录像的设备Id
         return zlmRecordPlanMapper.queryRecordIng(week, index);
+    }
+
+    /**
+     * 修改录像计划状态
+     */
+    @Override
+    public int updateZlmRecordPlanStatus(ZlmRecordPlan zlmRecordPlan) {
+        zlmRecordPlan.setUpdateBy(SecurityUtils.getUsername());
+        zlmRecordPlan.setUpdateTime(DateUtils.getNowDate());
+        return zlmRecordPlanMapper.updateZlmRecordPlan(zlmRecordPlan);
     }
 }

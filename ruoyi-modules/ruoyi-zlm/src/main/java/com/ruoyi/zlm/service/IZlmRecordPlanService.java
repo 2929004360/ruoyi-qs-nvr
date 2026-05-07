@@ -55,4 +55,12 @@ public interface IZlmRecordPlanService
      * 录像计划任务
      */
     void task();
+
+    /**
+     * 修改录像计划状态
+     * 
+     * @param zlmRecordPlan 录像计划
+     * @return 结果
+     */
+    int updateZlmRecordPlanStatus(ZlmRecordPlan zlmRecordPlan);
 }

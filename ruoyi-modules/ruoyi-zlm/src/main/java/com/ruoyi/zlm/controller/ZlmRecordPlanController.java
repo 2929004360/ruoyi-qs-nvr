@@ -5,6 +5,8 @@ import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.core.web.page.TableDataInfo;
 import com.ruoyi.common.log.annotation.Log;
 import com.ruoyi.common.log.enums.BusinessType;
+import com.ruoyi.common.security.annotation.RequiresPermissions;
+import com.ruoyi.common.security.utils.SecurityUtils;
 import com.ruoyi.zlm.domain.ZlmRecordPlan;
 import com.ruoyi.zlm.service.IZlmRecordPlanService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,5 +72,15 @@ public class ZlmRecordPlanController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(zlmRecordPlanService.deleteZlmRecordPlanByIds(ids));
+    }
+
+    /**
+     * 状态修改
+     */
+    @Log(title = "录像计划", businessType = BusinessType.UPDATE)
+    @PutMapping("/changeStatus")
+    public AjaxResult changeStatus(@RequestBody ZlmRecordPlan zlmRecordPlan) {
+        zlmRecordPlan.setUpdateBy(SecurityUtils.getUsername());
+        return toAjax(zlmRecordPlanService.updateZlmRecordPlanStatus(zlmRecordPlan));
     }
 }
