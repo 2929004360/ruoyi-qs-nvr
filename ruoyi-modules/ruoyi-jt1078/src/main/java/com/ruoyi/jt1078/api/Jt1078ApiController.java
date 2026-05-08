@@ -297,7 +297,6 @@ public class Jt1078ApiController {
     /**
      * 查询录像文件列表
      */
-    @InnerAuth
     @GetMapping("/queryRecord/{mobileNo}/{channelNo}")
     public R<ArrayList<HashMap<String, Object>>> queryRecord(
             @PathVariable String mobileNo,

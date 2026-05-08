@@ -1,6 +1,8 @@
 package com.ruoyi.onvif.controller;
 
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.web.domain.AjaxResult;
+import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.onvif.api.domain.OnvifDevice;
 import com.ruoyi.onvif.api.domain.WSOnvifDevice;
 import com.ruoyi.onvif.service.IOnvifService;
@@ -44,4 +46,22 @@ public class OnvifController {
         return AjaxResult.success((device));
     }
 
+    /**
+     * 查询录像文件
+     *
+     * @param deviceIp  设备IP
+     * @param username  用户名
+     * @param password  密码
+     * @param startTime 开始时间，格式：yyyy-MM-dd HH:mm:ss
+     * @param endTime   结束时间，格式：yyyy-MM-dd HH:mm:ss
+     * @return 录像文件列表
+     */
+    @GetMapping("/queryRecord")
+    public R<Object> queryRecord(@RequestParam String deviceIp,
+                                   @RequestParam String username,
+                                   @RequestParam String password,
+                                   @RequestParam String startTime,
+                                   @RequestParam String endTime) {
+        return R.ok(onvifService.queryRecord(deviceIp, username, password, startTime, endTime));
+    }
 }

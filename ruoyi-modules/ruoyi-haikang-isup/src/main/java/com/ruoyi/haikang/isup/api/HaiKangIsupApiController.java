@@ -15,6 +15,7 @@ import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
  * @Author fengcheng
  * @date 2026-03-30
  */
+@Validated
 @RestController
 @RequestMapping("/api/haikang/isup")
 public class HaiKangIsupApiController {
