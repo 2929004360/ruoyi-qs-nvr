@@ -28,10 +28,9 @@ public class FRealDatarTPCallback implements fRealDataCallBackEx {
     private InetAddress targetAddress;
 
     private int seqNum = 0;
-    private int currentTimestamp = 0;
+    private long firstFrameTime = -1;  // 记录第一帧的系统时间
+    private int startTimestamp = 0;    // 起始时间戳
     private static final int CLOCK_RATE = 90000;
-    private static final int FPS = 25;
-    private static final int TIMESTAMP_INCREMENT = CLOCK_RATE / FPS;
 
     public FRealDatarTPCallback(String host, Integer rtpPort, String ssrc) {
         this.host = host;
@@ -73,8 +72,16 @@ public class FRealDatarTPCallback implements fRealDataCallBackEx {
 
         try {
             if (dwDataType == 1001 || dwDataType == 3) {
-                int frameTimestamp = currentTimestamp;
-                currentTimestamp += TIMESTAMP_INCREMENT;
+                long currentTime = System.currentTimeMillis();
+                
+                // 初始化第一帧时间
+                if (firstFrameTime == -1) {
+                    firstFrameTime = currentTime;
+                }
+
+                // 根据真实时间差计算时间戳，而不是固定增量
+                long elapsedMs = currentTime - firstFrameTime;
+                int frameTimestamp = startTimestamp + (int) (elapsedMs * CLOCK_RATE / 1000L);
 
                 byte pt = 96;
 
