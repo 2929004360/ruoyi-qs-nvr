@@ -7,6 +7,7 @@ import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.common.InviteSessionType;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.SsrcTransaction;
+import com.ruoyi.gb28181.api.utils.DateUtil;
 import com.ruoyi.gb28181.api.utils.SipUtils;
 import com.ruoyi.gb28181.common.ErrorCode;
 import com.ruoyi.gb28181.config.SipConfig;
@@ -403,5 +404,60 @@ public class SIPCommander implements ISIPCommander {
         strTmp = String.format("%02X", checkCode);
         builder.append(strTmp, 0, 2);
         return builder.toString();
+    }
+
+    /**
+     * 查询录像信息
+     *
+     * @param device     设备
+     * @param channelId  通道id
+     * @param startTime  开始时间
+     * @param endTime    结束时间
+     * @param sn         sn
+     * @param secrecy
+     * @param type
+     * @param okEvent
+     * @param errorEvent
+     * @throws InvalidArgumentException
+     * @throws SipException
+     * @throws ParseException
+     */
+    @Override
+    public void recordInfoQuery(Device device, String channelId, String startTime, String endTime, int sn, Integer secrecy, String type, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent) throws InvalidArgumentException, SipException, ParseException {
+        if (secrecy == null) {
+            secrecy = 0;
+        }
+        if (type == null) {
+            type = "all";
+        }
+
+        StringBuffer recordInfoXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        recordInfoXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        recordInfoXml.append("<Query>\r\n");
+        recordInfoXml.append("<CmdType>RecordInfo</CmdType>\r\n");
+        recordInfoXml.append("<SN>" + sn + "</SN>\r\n");
+        recordInfoXml.append("<DeviceID>" + channelId + "</DeviceID>\r\n");
+        if (startTime != null) {
+            recordInfoXml.append("<StartTime>" + DateUtil.yyyy_MM_dd_HH_mm_ssToISO8601(startTime) + "</StartTime>\r\n");
+        }
+        if (endTime != null) {
+            recordInfoXml.append("<EndTime>" + DateUtil.yyyy_MM_dd_HH_mm_ssToISO8601(endTime) + "</EndTime>\r\n");
+        }
+        if (secrecy != null) {
+            recordInfoXml.append("<Secrecy> " + secrecy + " </Secrecy>\r\n");
+        }
+        if (type != null) {
+            // 大华NVR要求必须增加一个值为all的文本元素节点Type
+            recordInfoXml.append("<Type>" + type + "</Type>\r\n");
+        }
+        recordInfoXml.append("</Query>\r\n");
+
+
+
+        Request request = headerProvider.createMessageRequest(device, recordInfoXml.toString(),
+                SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null,sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()),device.getTransport()));
+
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, errorEvent, okEvent);
     }
 }

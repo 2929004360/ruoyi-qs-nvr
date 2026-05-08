@@ -7,7 +7,6 @@ import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 
 import javax.sip.InvalidArgumentException;
-import javax.sip.PeerUnavailableException;
 import javax.sip.SipException;
 import java.text.ParseException;
 import java.util.List;
@@ -86,4 +85,23 @@ public interface ISIPCommander {
      * @param callback
      */
     void presetQuery(Device device, String channelId, ErrorCallback<List<Preset>> callback) throws InvalidArgumentException, SipException, ParseException;
+
+    /**
+     * 查询录像信息
+     *
+     * @param device     设备
+     * @param channelId  通道id
+     * @param startTime  开始时间
+     * @param endTime    结束时间
+     * @param sn         sn
+     * @param secrecy
+     * @param type
+     * @param okEvent
+     * @param errorEvent
+     * @throws InvalidArgumentException
+     * @throws SipException
+     * @throws ParseException
+     */
+    void recordInfoQuery(Device device, String channelId, String startTime, String endTime, int sn, Integer secrecy, String type, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent) throws InvalidArgumentException, SipException, ParseException;
+
 }

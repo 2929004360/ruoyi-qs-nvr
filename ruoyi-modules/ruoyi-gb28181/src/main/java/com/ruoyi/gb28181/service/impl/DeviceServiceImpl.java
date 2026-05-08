@@ -5,6 +5,7 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import com.ruoyi.gb28181.api.bean.Preset;
+import com.ruoyi.gb28181.api.bean.RecordInfo;
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
@@ -22,19 +23,23 @@ import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.SubscribeTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForCatalog;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForMobilPosition;
+import com.ruoyi.gb28181.transmit.event.record.RecordInfoEndEvent;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.sip.InvalidArgumentException;
 import javax.sip.SipException;
 import java.text.ParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -71,6 +76,16 @@ public class DeviceServiceImpl implements IDeviceService {
 
     @Autowired
     private RemoteQsDeviceService remoteQsDeviceService;
+
+    // 记录录像查询的结果等待
+    private final Map<String, SynchronousQueue<RecordInfo>> topicSubscribers = new ConcurrentHashMap<>();
+
+    /**
+     * 获取 topicSubscribers，供 RecordInfoEndEventListener 使用
+     */
+    public Map<String, SynchronousQueue<RecordInfo>> getTopicSubscribers() {
+        return topicSubscribers;
+    }
 
     /**
      * 查询设备信息
@@ -437,6 +452,45 @@ public class DeviceServiceImpl implements IDeviceService {
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[命令发送失败] 预制位查询: {}", e.getMessage());
             callback.run(ErrorCode.ERROR100.getCode(), "命令发送: " + e.getMessage(), null);
+            throw new ServiceException("命令发送失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询录像文件列表
+     *
+     * @param device    设备
+     * @param channel   通道
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @param callback  回调
+     */
+    @Override
+    public void queryRecord(Device device, DeviceChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> callback) {
+        try {
+            int sn = (int) ((Math.random() * 9 + 1) * 100000);
+            commander.recordInfoQuery(device, channel.getDeviceId(), startTime, endTime, sn, null, null, eventResult -> {
+                try {
+                    // 消息发送成功, 监听等待数据到来
+                    SynchronousQueue<RecordInfo> queue = new SynchronousQueue<>();
+                    this.topicSubscribers.put("record" + sn, queue);
+                    RecordInfo recordInfo = queue.poll(userSetting.getRecordInfoTimeout(), TimeUnit.MILLISECONDS);
+                    if (recordInfo != null) {
+                        callback.run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), recordInfo);
+                    } else {
+                        callback.run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), recordInfo);
+                    }
+                } catch (InterruptedException e) {
+                    callback.run(ErrorCode.ERROR100.getCode(), e.getMessage(), null);
+                } finally {
+                    this.topicSubscribers.remove("record" + sn);
+                }
+
+            }, (eventResult -> {
+                callback.run(ErrorCode.ERROR100.getCode(), "查询录像失败, status: " + eventResult.statusCode + ", message: " + eventResult.msg, null);
+            }));
+        } catch (InvalidArgumentException | SipException | ParseException e) {
+            log.error("[命令发送失败] 查询录像: {}", e.getMessage());
             throw new ServiceException("命令发送失败: " + e.getMessage());
         }
     }

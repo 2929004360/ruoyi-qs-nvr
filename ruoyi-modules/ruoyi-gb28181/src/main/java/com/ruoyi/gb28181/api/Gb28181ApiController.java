@@ -5,16 +5,18 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
+import com.ruoyi.gb28181.api.bean.RecordInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.utils.DateUtil;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.service.IDeviceService;
+import com.ruoyi.gb28181.service.IRedisCatchStorage;
 import com.ruoyi.gb28181.service.ISIPCommander;
 import com.ruoyi.gb28181.session.SipInviteSessionManager;
 import com.ruoyi.zlm.api.RemoteZlmService;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.Assert;
@@ -48,6 +50,9 @@ public class Gb28181ApiController {
 
     @Autowired
     private RemoteZlmService remoteZlmService;
+
+    @Autowired
+    private IRedisCatchStorage redisCatchStorage;
 
     /**
      * 根据设备id获取设备
@@ -670,7 +675,7 @@ public class Gb28181ApiController {
     public void auxiliarySwitch(@PathVariable String deviceId, @PathVariable String channelId, String command, Integer switchId) {
 
         if (log.isDebugEnabled()) {
-            log.debug("辅助开关控制指令-雨刷控制 API调用，deviceId：{} ，channelId：{} ，command：{}, switchId: {}", deviceId, channelId, command, switchId);
+            log.debug("辅助开关控制指令-雨刷控制 API调用，deviceId:{}, channelId:{}, command:{}, switchId:{}", deviceId, channelId, command, switchId);
         }
 
         int cmdCode = 0;
@@ -685,5 +690,51 @@ public class Gb28181ApiController {
                 break;
         }
         frontEndCommand(deviceId, channelId, cmdCode, switchId, 0, 0);
+    }
+
+    /**
+     * 查询录像文件列表
+     */
+//    @InnerAuth
+    @GetMapping("/queryRecord/{deviceId}/{channelId}")
+    public DeferredResult<R<RecordInfo>> queryRecord(
+            @PathVariable String deviceId,
+            @PathVariable String channelId,
+            @RequestParam @NotBlank(message = "开始时间不能为空") String startTime,
+            @RequestParam @NotBlank(message = "结束时间不能为空") String endTime) {
+
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("录像信息查询 API调用，deviceId：%s ，startTime：%s， endTime：%s", deviceId, startTime, endTime));
+        }
+        DeferredResult<R<RecordInfo>> result = new DeferredResult<>(Long.valueOf(userSetting.getRecordInfoTimeout()), TimeUnit.MILLISECONDS);
+        if (!DateUtil.verification(startTime, DateUtil.formatter)) {
+            throw new ServiceException("startTime格式为" + DateUtil.PATTERN);
+        }
+        if (!DateUtil.verification(endTime, DateUtil.formatter)) {
+            throw new ServiceException("endTime格式为" + DateUtil.PATTERN);
+        }
+
+        Device device = deviceService.getDeviceByDeviceId(deviceId);
+        if (device == null) {
+            throw new ServiceException(deviceId + " 不存在");
+        }
+
+        DeviceChannel channel = deviceService.getDeviceChannelByChannelId(deviceId, channelId);
+        if (channel == null) {
+            throw new ServiceException(channelId + " 不存在");
+        }
+
+        deviceService.queryRecord(device, channel, startTime, endTime, (code, msg, data) -> {
+            R<RecordInfo> wvpResult = R.ok();
+            wvpResult.setMsg(msg);
+            wvpResult.setData(data);
+            result.setResult(wvpResult);
+        });
+        result.onTimeout(() -> {
+            R<RecordInfo> wvpResult = R.fail();
+            wvpResult.setMsg("timeout");
+            result.setResult(wvpResult);
+        });
+        return result;
     }
 }

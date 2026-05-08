@@ -66,4 +66,22 @@ public interface IRedisCatchStorage {
      * @return 设备列表
      */
     List<Device> getAllDevices();
+
+    /**
+     * 存储录像列表
+     *
+     * @param deviceId  设备编号
+     * @param channelId 通道编号
+     * @param recordList 录像列表
+     */
+    void setRecordList(String deviceId, String channelId, Object recordList);
+
+    /**
+     * 获取录像列表
+     *
+     * @param deviceId  设备编号
+     * @param channelId 通道编号
+     * @return 录像列表
+     */
+    Object getRecordList(String deviceId, String channelId);
 }

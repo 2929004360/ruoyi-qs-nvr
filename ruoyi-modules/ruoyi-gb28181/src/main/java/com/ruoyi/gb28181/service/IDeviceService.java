@@ -2,6 +2,7 @@ package com.ruoyi.gb28181.service;
 
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import com.ruoyi.gb28181.api.bean.Preset;
+import com.ruoyi.gb28181.api.bean.RecordInfo;
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
@@ -102,4 +103,15 @@ public interface IDeviceService {
      * @param callback
      */
     void queryPreset(Device device, String channelId, ErrorCallback<List<Preset>> callback);
+
+    /**
+     * 查询录像文件列表
+     *
+     * @param device    设备
+     * @param channel   通道
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @param callback  回调
+     */
+    void queryRecord(Device device, DeviceChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> callback);
 }

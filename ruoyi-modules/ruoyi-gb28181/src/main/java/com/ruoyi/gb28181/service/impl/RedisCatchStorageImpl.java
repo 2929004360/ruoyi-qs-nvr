@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("rawtypes")
 @Slf4j
@@ -136,5 +137,17 @@ public class RedisCatchStorageImpl implements IRedisCatchStorage {
             }
         }
         return devices;
+    }
+
+    @Override
+    public void setRecordList(String deviceId, String channelId, Object recordList) {
+        String key = VideoManagerConstants.REDIS_RECORD_INFO_RES_PRE + deviceId + "_" + channelId;
+        redisTemplate.opsForValue().set(key, recordList, 5, TimeUnit.MINUTES);
+    }
+
+    @Override
+    public Object getRecordList(String deviceId, String channelId) {
+        String key = VideoManagerConstants.REDIS_RECORD_INFO_RES_PRE + deviceId + "_" + channelId;
+        return redisTemplate.opsForValue().get(key);
     }
 }

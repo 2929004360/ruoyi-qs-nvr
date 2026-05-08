@@ -1,6 +1,7 @@
 package com.ruoyi.jt1078.server.service.impl;
 
 import com.ruoyi.jt1078.commons.constants.VideoManagerConstants;
+import com.ruoyi.jt1078.protocol.t1078.T1205;
 import com.ruoyi.jt1078.server.model.entity.DeviceDO;
 import com.ruoyi.jt1078.server.service.IRedisCatchStorage;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -17,6 +19,8 @@ public class RedisCatchStorageImpl implements IRedisCatchStorage {
 
     @Autowired
     private RedisTemplate<Object, Object> redisTemplate;
+
+    private static final String RECORD_PREFIX = "jt1078:record:";
 
     /**
      * 新增设备
@@ -77,5 +81,21 @@ public class RedisCatchStorageImpl implements IRedisCatchStorage {
             }
         }
         return deviceList;
+    }
+
+    @Override
+    public void setRecordList(String mobileNo, T1205 recordList) {
+        String key = RECORD_PREFIX + mobileNo;
+        redisTemplate.opsForValue().set(key, recordList, 5, TimeUnit.MINUTES);
+    }
+
+    @Override
+    public T1205 getRecordList(String mobileNo) {
+        String key = RECORD_PREFIX + mobileNo;
+        Object object = redisTemplate.opsForValue().get(key);
+        if (object == null) {
+            return null;
+        }
+        return (T1205) object;
     }
 }
