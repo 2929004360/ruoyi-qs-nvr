@@ -43,4 +43,5 @@ public class OnvifController {
         OnvifDevice device = onvifService.verifyOnvifDeviceLogin(onvifDevice);
         return AjaxResult.success((device));
     }
+
 }

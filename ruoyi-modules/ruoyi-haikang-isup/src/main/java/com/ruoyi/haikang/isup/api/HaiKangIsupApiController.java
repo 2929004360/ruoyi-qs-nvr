@@ -2,13 +2,18 @@ package com.ruoyi.haikang.isup.api;
 
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.common.log.annotation.Log;
+import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
  * @Description
  * @Author fengcheng
  * @date 2026-03-30
- **/
+ */
 @RestController
 @RequestMapping("/api/haikang/isup")
 public class HaiKangIsupApiController {
@@ -210,5 +215,22 @@ public class HaiKangIsupApiController {
     public R<List<HaiKangIsupPresetInfo>> getPresetList(@PathVariable("deviceId") Long deviceId,
                                                         @PathVariable("channelId") Integer channelId) {
         return R.ok(haiKangIsupService.getPresetList(deviceId, channelId));
+    }
+
+    /**
+     * 海康设备查询录像
+     *
+     * @param deviceId  设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return
+     */
+    @GetMapping("/getRecMonth/{deviceId}/{channelId}")
+    public R<ArrayList<HashMap<String, Object>>> getRecMonth(@PathVariable("deviceId") Long deviceId,
+                                                              @PathVariable("channelId") Integer channelId,
+                                                              @NotBlank(message = "开始时间不能为空") String startTime,
+                                                              @NotBlank(message = "结束时间不能为空") String endTime) {
+        return R.ok(haiKangIsupService.queryRecord(deviceId, channelId, startTime, endTime));
     }
 }

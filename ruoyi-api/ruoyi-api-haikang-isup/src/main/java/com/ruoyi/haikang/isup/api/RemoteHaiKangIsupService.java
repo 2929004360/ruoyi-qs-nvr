@@ -7,6 +7,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import com.ruoyi.haikang.isup.api.factory.RemoteHaiKangIsupFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -186,4 +188,21 @@ public interface RemoteHaiKangIsupService {
     R<List<HaiKangIsupPresetInfo>> getPresetList(@PathVariable("deviceId") Long deviceId,
                                                  @PathVariable("channelId") Integer channelId,
                                                  @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 海康设备查询录像
+     *
+     * @param deviceId  设备ID
+     * @param channelId 通道ID
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @param inner     请求来源
+     * @return
+     */
+    @GetMapping("/api/haikang/isup/getRecMonth/{deviceId}/{channelId}")
+    R<ArrayList<HashMap<String, Object>>> getRecMonth(@PathVariable("deviceId") Long deviceId,
+                                                       @PathVariable("channelId") Integer channelId,
+                                                       @RequestParam String startTime,
+                                                       @RequestParam String endTime,
+                                                       @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

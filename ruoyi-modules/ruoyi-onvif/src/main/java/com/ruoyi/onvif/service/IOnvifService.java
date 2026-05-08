@@ -5,6 +5,7 @@ import com.ruoyi.onvif.api.domain.WSOnvifDevice;
 import com.ruoyi.onvif.domain.WSDiscoveryDevice;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -153,4 +154,28 @@ public interface IOnvifService {
      * @param dateTime 要设置的时间，格式：yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
      */
     void syncDeviceTime(String deviceIp, String username, String password, String dateTime);
+
+    /**
+     * ONVIF设备查询录像
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param startTime 开始时间，格式：yyyy-MM-dd HH:mm:ss
+     * @param endTime 结束时间，格式：yyyy-MM-dd HH:mm:ss
+     * @return 录像文件列表（包含回放地址）
+     */
+    ArrayList<HashMap<String, Object>> queryRecord(String deviceIp, String username, String password, String startTime, String endTime);
+
+    /**
+     * 获取回放地址
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param recordingToken 录制令牌
+     * @param trackToken 轨道令牌
+     * @return 回放地址
+     */
+    String getReplayUri(String deviceIp, String username, String password, String recordingToken, String trackToken);
 }

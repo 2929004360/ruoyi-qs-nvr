@@ -13,6 +13,7 @@ public class OnvifServices {
     public static final String ONVIF_PATH_PROFILES = "/onvif/device_service";
     public static final String ONVIF_PATH_STREAM_URI = "/onvif/device_service";
     public static final String ONVIF_PATH_PTZ = "/onvif/ptz_service";
+    public static final String ONVIF_PATH_SEARCH = "/onvif/search_service";
 
     //Attributes
     private String servicesPath = ONVIF_PATH_SERVICES;
@@ -20,6 +21,7 @@ public class OnvifServices {
     private String profilesPath = ONVIF_PATH_PROFILES;
     private String streamURIPath = ONVIF_PATH_STREAM_URI;
     private String ptzPath = ONVIF_PATH_PTZ;
+    private String searchPath = ONVIF_PATH_SEARCH;
 
     //Constructors
     public OnvifServices() {
@@ -65,6 +67,14 @@ public class OnvifServices {
 
     public void setPTZPath(String ptzPath) {
         this.ptzPath = ptzPath;
+    }
+
+    public String getSearchPath() {
+        return searchPath;
+    }
+
+    public void setSearchPath(String searchPath) {
+        this.searchPath = searchPath;
     }
 
 }

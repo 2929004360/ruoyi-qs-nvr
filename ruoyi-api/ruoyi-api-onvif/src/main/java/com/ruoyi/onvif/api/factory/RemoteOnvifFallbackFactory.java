@@ -73,6 +73,16 @@ public class RemoteOnvifFallbackFactory implements FallbackFactory<RemoteOnvifSe
             public R<Void> controlWiper(String deviceIp, String username, String password, boolean on, String source) {
                 return R.fail("onvif雨刷控制失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Object> queryRecord(String deviceIp, String username, String password, String startTime, String endTime, String source) {
+                return R.fail("查询onvif录像文件失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<String> getReplayUri(String deviceIp, String username, String password, String recordingToken, String trackToken, String source) {
+                return R.fail("获取onvif回放地址失败:" + throwable.getMessage());
+            }
         };
     }
 }

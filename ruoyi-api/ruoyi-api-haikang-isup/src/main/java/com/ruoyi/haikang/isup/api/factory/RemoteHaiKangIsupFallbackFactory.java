@@ -6,6 +6,8 @@ import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +89,11 @@ public class RemoteHaiKangIsupFallbackFactory implements FallbackFactory<RemoteH
             @Override
             public R<List<HaiKangIsupPresetInfo>> getPresetList(Long deviceId, Integer channelId, String inner) {
                 return R.fail("海康isup获取预置点列表失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<ArrayList<HashMap<String, Object>>> getRecMonth(Long deviceId, Integer channelId, String startTime, String endTime, String inner) {
+                return R.fail("海康isup查询录像失败:" + throwable.getMessage());
             }
         };
     }

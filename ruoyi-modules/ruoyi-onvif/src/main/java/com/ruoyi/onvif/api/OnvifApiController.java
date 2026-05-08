@@ -264,4 +264,44 @@ public class OnvifApiController {
         onvifService.syncDeviceTime(deviceIp, username, password, dateTime);
         return R.ok();
     }
+
+    /**
+     * 查询录像文件
+     *
+     * @param deviceIp  设备IP
+     * @param username  用户名
+     * @param password  密码
+     * @param startTime 开始时间，格式：yyyy-MM-dd HH:mm:ss
+     * @param endTime   结束时间，格式：yyyy-MM-dd HH:mm:ss
+     * @return 录像文件列表
+     */
+    @InnerAuth
+    @GetMapping("/queryRecord")
+    public R<Object> queryRecord(@RequestParam String deviceIp,
+                                   @RequestParam String username,
+                                   @RequestParam String password,
+                                   @RequestParam String startTime,
+                                   @RequestParam String endTime) {
+        return R.ok(onvifService.queryRecord(deviceIp, username, password, startTime, endTime));
+    }
+
+    /**
+     * 获取回放地址
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param recordingToken 录制令牌
+     * @param trackToken 轨道令牌
+     * @return 回放地址
+     */
+    @InnerAuth
+    @GetMapping("/getReplayUri")
+    public R<String> getReplayUri(@RequestParam String deviceIp,
+                                    @RequestParam String username,
+                                    @RequestParam String password,
+                                    @RequestParam String recordingToken,
+                                    @RequestParam String trackToken) {
+        return R.ok(onvifService.getReplayUri(deviceIp, username, password, recordingToken, trackToken));
+    }
 }

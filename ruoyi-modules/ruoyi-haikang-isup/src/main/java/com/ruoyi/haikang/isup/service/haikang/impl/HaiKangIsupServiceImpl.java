@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -494,5 +495,274 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
 
         log.info("获取预置点列表成功，deviceId:{}, channelId:{}, count:{}", deviceId, channelId, presetList.size());
         return presetList;
+    }
+
+    @Override
+    public ArrayList<HashMap<String, Object>> queryRecord(Long deviceId, Integer channelId, String startTime, String endTime) {
+        log.info("开始查询海康设备录像，deviceId:{}, channelId:{}, startTime:{}, endTime:{}", deviceId, channelId, startTime, endTime);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败，deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录，deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效，deviceId:{}, userId:{}", deviceId, lUserID);
+
+        // 解码URL编码的时间参数
+        try {
+            startTime = java.net.URLDecoder.decode(startTime, "UTF-8");
+            endTime = java.net.URLDecoder.decode(endTime, "UTF-8");
+            log.debug("URL解码后的时间，startTime:{}, endTime:{}", startTime, endTime);
+        } catch (Exception e) {
+            log.warn("URL解码失败，使用原始时间，error:{}", e.getMessage());
+        }
+
+        // 查询录像
+        ArrayList<HashMap<String, Object>> recordList = tryFindFile(lUserID, channelId, startTime, endTime, deviceId);
+
+        if (recordList.isEmpty()) {
+            log.warn("未查询到录像文件，deviceId:{}, channelId:{}", deviceId, channelId);
+            throw new ServiceException("未查询到录像文件");
+        }
+
+        log.info("查询海康设备录像完成，deviceId:{}, channelId:{}, 共查询到{}条录像记录", deviceId, channelId, recordList.size());
+        return recordList;
+    }
+
+    /**
+     * 尝试使用ISUP API查询录像
+     */
+    private ArrayList<HashMap<String, Object>> tryFindFile(int lUserID, Integer channelId, String startTime, String endTime, Long deviceId) {
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+
+        HCISUPCMS.NET_EHOME_REC_FILE_COND fileCondition = new HCISUPCMS.NET_EHOME_REC_FILE_COND();
+        fileCondition.read();
+
+        // 解析时间
+        try {
+            String[] dateStartByFile = startTime.split(" ");
+            String[] dateStart1 = dateStartByFile[0].split("-");
+            String[] dateStart2 = dateStartByFile[1].split(":");
+
+            fileCondition.struStartTime.wYear = Short.parseShort(dateStart1[0]);
+            fileCondition.struStartTime.byMonth = Byte.parseByte(dateStart1[1]);
+            fileCondition.struStartTime.byDay = Byte.parseByte(dateStart1[2]);
+            fileCondition.struStartTime.byHour = Byte.parseByte(dateStart2[0]);
+            fileCondition.struStartTime.byMinute = Byte.parseByte(dateStart2[1]);
+            fileCondition.struStartTime.bySecond = Byte.parseByte(dateStart2[2]);
+
+            String[] dateEndByFile = endTime.split(" ");
+            String[] dateEnd1 = dateEndByFile[0].split("-");
+            String[] dateEnd2 = dateEndByFile[1].split(":");
+
+            fileCondition.struStopTime.wYear = Short.parseShort(dateEnd1[0]);
+            fileCondition.struStopTime.byMonth = Byte.parseByte(dateEnd1[1]);
+            fileCondition.struStopTime.byDay = Byte.parseByte(dateEnd1[2]);
+            fileCondition.struStopTime.byHour = Byte.parseByte(dateEnd2[0]);
+            fileCondition.struStopTime.byMinute = Byte.parseByte(dateEnd2[1]);
+            fileCondition.struStopTime.bySecond = Byte.parseByte(dateEnd2[2]);
+        } catch (Exception e) {
+            log.error("时间参数解析失败，startTime:{}, endTime:{}, error:{}", startTime, endTime, e.getMessage(), e);
+            return recordList;
+        }
+
+        // 设置其他查询条件
+        fileCondition.dwChannel = channelId;
+        fileCondition.dwRecType = 0xff; // 全部类型
+        fileCondition.dwStartIndex = 0;
+        fileCondition.dwMaxFileCountPer = 100; // 增加每次查询的数量，获取更多记录
+        fileCondition.byLocalOrUTC = 0; // 设备本地时间
+        fileCondition.write();
+
+        log.debug("开始查询，通道号:{}, 时间范围:{}-{}", channelId, startTime, endTime);
+
+        int findHandle = CmsService.hCEhomeCMS.NET_ECMS_StartFindFile_V11(lUserID, HCISUPCMS.ENUM_SEARCH_RECORD_FILE, fileCondition.getPointer(), fileCondition.size());
+
+        if (findHandle == -1) {
+            int errorCode = CmsService.hCEhomeCMS.NET_ECMS_GetLastError();
+            log.warn("NET_ECMS_StartFindFile_V11失败，通道号:{}, 错误码:{}", channelId, errorCode);
+            return recordList;
+        }
+
+        try {
+            HCISUPCMS.NET_EHOME_REC_FILE findData = new HCISUPCMS.NET_EHOME_REC_FILE();
+            int findNextResult;
+
+            int retryCount = 0;
+            int maxRetryCount = 50; // 最多重试50次
+            long waitTimeMs = 100; // 每次等待100毫秒
+            
+            while (true) {
+                findNextResult = CmsService.hCEhomeCMS.NET_ECMS_FindNextFile_V11(findHandle, findData.getPointer(), findData.size());
+                if (findNextResult == 1000) { // 找到文件
+                    findData.read();
+
+                    String fileName = CommonUtil.parseHikvisionString(findData.sFileName);
+                    String start = String.format("%04d-%02d-%02d %02d:%02d:%02d",
+                            findData.struStartTime.wYear, findData.struStartTime.byMonth, findData.struStartTime.byDay,
+                            findData.struStartTime.byHour, findData.struStartTime.byMinute, findData.struStartTime.bySecond);
+                    String stop = String.format("%04d-%02d-%02d %02d:%02d:%02d",
+                            findData.struStopTime.wYear, findData.struStopTime.byMonth, findData.struStopTime.byDay,
+                            findData.struStopTime.byHour, findData.struStopTime.byMinute, findData.struStopTime.bySecond);
+
+                    HashMap<String, Object> record = new HashMap<>(16);
+                    record.put("channel", String.valueOf(channelId));
+                    record.put("type", getRecordTypeString(findData.dwFileSubType));
+                    record.put("start", start);
+                    record.put("end", stop);
+                    record.put("fileName", fileName);
+                    record.put("fileSize", findData.dwFileSize);
+                    recordList.add(record);
+
+                    log.debug("找到录像: channel={}, fileName={}, start={}, end={}", channelId, fileName, start, stop);
+                    retryCount = 0; // 重置重试计数
+                } else if (findNextResult == 1003) { // 没有更多文件
+                    log.debug("查询结束，共找到{}条记录", recordList.size());
+                    break;
+                } else if (findNextResult == 1002) { // 正在查找，请等待
+                    retryCount++;
+                    if (retryCount > maxRetryCount) {
+                        log.warn("查找超时，已重试{}次，放弃继续查询", maxRetryCount);
+                        break;
+                    }
+                    log.debug("正在查找，请等待，重试次数:{}/{}", retryCount, maxRetryCount);
+                    try {
+                        Thread.sleep(waitTimeMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.warn("等待被中断", e);
+                        break;
+                    }
+                } else if (findNextResult == 1001 || findNextResult == 1004 || findNextResult == 1005) { // 其他结束状态
+                    if (findNextResult == 1001) {
+                        log.warn("未查找到文件，返回值:{}", findNextResult);
+                    } else if (findNextResult == 1004) {
+                        log.warn("查找文件时异常，返回值:{}", findNextResult);
+                    } else if (findNextResult == 1005) {
+                        log.warn("查找文件超时，返回值:{}", findNextResult);
+                    }
+                    break;
+                } else { // 查找出错
+                    int errorCode = CmsService.hCEhomeCMS.NET_ECMS_GetLastError();
+                    log.warn("查找下一个文件失败，返回值:{}, 错误码:{}", findNextResult, errorCode);
+                    break;
+                }
+            }
+        } finally {
+            CmsService.hCEhomeCMS.NET_ECMS_StopFindFile(findHandle);
+        }
+
+        return recordList;
+    }
+
+    /**
+     * 将海康设备的录像类型转换为可读字符串
+     *
+     * @param fileType 海康设备返回的文件类型
+     * @return 可读的录像类型字符串
+     */
+    private String getRecordTypeString(int fileType) {
+        switch (fileType) {
+            case 0:
+                return "定时录像";
+            case 1:
+                return "移动侦测";
+            case 2:
+                return "报警触发";
+            case 3:
+                return "报警|移动侦测";
+            case 4:
+                return "报警&移动侦测";
+            case 5:
+                return "命令触发";
+            case 6:
+                return "手动录像";
+            case 7:
+                return "震动报警";
+            case 8:
+                return "环境报警";
+            case 9:
+                return "智能报警";
+            case 10:
+                return "PIR报警";
+            case 11:
+                return "无线报警";
+            case 12:
+                return "呼救报警";
+            case 13:
+                return "移动侦测/PIR/无线/呼救等报警";
+            case 14:
+                return "智能交通事件";
+            case 15:
+                return "越界侦测";
+            case 16:
+                return "区域入侵侦测";
+            case 17:
+                return "音频异常侦测";
+            case 18:
+                return "场景变更侦测";
+            case 19:
+                return "智能侦测";
+            case 20:
+                return "人脸侦测";
+            case 21:
+                return "信号量/POS录像";
+            case 22:
+                return "回传";
+            case 23:
+                return "回迁录像";
+            case 24:
+                return "遮挡";
+            case 26:
+                return "进入区域侦测";
+            case 27:
+                return "离开区域侦测";
+            case 28:
+                return "徘徊侦测";
+            case 29:
+                return "人员聚集侦测";
+            case 30:
+                return "快速运动侦测";
+            case 31:
+                return "停车侦测";
+            case 32:
+                return "物品遗留侦测";
+            case 33:
+                return "物品拿取侦测";
+            case 34:
+                return "火点检测";
+            case 36:
+                return "船只检测";
+            case 37:
+                return "测温预警";
+            case 38:
+                return "测温报警";
+            case 42:
+                return "温差报警";
+            case 43:
+                return "离线测温报警";
+            case 44:
+                return "防区报警";
+            case 45:
+                return "紧急求助";
+            case 46:
+                return "业务咨询";
+            case 47:
+                return "起身检测";
+            case 48:
+                return "折线攀高";
+            case 49:
+                return "目标区域滞留超时";
+            default:
+                return "未知类型(" + fileType + ")";
+        }
     }
 }

@@ -16,7 +16,23 @@ public class OnvifXMLBuilder {
                 "<soap:Envelope " +
                 "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
                 "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" " +
-                "xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" >" +
+                "xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" " +
+                "xmlns:tse=\"http://www.onvif.org/ver10/search/wsdl\" " +
+                "xmlns:tt=\"http://www.onvif.org/ver10/schema\" >" +
+                "<soap:Body>";
+    }
+
+    /**
+     * 获取用于搜索服务的SOAP头部
+     */
+    public static String getSearchSoapHeader() {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                "<soap:Envelope " +
+                "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
+                "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" " +
+                "xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" " +
+                "xmlns:tse=\"http://www.onvif.org/ver10/search/wsdl\" " +
+                "xmlns:tt=\"http://www.onvif.org/ver10/schema\" >" +
                 "<soap:Body>";
     }
 

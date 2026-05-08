@@ -175,4 +175,42 @@ public interface RemoteOnvifService {
                          @RequestParam("password") String password,
                          @RequestParam("on") boolean on,
                          @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 查询录像文件
+     *
+     * @param deviceIp  设备IP
+     * @param username  用户名
+     * @param password  密码
+     * @param startTime 开始时间，格式：yyyy-MM-dd HH:mm:ss
+     * @param endTime   结束时间，格式：yyyy-MM-dd HH:mm:ss
+     * @param source    请求来源
+     * @return 录像文件列表
+     */
+    @GetMapping("/api/onvif/queryRecord")
+    R<Object> queryRecord(@RequestParam("deviceIp") String deviceIp,
+                           @RequestParam("username") String username,
+                           @RequestParam("password") String password,
+                           @RequestParam("startTime") String startTime,
+                           @RequestParam("endTime") String endTime,
+                           @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 获取回放地址
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param recordingToken 录制令牌
+     * @param trackToken 轨道令牌
+     * @param source 请求来源
+     * @return 回放地址
+     */
+    @GetMapping("/api/onvif/getReplayUri")
+    R<String> getReplayUri(@RequestParam("deviceIp") String deviceIp,
+                            @RequestParam("username") String username,
+                            @RequestParam("password") String password,
+                            @RequestParam("recordingToken") String recordingToken,
+                            @RequestParam("trackToken") String trackToken,
+                            @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

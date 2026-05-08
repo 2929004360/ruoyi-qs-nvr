@@ -1084,52 +1084,80 @@ public class HaiKangServiceImpl implements IHaiKangService {
         }
         log.debug("设备用户ID有效, deviceId:{}, userId:{}", deviceId, lUserID);
 
-        // 开始时间
+        // 解码 URL 编码的时间参数
+        try {
+            startTime = java.net.URLDecoder.decode(startTime, "UTF-8");
+            endTime = java.net.URLDecoder.decode(endTime, "UTF-8");
+            log.debug("URL解码后的时间, startTime:{}, endTime:{}", startTime, endTime);
+        } catch (Exception e) {
+            log.warn("URL解码失败，使用原始时间, error:{}", e.getMessage());
+        }
+
+        // 查询录像
+        ArrayList<HashMap<String, Object>> recordList = tryFindFile(lUserID, channelId, startTime, endTime, deviceId);
+
+        if (recordList.isEmpty()) {
+            log.warn("未查询到录像文件, deviceId:{}, channelId:{}", deviceId, channelId);
+            throw new ServiceException("未查询到录像文件");
+        }
+
+        log.info("查询海康设备录像完成, deviceId:{}, channelId:{}, 共查询到 {} 条录像记录", deviceId, channelId, recordList.size());
+        return recordList;
+    }
+
+    /**
+     * 尝试使用旧版 API 查询录像
+     */
+    private ArrayList<HashMap<String, Object>> tryFindFile(int lUserID, int channelId, String startTime, String endTime, Long deviceId) {
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+
         HCNetSDK.NET_DVR_FILECOND_V40 fileCondition = new HCNetSDK.NET_DVR_FILECOND_V40();
+        fileCondition.read(); // 先读取初始值
 
-        // 开始时间
-        String[] dateStartByFile = startTime.split(" ");
-        String[] dateStart1 = dateStartByFile[0].split("-");
-        String[] dateStart2 = dateStartByFile[1].split(":");
+        // 解析时间
+        try {
+            String[] dateStartByFile = startTime.split(" ");
+            String[] dateStart1 = dateStartByFile[0].split("-");
+            String[] dateStart2 = dateStartByFile[1].split(":");
 
-        fileCondition.struStartTime.dwYear = Integer.parseInt(dateStart1[0]);
-        fileCondition.struStartTime.dwMonth = Integer.parseInt(dateStart1[1]);
-        fileCondition.struStartTime.dwDay = Integer.parseInt(dateStart1[2]);
-        fileCondition.struStartTime.dwHour = Integer.parseInt(dateStart2[0]);
-        fileCondition.struStartTime.dwMinute = Integer.parseInt(dateStart2[1]);
-        fileCondition.struStartTime.dwSecond = Integer.parseInt(dateStart2[2]);
+            fileCondition.struStartTime.dwYear = Integer.parseInt(dateStart1[0]);
+            fileCondition.struStartTime.dwMonth = Integer.parseInt(dateStart1[1]);
+            fileCondition.struStartTime.dwDay = Integer.parseInt(dateStart1[2]);
+            fileCondition.struStartTime.dwHour = Integer.parseInt(dateStart2[0]);
+            fileCondition.struStartTime.dwMinute = Integer.parseInt(dateStart2[1]);
+            fileCondition.struStartTime.dwSecond = Integer.parseInt(dateStart2[2]);
 
-        // 结束时间
-        String[] dateEndByFile = endTime.split(" ");
-        String[] dateEnd1 = dateEndByFile[0].split("-");
-        String[] dateEnd2 = dateEndByFile[1].split(":");
+            String[] dateEndByFile = endTime.split(" ");
+            String[] dateEnd1 = dateEndByFile[0].split("-");
+            String[] dateEnd2 = dateEndByFile[1].split(":");
 
-        fileCondition.struStopTime.dwYear = Integer.parseInt(dateEnd1[0]);
-        fileCondition.struStopTime.dwMonth = Integer.parseInt(dateEnd1[1]);
-        fileCondition.struStopTime.dwDay = Integer.parseInt(dateEnd1[2]);
-        fileCondition.struStopTime.dwHour = Integer.parseInt(dateEnd2[0]);
-        fileCondition.struStopTime.dwMinute = Integer.parseInt(dateEnd2[1]);
-        fileCondition.struStopTime.dwSecond = Integer.parseInt(dateEnd2[2]);
-
-        log.debug("时间参数解析成功, deviceId:{}, 开始时间:{}-{}-{} {}:{}:{}, 结束时间:{}-{}-{} {}:{}:{}",
-                deviceId, fileCondition.struStartTime.dwYear, fileCondition.struStartTime.dwMonth, fileCondition.struStartTime.dwDay,
-                fileCondition.struStartTime.dwHour, fileCondition.struStartTime.dwMinute, fileCondition.struStartTime.dwSecond,
-                fileCondition.struStopTime.dwYear, fileCondition.struStopTime.dwMonth, fileCondition.struStopTime.dwDay,
-                fileCondition.struStopTime.dwHour, fileCondition.struStopTime.dwMinute, fileCondition.struStopTime.dwSecond);
+            fileCondition.struStopTime.dwYear = Integer.parseInt(dateEnd1[0]);
+            fileCondition.struStopTime.dwMonth = Integer.parseInt(dateEnd1[1]);
+            fileCondition.struStopTime.dwDay = Integer.parseInt(dateEnd1[2]);
+            fileCondition.struStopTime.dwHour = Integer.parseInt(dateEnd2[0]);
+            fileCondition.struStopTime.dwMinute = Integer.parseInt(dateEnd2[1]);
+            fileCondition.struStopTime.dwSecond = Integer.parseInt(dateEnd2[2]);
+        } catch (Exception e) {
+            log.error("时间参数解析失败, startTime:{}, endTime:{}, error:{}", startTime, endTime, e.getMessage(), e);
+            return recordList;
+        }
 
         // 设置其他查询条件
         fileCondition.lChannel = channelId;
         fileCondition.dwFileType = 0xff; // 全部类型
         fileCondition.dwIsLocked = 0xff; // 所有文件
         fileCondition.byStreamType = 0; // 主码流
+        fileCondition.write(); // 重要：写入内存！
 
-        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+        log.debug("开始查询, 通道号:{}, 时间范围:{}-{}", channelId, startTime, endTime);
 
-        // 开始查找文件
+        // 先尝试旧版 API
         int findHandle = client.hCNetSDK.NET_DVR_FindFile_V40(lUserID, fileCondition);
+        
         if (findHandle == -1) {
-            log.error("开始查找录像文件失败, deviceId:{}, channelId:{}, 错误码:{}", deviceId, channelId, client.hCNetSDK.NET_DVR_GetLastError());
-            throw new ServiceException("查找录像文件失败");
+            int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+            log.warn("NET_DVR_FindFile_V40 失败, 通道号:{}, 错误码:{}", channelId, errorCode);
+            return recordList;
         }
 
         try {
@@ -1138,8 +1166,8 @@ public class HaiKangServiceImpl implements IHaiKangService {
 
             while (true) {
                 findNextResult = client.hCNetSDK.NET_DVR_FindNextFile_V40(findHandle, findData);
-                if (findNextResult == 1) { // 找到文件
-                    findData.read();
+                if (findNextResult == 1000) { // NET_DVR_FILE_SUCCESS - 找到文件
+                    findData.read(); // 读取数据
 
                     String fileName = CommonUtil.parseHikvisionString(findData.sFileName);
                     String start = String.format("%04d-%02d-%02d %02d:%02d:%02d",
@@ -1157,26 +1185,37 @@ public class HaiKangServiceImpl implements IHaiKangService {
                     record.put("fileName", fileName);
                     record.put("fileSize", findData.dwFileSize);
                     recordList.add(record);
-                } else if (findNextResult == 2) { // 查找结束
-                    log.debug("查找录像文件结束, deviceId:{}, channelId:{}", deviceId, channelId);
+                    
+                    log.debug("找到录像: channel={}, fileName={}, start={}, end={}", channelId, fileName, start, stop);
+                } else if (findNextResult == 1003) { // NET_DVR_NOMOREFILE - 没有更多文件，查找结束
+                    log.debug("查询结束, 共找到 {} 条记录", recordList.size());
                     break;
-                } else { // 查找出错
-                    log.error("查找下一个录像文件失败, deviceId:{}, channelId:{}, 错误码:{}", deviceId, channelId, client.hCNetSDK.NET_DVR_GetLastError());
+                } else if (findNextResult == 1001) { // NET_DVR_FILE_NOFIND - 未查找到文件
+                    log.warn("未查找到文件");
+                    break;
+                } else if (findNextResult == 1002) { // NET_DVR_ISFINDING - 正在查找请等待
+                    log.debug("正在查找，请等待...");
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else if (findNextResult == 1004) { // NET_DVR_FILE_EXCEPTION - 查找文件时异常
+                    log.warn("查找文件时异常");
+                    break;
+                } else if (findNextResult == 1005) { // NET_DVR_FIND_TIMEOUT - 查找文件超时
+                    log.warn("查找文件超时");
+                    break;
+                } else { // 其他错误
+                    int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                    log.warn("查找下一个文件失败, 返回值:{}, 错误码:{}", findNextResult, errorCode);
                     break;
                 }
             }
-
-            if (recordList.isEmpty()) {
-                log.warn("未查询到录像文件, deviceId:{}, channelId:{}", deviceId, channelId);
-                throw new ServiceException("未查询到录像文件");
-            }
-
         } finally {
-            // 关闭查找句柄
             client.hCNetSDK.NET_DVR_FindClose_V30(findHandle);
         }
 
-        log.info("查询海康设备录像完成, deviceId:{}, channelId:{}, 共查询到 {} 条录像记录", deviceId, channelId, recordList.size());
         return recordList;
     }
 
@@ -1214,8 +1253,70 @@ public class HaiKangServiceImpl implements IHaiKangService {
                 return "无线报警";
             case 12:
                 return "呼救报警";
+            case 13:
+                return "移动侦测/PIR/无线/呼救等报警";
             case 14:
                 return "智能交通事件";
+            case 15:
+                return "越界侦测";
+            case 16:
+                return "区域入侵侦测";
+            case 17:
+                return "音频异常侦测";
+            case 18:
+                return "场景变更侦测";
+            case 19:
+                return "智能侦测";
+            case 20:
+                return "人脸侦测";
+            case 21:
+                return "信号量/POS录像";
+            case 22:
+                return "回传";
+            case 23:
+                return "回迁录像";
+            case 24:
+                return "遮挡";
+            case 26:
+                return "进入区域侦测";
+            case 27:
+                return "离开区域侦测";
+            case 28:
+                return "徘徊侦测";
+            case 29:
+                return "人员聚集侦测";
+            case 30:
+                return "快速运动侦测";
+            case 31:
+                return "停车侦测";
+            case 32:
+                return "物品遗留侦测";
+            case 33:
+                return "物品拿取侦测";
+            case 34:
+                return "火点检测";
+            case 36:
+                return "船只检测";
+            case 37:
+                return "测温预警";
+            case 38:
+                return "测温报警";
+            case 42:
+                return "温差报警";
+            case 43:
+                return "离线测温报警";
+            case 44:
+                return "防区报警";
+            case 45:
+                return "紧急求助";
+            case 46:
+                return "业务咨询";
+            case 47:
+                return "起身检测";
+            case 48:
+                return "折线攀高";
+            case 49:
+                return "目标区域滞留超时";
             default:
                 return "未知类型(" + fileType + ")";
         }

@@ -216,6 +216,8 @@ public class OnvifExecutor {
             case GOTO_PRESET:
             case REMOVE_PRESET:
                 return device.getPath().getPTZPath() != null ? device.getPath().getPTZPath() : device.getPath().getServicesPath();
+            case FIND_RECORDINGS:
+                return device.getPath().getSearchPath() != null ? device.getPath().getSearchPath() : device.getPath().getServicesPath();
             default:
                 return device.getPath().getServicesPath();
         }

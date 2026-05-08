@@ -4,6 +4,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -12,7 +14,7 @@ import java.util.List;
  * @Description
  * @Author fengcheng
  * @date 2026-03-30
- **/
+ */
 public interface IHaiKangIsupService {
 
     /**
@@ -112,4 +114,15 @@ public interface IHaiKangIsupService {
      * @return
      */
     List<HaiKangIsupPresetInfo> getPresetList(Long deviceId, Integer channelId);
+
+    /**
+     * 海康设备查询录像
+     *
+     * @param deviceId 设备id
+     * @param channelId 通道id
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return
+     */
+    ArrayList<HashMap<String, Object>> queryRecord(Long deviceId, Integer channelId, String startTime, String endTime);
 }

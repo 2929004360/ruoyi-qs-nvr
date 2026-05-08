@@ -298,7 +298,6 @@ public class HaiKangApiController {
     /**
      * 海康设备查询录像
      */
-    @Log(title = "海康设备", businessType = BusinessType.OTHER)
     @GetMapping("/getRecMonth/{deviceId}/{channelId}")
     public R<ArrayList<HashMap<String, Object>>> getRecMonth(@PathVariable("deviceId") Long deviceId, @PathVariable("channelId") int channelId, @NotBlank(message = "开始时间不能为空") String startTime, @NotBlank(message = "结束时间不能为空") String endTime) {
         return R.ok(haiKangService.queryRecord(deviceId, channelId, startTime, endTime));

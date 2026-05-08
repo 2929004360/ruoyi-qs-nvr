@@ -32,6 +32,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -75,11 +77,11 @@ public class OnvifServiceImpl implements IOnvifService {
 
             DiscoveryManager manager = new DiscoveryManager();
             // 设置发现超时时间
-            manager.setDiscoveryTimeout(10000);
+            manager.setDiscoveryTimeout(30000);
             DiscoveryListener listener = new DiscoveryListener() {
                 @Override
                 public void onDiscoveryStarted() {
-                    log.debug("ONVIF 设备发现开始...");
+                    log.info("ONVIF 设备发现开始...");
                 }
 
                 @Override
@@ -1432,5 +1434,744 @@ public class OnvifServiceImpl implements IOnvifService {
                "    </SetSystemDateAndTime>\n" +
                "  </s:Body>\n" +
                "</s:Envelope>";
+    }
+
+    /**
+     * ONVIF设备查询录像
+     */
+    @Override
+    public ArrayList<HashMap<String, Object>> queryRecord(String deviceIp, String username, String password, String startTime, String endTime) {
+        log.info("🚀 开始查询 ONVIF 设备录像... 设备IP: {}, 时间范围: {} - {}", deviceIp, startTime, endTime);
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+        
+        try {
+            // 解码 URL 编码的时间参数
+            try {
+                startTime = java.net.URLDecoder.decode(startTime, "UTF-8");
+                endTime = java.net.URLDecoder.decode(endTime, "UTF-8");
+                log.debug("URL解码后的时间, startTime:{}, endTime:{}", startTime, endTime);
+            } catch (Exception e) {
+                log.warn("URL解码失败，使用原始时间, error:{}", e.getMessage());
+            }
+
+            String searchUrl = "http://" + deviceIp + "/onvif/search_service";
+            String recordingUrl = "http://" + deviceIp + "/onvif/recording_service";
+            
+            // 第一步：调用FindRecordings获取SearchToken
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            String findRecordingsRequest = FindRecordingsSoapRequest(username, nonce, created, passwordDigest, startTime, endTime);
+            
+            log.debug("发送FindRecordings请求到: {}", searchUrl);
+            log.debug("SOAP请求: {}", findRecordingsRequest);
+            
+            HttpResponse findResponse = HttpRequest.post(searchUrl)
+                    .header("Content-Type", "application/soap+xml; charset=utf-8")
+                    .body(findRecordingsRequest)
+                    .execute();
+            
+            if (findResponse.getStatus() == 200) {
+                String findResponseBody = findResponse.body();
+                log.debug("FindRecordings响应: {}", findResponseBody);
+                
+                // 解析SearchToken
+                String searchToken = parseSearchToken(findResponseBody);
+                if (searchToken != null && !searchToken.isEmpty()) {
+                    log.info("获取到SearchToken: {}", searchToken);
+                    
+                    // 第二步：使用SearchToken调用GetRecordingSearchResults获取实际结果
+                    // 先生成新的认证信息
+                    byte[] nonceBytes2 = RandomUtil.randomBytes(16);
+                    String nonce2 = Base64.encode(nonceBytes2);
+                    String created2 = Instant.now().toString();
+                    String passwordDigest2 = calculatePasswordDigest(nonceBytes2, created2, password);
+                    
+                    String getResultsRequest = GetRecordingSearchResultsSoapRequest(username, nonce2, created2, passwordDigest2, searchToken);
+                    
+                    log.debug("发送GetRecordingSearchResults请求到: {}", searchUrl);
+                    log.debug("SOAP请求: {}", getResultsRequest);
+                    
+                    HttpResponse resultsResponse = HttpRequest.post(searchUrl)
+                            .header("Content-Type", "application/soap+xml; charset=utf-8")
+                            .body(getResultsRequest)
+                            .execute();
+                    
+                    if (resultsResponse.getStatus() == 200) {
+                        String resultsResponseBody = resultsResponse.body();
+                        log.debug("GetRecordingSearchResults响应: {}", resultsResponseBody);
+                        recordList = parseRecordingSearchResults(resultsResponseBody);
+                        log.info("✅ 查询 ONVIF 录像成功，共找到 {} 条记录", recordList.size());
+                    } else {
+                        log.warn("GetRecordingSearchResults失败，尝试使用GetRecordings方法");
+                        // 如果失败，尝试使用GetRecordings方法
+                        recordList = tryGetRecordings(deviceIp, username, password, recordingUrl);
+                    }
+                } else {
+                    log.warn("未获取到SearchToken，尝试使用GetRecordings方法");
+                    recordList = tryGetRecordings(deviceIp, username, password, recordingUrl);
+                }
+            } else {
+                log.warn("FindRecordings失败，尝试使用GetRecordings方法");
+                // 如果FindRecordings失败，尝试使用GetRecordings方法
+                recordList = tryGetRecordings(deviceIp, username, password, recordingUrl);
+            }
+        } catch (Exception e) {
+            log.error("❌ 查询 ONVIF 录像异常", e);
+            throw new RuntimeException("查询录像异常: " + e.getMessage(), e);
+        }
+        
+        // 根据本地时间范围过滤记录
+        if (startTime != null && endTime != null) {
+            recordList = filterByLocalTimeRange(recordList, startTime, endTime);
+        }
+        
+        // 为每个录像记录添加回放地址
+        for (HashMap<String, Object> record : recordList) {
+            try {
+                String recordingToken = (String) record.get("recordingToken");
+                String videoTrackToken = (String) record.get("trackToken");
+                
+                if (recordingToken != null && videoTrackToken != null) {
+                    String replayUri = getReplayUri(deviceIp, username, password, recordingToken, videoTrackToken);
+                    record.put("replayUri", replayUri);
+                    log.debug("为录像 {} 添加回放地址: {}", recordingToken, replayUri);
+                }
+            } catch (Exception e) {
+                log.warn("获取录像回放地址失败: {}", e.getMessage());
+            }
+        }
+        
+        return recordList;
+    }
+    
+    /**
+     * 根据本地时间范围过滤记录
+     */
+    private ArrayList<HashMap<String, Object>> filterByLocalTimeRange(
+            ArrayList<HashMap<String, Object>> recordList, String localStartTime, String localEndTime) {
+        
+        ArrayList<HashMap<String, Object>> filteredList = new ArrayList<>();
+        
+        try {
+            // 解析本地时间范围
+            java.text.SimpleDateFormat localFormat = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            localFormat.setTimeZone(java.util.TimeZone.getDefault());
+            
+            java.util.Date rangeStart = localFormat.parse(localStartTime);
+            java.util.Date rangeEnd = localFormat.parse(localEndTime);
+            
+            // 解析 UTC 时间格式
+            java.text.SimpleDateFormat utcFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+            utcFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            
+            for (HashMap<String, Object> record : recordList) {
+                String recordStartUtc = (String) record.get("start");
+                String recordEndUtc = (String) record.get("end");
+                
+                boolean inRange = false;
+                try {
+                    // 将 UTC 时间转换为本地时间
+                    if (recordStartUtc != null && !recordStartUtc.isEmpty()) {
+                        java.util.Date startUtc = utcFormat.parse(recordStartUtc);
+                        
+                        // 检查是否有重叠
+                        if (recordEndUtc != null && !recordEndUtc.isEmpty()) {
+                            java.util.Date endUtc = utcFormat.parse(recordEndUtc);
+                            inRange = !(endUtc.before(rangeStart) || startUtc.after(rangeEnd));
+                        } else {
+                            inRange = !startUtc.before(rangeStart) && !startUtc.after(rangeEnd);
+                        }
+                        
+                        // 更新记录中的时间为本地时间格式
+                        record.put("start", localFormat.format(startUtc));
+                        if (recordEndUtc != null && !recordEndUtc.isEmpty()) {
+                            java.util.Date endUtc = utcFormat.parse(recordEndUtc);
+                            record.put("end", localFormat.format(endUtc));
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("解析时间失败: start={}, end={}", recordStartUtc, recordEndUtc, e);
+                    inRange = true; // 解析失败时保留记录
+                }
+                
+                if (inRange) {
+                    filteredList.add(record);
+                } else {
+                    log.debug("过滤掉不在时间范围内的记录: start={}, end={}", recordStartUtc, recordEndUtc);
+                }
+            }
+        } catch (Exception e) {
+            log.error("时间过滤异常", e);
+        }
+        
+        log.info("时间过滤后剩余 {} 条记录", filteredList.size());
+        return filteredList;
+    }
+    
+    /**
+     * 从录像记录中查找视频轨道的 token
+     */
+    private String findVideoTrackToken(HashMap<String, Object> record) {
+        Object tracksObj = record.get("tracks");
+        if (tracksObj instanceof ArrayList) {
+            ArrayList<?> tracks = (ArrayList<?>) tracksObj;
+            for (Object trackObj : tracks) {
+                if (trackObj instanceof HashMap) {
+                    HashMap<?, ?> track = (HashMap<?, ?>) trackObj;
+                    String trackType = (String) track.get("trackType");
+                    if ("Video".equals(trackType)) {
+                        return (String) track.get("trackToken");
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 尝试使用GetRecordings方法获取录像
+     */
+    private ArrayList<HashMap<String, Object>> tryGetRecordings(String deviceIp, String username, String password, String url) {
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+        try {
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            String getRecordingsRequest = GetRecordingsSoapRequest(username, nonce, created, passwordDigest);
+            
+            log.debug("发送GetRecordings请求到: {}", url);
+            log.debug("SOAP请求: {}", getRecordingsRequest);
+            
+            HttpResponse response = HttpRequest.post(url)
+                    .header("Content-Type", "application/soap+xml; charset=utf-8")
+                    .body(getRecordingsRequest)
+                    .execute();
+            
+            if (response.getStatus() == 200) {
+                String responseBody = response.body();
+                log.debug("GetRecordings响应: {}", responseBody);
+                recordList = parseGetRecordingsResponse(responseBody);
+                log.info("✅ 使用GetRecordings查询成功，共找到 {} 条记录", recordList.size());
+            } else {
+                log.error("GetRecordings失败，状态码: {}", response.getStatus());
+            }
+        } catch (Exception e) {
+            log.warn("GetRecordings方法失败: {}", e.getMessage());
+        }
+        return recordList;
+    }
+
+    /**
+     * 生成FindRecordings的SOAP请求
+     */
+    private static String FindRecordingsSoapRequest(String username, String nonce, String created, String passwordDigest, 
+                                                    String startTime, String endTime) {
+        // 构建时间过滤条件
+        StringBuilder scopeBuilder = new StringBuilder();
+        
+        if (startTime != null && !startTime.isEmpty() && endTime != null && !endTime.isEmpty()) {
+            try {
+                // 解析时间字符串，转换为ISO格式
+                java.time.LocalDateTime startDateTime = java.time.LocalDateTime.parse(startTime, 
+                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                java.time.LocalDateTime endDateTime = java.time.LocalDateTime.parse(endTime, 
+                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                
+                String startIso = startDateTime.atZone(java.time.ZoneId.systemDefault())
+                        .withZoneSameInstant(java.time.ZoneOffset.UTC)
+                        .format(java.time.format.DateTimeFormatter.ISO_INSTANT);
+                String endIso = endDateTime.atZone(java.time.ZoneId.systemDefault())
+                        .withZoneSameInstant(java.time.ZoneOffset.UTC)
+                        .format(java.time.format.DateTimeFormatter.ISO_INSTANT);
+                
+                scopeBuilder.append("<tse:RecordingInformationFilter>");
+                scopeBuilder.append("<tt:RecordingSummary>");
+                scopeBuilder.append("<tt:From>").append(startIso).append("</tt:From>");
+                scopeBuilder.append("<tt:Until>").append(endIso).append("</tt:Until>");
+                scopeBuilder.append("</tt:RecordingSummary>");
+                scopeBuilder.append("</tse:RecordingInformationFilter>");
+            } catch (Exception e) {
+                log.warn("时间格式转换失败，使用默认查询条件: {}", e.getMessage());
+            }
+        }
+        
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tse=\"http://www.onvif.org/ver10/search/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+               "  <soap:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </soap:Header>\n" +
+               "  <soap:Body>\n" +
+               "    <tse:FindRecordings>\n" +
+               (scopeBuilder.length() > 0 ? "      <tse:Scope>\n" + scopeBuilder.toString() + "\n      </tse:Scope>\n" : "") +
+               "      <tse:MaxMatches>100</tse:MaxMatches>\n" +
+               "      <tse:KeepAliveTime>PT60S</tse:KeepAliveTime>\n" +
+               "    </tse:FindRecordings>\n" +
+               "  </soap:Body>\n" +
+               "</soap:Envelope>";
+    }
+
+    /**
+     * 解析SearchToken
+     */
+    private static String parseSearchToken(String responseBody) throws Exception {
+        if (responseBody == null || responseBody.isEmpty()) {
+            return null;
+        }
+        
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new java.io.ByteArrayInputStream(responseBody.getBytes("UTF-8")));
+        
+        NodeList searchTokenNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver10/search/wsdl", "SearchToken");
+        if (searchTokenNodes.getLength() > 0) {
+            return searchTokenNodes.item(0).getTextContent();
+        }
+        return null;
+    }
+
+    /**
+     * 生成GetRecordingSearchResults的SOAP请求
+     */
+    private static String GetRecordingSearchResultsSoapRequest(String username, String nonce, String created, String passwordDigest, String searchToken) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:tse=\"http://www.onvif.org/ver10/search/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+               "  <soap:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </soap:Header>\n" +
+               "  <soap:Body>\n" +
+               "    <tse:GetRecordingSearchResults>\n" +
+               "      <tse:SearchToken>" + searchToken + "</tse:SearchToken>\n" +
+               "    </tse:GetRecordingSearchResults>\n" +
+               "  </soap:Body>\n" +
+               "</soap:Envelope>";
+    }
+
+    /**
+     * 解析GetRecordingSearchResults响应
+     */
+    private static ArrayList<HashMap<String, Object>> parseRecordingSearchResults(String responseBody) throws Exception {
+        return parseRecordingResults(responseBody);
+    }
+
+    /**
+     * 生成GetRecordings的SOAP请求
+     */
+    private static String GetRecordingsSoapRequest(String username, String nonce, String created, String passwordDigest) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+               "<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:trt=\"http://www.onvif.org/ver10/recording/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+               "  <soap:Header>\n" +
+               "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+               "      <wsse:UsernameToken>\n" +
+               "        <wsse:Username>" + username + "</wsse:Username>\n" +
+               "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+               "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+               "        <wsu:Created>" + created + "</wsu:Created>\n" +
+               "      </wsse:UsernameToken>\n" +
+               "    </wsse:Security>\n" +
+               "  </soap:Header>\n" +
+               "  <soap:Body>\n" +
+               "    <trt:GetRecordings />\n" +
+               "  </soap:Body>\n" +
+               "</soap:Envelope>";
+    }
+
+    /**
+     * 解析GetRecordings响应
+     */
+    private static ArrayList<HashMap<String, Object>> parseGetRecordingsResponse(String responseBody) throws Exception {
+        return parseRecordingResults(responseBody);
+    }
+
+    /**
+     * 通用的录像结果解析方法
+     */
+    private static ArrayList<HashMap<String, Object>> parseRecordingResults(String responseBody) throws Exception {
+        ArrayList<HashMap<String, Object>> recordList = new ArrayList<>();
+        
+        if (responseBody == null || responseBody.isEmpty()) {
+            return recordList;
+        }
+        
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new java.io.ByteArrayInputStream(responseBody.getBytes("UTF-8")));
+        
+        String ttNamespace = "http://www.onvif.org/ver10/schema";
+        
+        // 尝试查找RecordingInformation节点（GetRecordingSearchResults返回的格式）
+        NodeList recordingInfoNodes = document.getElementsByTagNameNS(ttNamespace, "RecordingInformation");
+        for (int i = 0; i < recordingInfoNodes.getLength(); i++) {
+            Element recordingInfo = (Element) recordingInfoNodes.item(i);
+            HashMap<String, Object> record = new HashMap<>();
+            
+            // 获取录制令牌（同时兼容海康字段格式）
+            NodeList recordingTokenNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "RecordingToken");
+            String recordingToken = null;
+            if (recordingTokenNodes.getLength() > 0) {
+                recordingToken = recordingTokenNodes.item(0).getTextContent();
+                record.put("recordingToken", recordingToken);
+                record.put("fileName", recordingToken); // 兼容海康字段，用token作为文件名
+            }
+            
+            // 获取录制来源
+            NodeList sourceNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "Source");
+            String channelId = "0";
+            if (sourceNodes.getLength() > 0) {
+                Element source = (Element) sourceNodes.item(0);
+                HashMap<String, String> sourceInfo = new HashMap<>();
+                
+                NodeList sourceIdNodes = source.getElementsByTagNameNS(ttNamespace, "SourceId");
+                if (sourceIdNodes.getLength() > 0) {
+                    sourceInfo.put("sourceId", sourceIdNodes.item(0).getTextContent());
+                    channelId = sourceIdNodes.item(0).getTextContent();
+                }
+                NodeList nameNodes = source.getElementsByTagNameNS(ttNamespace, "Name");
+                if (nameNodes.getLength() > 0) {
+                    sourceInfo.put("name", nameNodes.item(0).getTextContent());
+                }
+                NodeList locationNodes = source.getElementsByTagNameNS(ttNamespace, "Location");
+                if (locationNodes.getLength() > 0) {
+                    sourceInfo.put("location", locationNodes.item(0).getTextContent());
+                }
+                NodeList descriptionNodes = source.getElementsByTagNameNS(ttNamespace, "Description");
+                if (descriptionNodes.getLength() > 0) {
+                    sourceInfo.put("description", descriptionNodes.item(0).getTextContent());
+                }
+                NodeList addressNodes = source.getElementsByTagNameNS(ttNamespace, "Address");
+                if (addressNodes.getLength() > 0) {
+                    sourceInfo.put("address", addressNodes.item(0).getTextContent());
+                }
+                
+                record.put("source", sourceInfo);
+            }
+            record.put("channel", channelId); // 兼容海康字段
+            
+            // 获取录制时间范围
+            NodeList earliestNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "EarliestRecording");
+            if (earliestNodes.getLength() > 0) {
+                record.put("start", earliestNodes.item(0).getTextContent());
+            }
+            NodeList latestNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "LatestRecording");
+            if (latestNodes.getLength() > 0) {
+                record.put("end", latestNodes.item(0).getTextContent());
+            }
+            
+            // 获取内容
+            NodeList contentNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "Content");
+            if (contentNodes.getLength() > 0) {
+                record.put("content", contentNodes.item(0).getTextContent());
+                record.put("type", contentNodes.item(0).getTextContent()); // 兼容海康字段，用content作为类型
+            } else {
+                record.put("type", "ONVIF录像"); // 默认类型
+            }
+            
+            // 获取录制状态
+            NodeList statusNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "RecordingStatus");
+            if (statusNodes.getLength() > 0) {
+                record.put("status", statusNodes.item(0).getTextContent());
+            }
+            
+            // 获取跟踪信息
+            NodeList trackNodes = recordingInfo.getElementsByTagNameNS(ttNamespace, "Track");
+            ArrayList<HashMap<String, String>> tracks = new ArrayList<>();
+            String videoTrackToken = null;
+            for (int j = 0; j < trackNodes.getLength(); j++) {
+                Element track = (Element) trackNodes.item(j);
+                HashMap<String, String> trackInfo = new HashMap<>();
+                
+                NodeList trackTokenNodes = track.getElementsByTagNameNS(ttNamespace, "TrackToken");
+                if (trackTokenNodes.getLength() > 0) {
+                    trackInfo.put("trackToken", trackTokenNodes.item(0).getTextContent());
+                }
+                NodeList trackTypeNodes = track.getElementsByTagNameNS(ttNamespace, "TrackType");
+                if (trackTypeNodes.getLength() > 0) {
+                    trackInfo.put("trackType", trackTypeNodes.item(0).getTextContent());
+                    if ("Video".equals(trackTypeNodes.item(0).getTextContent())) {
+                        videoTrackToken = trackTokenNodes.getLength() > 0 ? trackTokenNodes.item(0).getTextContent() : null;
+                    }
+                }
+                NodeList trackDescNodes = track.getElementsByTagNameNS(ttNamespace, "Description");
+                if (trackDescNodes.getLength() > 0) {
+                    trackInfo.put("description", trackDescNodes.item(0).getTextContent());
+                }
+                NodeList dataFromNodes = track.getElementsByTagNameNS(ttNamespace, "DataFrom");
+                if (dataFromNodes.getLength() > 0) {
+                    trackInfo.put("dataFrom", dataFromNodes.item(0).getTextContent());
+                }
+                NodeList dataToNodes = track.getElementsByTagNameNS(ttNamespace, "DataTo");
+                if (dataToNodes.getLength() > 0) {
+                    trackInfo.put("dataTo", dataToNodes.item(0).getTextContent());
+                }
+                
+                tracks.add(trackInfo);
+            }
+            if (!tracks.isEmpty()) {
+                record.put("tracks", tracks);
+            }
+            if (videoTrackToken != null) {
+                record.put("trackToken", videoTrackToken); // 保存视频轨道token
+            }
+            
+            record.put("fileSize", 0L); // 兼容海康字段，默认为0
+            
+            // 过滤掉时间为1970-01-01的无效录像
+            String startTime = (String) record.get("start");
+            String endTime = (String) record.get("end");
+            boolean isValid = true;
+            if ((startTime != null && startTime.startsWith("1970-01-01")) && 
+                (endTime != null && endTime.startsWith("1970-01-01"))) {
+                isValid = false;
+                log.debug("过滤掉无效录像（时间为1970-01-01）: {}", record.get("recordingToken"));
+            }
+            
+            if (isValid) {
+                recordList.add(record);
+                log.debug("解析到录像记录: {}", record);
+            }
+        }
+        
+        // 如果没有找到RecordingInformation，尝试查找Recording节点作为备用
+        if (recordList.isEmpty()) {
+            String[] namespaces = {
+                "http://www.onvif.org/ver10/schema",
+                "http://www.onvif.org/ver10/recording/wsdl",
+                "http://www.onvif.org/ver10/search/wsdl"
+            };
+            
+            for (String ns : namespaces) {
+                NodeList recordingNodes = document.getElementsByTagNameNS(ns, "Recording");
+                for (int i = 0; i < recordingNodes.getLength(); i++) {
+                    Element recording = (Element) recordingNodes.item(i);
+                    HashMap<String, Object> record = new HashMap<>();
+                    
+                    // 获取录制令牌（同时兼容海康字段格式）
+                    String recordingToken = recording.getAttribute("token");
+                    record.put("recordingToken", recordingToken);
+                    record.put("fileName", recordingToken); // 兼容海康字段，用token作为文件名
+                    
+                    // 获取录制来源
+                    NodeList sourceNodes = recording.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Source");
+                    String channelId = "0";
+                    if (sourceNodes.getLength() > 0) {
+                        Element source = (Element) sourceNodes.item(0);
+                        NodeList sourceTokenNodes = source.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Token");
+                        if (sourceTokenNodes.getLength() > 0) {
+                            channelId = sourceTokenNodes.item(0).getTextContent();
+                            record.put("sourceToken", sourceTokenNodes.item(0).getTextContent());
+                        }
+                    }
+                    record.put("channel", channelId); // 兼容海康字段
+                    
+                    // 获取录制时间范围
+                    NodeList recordingSummaryNodes = recording.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "RecordingSummary");
+                    if (recordingSummaryNodes.getLength() > 0) {
+                        Element summary = (Element) recordingSummaryNodes.item(0);
+                        NodeList fromNodes = summary.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "From");
+                        NodeList untilNodes = summary.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Until");
+                        
+                        if (fromNodes.getLength() > 0) {
+                            record.put("start", fromNodes.item(0).getTextContent());
+                        }
+                        if (untilNodes.getLength() > 0) {
+                            record.put("end", untilNodes.item(0).getTextContent());
+                        }
+                    }
+                    
+                    // 获取内容
+                    NodeList contentNodes = recording.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Content");
+                    if (contentNodes.getLength() > 0) {
+                        record.put("content", contentNodes.item(0).getTextContent());
+                        record.put("type", contentNodes.item(0).getTextContent()); // 兼容海康字段，用content作为类型
+                    } else {
+                        record.put("type", "ONVIF录像"); // 默认类型
+                    }
+                    
+                    // 获取跟踪信息
+                    NodeList trackNodes = recording.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Track");
+                    ArrayList<HashMap<String, String>> tracks = new ArrayList<>();
+                    String videoTrackToken = null;
+                    for (int j = 0; j < trackNodes.getLength(); j++) {
+                        Element track = (Element) trackNodes.item(j);
+                        HashMap<String, String> trackInfo = new HashMap<>();
+                        trackInfo.put("token", track.getAttribute("token"));
+                        
+                        NodeList typeNodes = track.getElementsByTagNameNS("http://www.onvif.org/ver10/schema", "Type");
+                        if (typeNodes.getLength() > 0) {
+                            trackInfo.put("type", typeNodes.item(0).getTextContent());
+                            if ("Video".equals(typeNodes.item(0).getTextContent())) {
+                                videoTrackToken = track.getAttribute("token");
+                            }
+                        }
+                        
+                        tracks.add(trackInfo);
+                    }
+                    if (!tracks.isEmpty()) {
+                        record.put("tracks", tracks);
+                    }
+                    if (videoTrackToken != null) {
+                        record.put("trackToken", videoTrackToken); // 保存视频轨道token
+                    }
+                    
+                    record.put("fileSize", 0L); // 兼容海康字段，默认为0
+                    
+                    // 过滤掉时间为1970-01-01的无效录像
+                    String startTime = (String) record.get("start");
+                    String endTime = (String) record.get("end");
+                    boolean isValid = true;
+                    if ((startTime != null && startTime.startsWith("1970-01-01")) && 
+                        (endTime != null && endTime.startsWith("1970-01-01"))) {
+                        isValid = false;
+                        log.debug("过滤掉无效录像（时间为1970-01-01）: {}", record.get("recordingToken"));
+                    }
+                    
+                    if (isValid) {
+                        recordList.add(record);
+                        log.debug("解析到录像记录: {}", record);
+                    }
+                }
+            }
+        }
+        
+        return recordList;
+    }
+
+    /**
+     * 获取回放地址
+     */
+    @Override
+    public String getReplayUri(String deviceIp, String username, String password, String recordingToken, String trackToken) {
+        try {
+            byte[] nonceBytes = RandomUtil.randomBytes(16);
+            String nonce = Base64.encode(nonceBytes);
+            String created = Instant.now().toString();
+            String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
+            
+            String soapRequest = getReplayUriSoapRequest(username, nonce, created, passwordDigest, recordingToken, trackToken);
+            String url = "http://" + deviceIp + "/onvif/replay_service";
+            
+            HttpResponse response = HttpRequest.post(url)
+                    .header("Content-Type", "application/soap+xml; charset=utf-8")
+                    .body(soapRequest)
+                    .execute();
+            
+            if (response.getStatus() == 200) {
+                String responseBody = response.body();
+                String replayUri = parseReplayUriResponse(responseBody);
+                if (replayUri != null && !replayUri.isEmpty()) {
+                    return addAuthToUri(replayUri, username, password);
+                }
+            }
+            throw new RuntimeException("获取回放地址失败");
+        } catch (Exception e) {
+            throw new RuntimeException("获取回放地址异常: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 在URI中添加认证信息
+     */
+    private String addAuthToUri(String uri, String username, String password) {
+        if (uri == null || uri.isEmpty() || uri.contains("@")) {
+            return uri;
+        }
+        int protocolIndex = uri.indexOf("://");
+        if (protocolIndex == -1) {
+            return uri;
+        }
+        String protocol = uri.substring(0, protocolIndex);
+        String remaining = uri.substring(protocolIndex + 3);
+        int pathIndex = remaining.indexOf("/");
+        String hostPort = (pathIndex != -1) ? remaining.substring(0, pathIndex) : remaining;
+        String pathQuery = (pathIndex != -1) ? remaining.substring(pathIndex) : "";
+        return protocol + "://" + username + ":" + password + "@" + hostPort + pathQuery;
+    }
+
+    /**
+     * 生成GetReplayUri的SOAP请求
+     */
+    private static String getReplayUriSoapRequest(String username, String nonce, String created, String passwordDigest, 
+                                                    String recordingToken, String trackToken) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                "<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:trp=\"http://www.onvif.org/ver10/replay/wsdl\" xmlns:tt=\"http://www.onvif.org/ver10/schema\">\n" +
+                "  <soap:Header>\n" +
+                "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" +
+                "      <wsse:UsernameToken>\n" +
+                "        <wsse:Username>" + username + "</wsse:Username>\n" +
+                "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" +
+                "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" +
+                "        <wsu:Created>" + created + "</wsu:Created>\n" +
+                "      </wsse:UsernameToken>\n" +
+                "    </wsse:Security>\n" +
+                "  </soap:Header>\n" +
+                "  <soap:Body>\n" +
+                "    <trp:GetReplayUri>\n" +
+                "      <trp:StreamSetup>\n" +
+                "        <tt:Stream>RTP-Unicast</tt:Stream>\n" +
+                "        <tt:Transport>\n" +
+                "          <tt:Protocol>RTSP</tt:Protocol>\n" +
+                "        </tt:Transport>\n" +
+                "      </trp:StreamSetup>\n" +
+                "      <trp:RecordingToken>" + recordingToken + "</trp:RecordingToken>\n" +
+                (trackToken != null && !trackToken.isEmpty() ? "      <trp:TrackToken>" + trackToken + "</trp:TrackToken>\n" : "") +
+                "    </trp:GetReplayUri>\n" +
+                "  </soap:Body>\n" +
+                "</soap:Envelope>";
+    }
+
+    /**
+     * 解析GetReplayUri响应
+     */
+    private static String parseReplayUriResponse(String responseBody) throws Exception {
+        if (responseBody == null || responseBody.isEmpty()) {
+            return null;
+        }
+        
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new java.io.ByteArrayInputStream(responseBody.getBytes("UTF-8")));
+        
+        // 尝试查找Uri节点，使用不同的命名空间
+        String[] namespaces = {
+            "http://www.onvif.org/ver10/replay/wsdl",
+            "http://www.onvif.org/ver10/schema"
+        };
+        
+        for (String ns : namespaces) {
+            NodeList uriNodes = document.getElementsByTagNameNS(ns, "Uri");
+            if (uriNodes.getLength() > 0) {
+                return uriNodes.item(0).getTextContent();
+            }
+        }
+        
+        // 尝试不使用命名空间查找
+        NodeList uriNodes = document.getElementsByTagName("Uri");
+        if (uriNodes.getLength() > 0) {
+            return uriNodes.item(0).getTextContent();
+        }
+        
+        log.warn("未在响应中找到Uri节点");
+        return null;
     }
 }
