@@ -145,6 +145,16 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             public R<ArrayList<HashMap<String, Object>>> queryRecord(Long id, int channelId, String startTime, String endTime, String source) {
                 return R.fail("大华sdk查询录像失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Void> startPlayback(RtpServerParam rtpServerParam, String source) {
+                return R.fail("大华sdk开始录像回放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlayback(Long id, String source) {
+                return R.fail("大华sdk停止录像回放失败:" + throwable.getMessage());
+            }
         };
     }
 }

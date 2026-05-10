@@ -211,6 +211,71 @@ public class ZlmController {
     }
 
     /**
+     * 大华设备录像回放
+     *
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @param request        HttpServletRequest
+     * @return
+     */
+    @PostMapping("/rtpPlayback")
+    public DeferredResult<R<StreamContent>> rtpPlayback(@RequestBody RTPServerParam rtpServerParam, HttpServletRequest request) {
+        log.info("大华录像回放： app：{}-stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
+
+        if (!(LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType()))) {
+            log.error("不支持的回放类型：{}", rtpServerParam.getType());
+            throw new RuntimeException("不支持的回放类型，仅支持大华设备");
+        }
+
+        // 标记为回放
+        rtpServerParam.setPlayback(true);
+
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+
+        result.onTimeout(() -> {
+            log.info("[大华录像回放等待超时] app：{}, stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
+            R<StreamContent> wvpResult = R.fail();
+            wvpResult.setMsg("大华录像回放超时");
+            result.setResult(wvpResult);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAYBACK, rtpServerParam.getId());
+            mediaServerService.stopRtpPlay(rtpServerParam);
+        });
+
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                R<StreamContent> r = R.ok();
+                if (streamInfo != null) {
+                    if (userSetting.getUseSourceIpAsStreamIp()) {
+                        streamInfo = streamInfo.clone();//深拷贝
+                        String host;
+                        try {
+                            URL url = new URL(request.getRequestURL().toString());
+                            host = url.getHost();
+                        } catch (MalformedURLException e) {
+                            host = request.getLocalAddr();
+                        }
+                        streamInfo.changeStreamIp(host);
+                    }
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                        streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
+                    }
+                    r.setData(new StreamContent(streamInfo));
+                } else {
+                    r.setCode(code);
+                    r.setMsg(msg);
+                }
+
+                result.setResult(r);
+            } else {
+                result.setResult(R.fail(code, msg));
+            }
+        };
+
+        mediaServerService.rtpPlay(rtpServerParam, callback);
+        return result;
+    }
+
+    /**
      * 停止rtp播放
      *
      * @param rtpServerParam 创建rtp端口请求参数
@@ -226,6 +291,25 @@ public class ZlmController {
             log.error("不支持的播放类型：{}", rtpServerParam.getType());
             throw new RuntimeException("不支持的播放类型");
         }
+        mediaServerService.stopRtpPlay(rtpServerParam);
+        return AjaxResult.success();
+    }
+
+    /**
+     * 停止大华录像回放
+     *
+     * @param rtpServerParam 创建rtp端口请求参数
+     * @return
+     */
+    @PostMapping("/stopRtpPlayback")
+    public AjaxResult stopRtpPlayback(@RequestBody RTPServerParam rtpServerParam) {
+        log.info("停止大华录像回放： id：{}", rtpServerParam.getId());
+        if (!(LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType()))) {
+            log.error("不支持的回放类型：{}", rtpServerParam.getType());
+            throw new RuntimeException("不支持的回放类型，仅支持大华设备");
+        }
+        // 标记为回放
+        rtpServerParam.setPlayback(true);
         mediaServerService.stopRtpPlay(rtpServerParam);
         return AjaxResult.success();
     }
@@ -742,4 +826,5 @@ public class ZlmController {
         json.put("jtMobileNo", qsDevice.getJtMobileNo());
         return AjaxResult.success(json);
     }
+
 }

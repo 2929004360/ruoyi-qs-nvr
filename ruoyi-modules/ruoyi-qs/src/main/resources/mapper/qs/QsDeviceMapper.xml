@@ -48,6 +48,9 @@
         <result property="jtMobileNo" column="jt_mobile_no"/>
         <result property="jtPlateNo" column="jt_plate_no"/>
         <result property="jtPlateColor" column="jt_plate_color"/>
+        <result property="playbackStreamStatus" column="playback_stream_status"/>
+        <result property="playbackMediaServerId" column="playback_media_server_id"/>
+        <result property="playbackStreamKey" column="playback_stream_key"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -163,6 +166,9 @@
                jt_mobile_no,
                jt_plate_no,
                jt_plate_color,
+               playback_stream_status,
+               playback_media_server_id,
+               playback_stream_key,
                create_by,
                create_time,
                update_by,
@@ -241,6 +247,9 @@
             <if test="jtMobileNo != null">jt_mobile_no,</if>
             <if test="jtPlateNo != null">jt_plate_no,</if>
             <if test="jtPlateColor != null">jt_plate_color,</if>
+            <if test="playbackStreamStatus != null">playback_stream_status,</if>
+            <if test="playbackMediaServerId != null">playback_media_server_id,</if>
+            <if test="playbackStreamKey != null">playback_stream_key,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -289,6 +298,9 @@
             <if test="jtMobileNo != null">#{jtMobileNo},</if>
             <if test="jtPlateNo != null">#{jtPlateNo},</if>
             <if test="jtPlateColor != null">#{jtPlateColor},</if>
+            <if test="playbackStreamStatus != null">#{playbackStreamStatus},</if>
+            <if test="playbackMediaServerId != null">#{playbackMediaServerId},</if>
+            <if test="playbackStreamKey != null">#{playbackStreamKey},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -342,6 +354,9 @@
             <if test="jtMobileNo != null">jt_mobile_no = #{jtMobileNo},</if>
             <if test="jtPlateNo != null">jt_plate_no = #{jtPlateNo},</if>
             <if test="jtPlateColor != null">jt_plate_color = #{jtPlateColor},</if>
+            <if test="playbackStreamStatus != null">playback_stream_status = #{playbackStreamStatus},</if>
+            <if test="playbackMediaServerId != null">playback_media_server_id = #{playbackMediaServerId},</if>
+            <if test="playbackStreamKey != null">playback_stream_key = #{playbackStreamKey},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -366,10 +381,13 @@
 
     <update id="updateAllQsDevicesToOffline">
         update qs_device
-        set device_status  = 'OFFLINE',
-            stream_status  = '0',
-            media_serverId = null,
-            stream_key     = null
+        set device_status          = 'OFFLINE',
+            stream_status          = '0',
+            media_serverId         = null,
+            stream_key             = null,
+            playback_stream_status = '0',
+            playback_media_server_id = null,
+            playback_stream_key    = null
     </update>
     <update id="updateAllQsDeviceStreamUrls"
             parameterType="QsDevice">

@@ -66,15 +66,18 @@ public class MediaServiceImpl implements IMediaService {
             return false;
         }
 
+        // 判断是否是回放流
+        boolean isPlayback = stream.equals(data.getPlaybackStreamKey());
+
         // 拉流代理
         if ("rtsp".equals(app) || "rtmp".equals(app) || "flv".equals(app) || "hls".equals(app)) {
-            if ("1".equals(data.getEnableDisableNoneReader())) {
-                // 无人观看停用
+            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
+                // 回放流或配置了无人观看停用
                 // 修改数据
                 StreamPullPlay streamPullPlay = new StreamPullPlay();
                 streamPullPlay.setDeviceId(data.getId());
-                streamPullPlay.setStreamKey(data.getStreamKey());
-                streamPullPlay.setMediaServerId(data.getMediaServerId());
+                streamPullPlay.setStreamKey(isPlayback ? data.getPlaybackStreamKey() : data.getStreamKey());
+                streamPullPlay.setMediaServerId(isPlayback ? data.getPlaybackMediaServerId() : data.getMediaServerId());
 
                 mediaServerService.stopStreamPullPlay(streamPullPlay);
                 return true;
@@ -82,74 +85,81 @@ public class MediaServiceImpl implements IMediaService {
                 return false;
             }
         } else if ("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)) {
-            if ("1".equals(data.getEnableDisableNoneReader())) {
-                // 无人观看停用
+            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
+                // 回放流或配置了无人观看停用
                 RTPServerParam rtpServerParam = new RTPServerParam();
                 rtpServerParam.setId(data.getId());
                 rtpServerParam.setType(data.getType());
                 rtpServerParam.setStreamId(stream);
+                rtpServerParam.setPlayback(isPlayback);
                 mediaServerService.stopRtpPlay(rtpServerParam);
                 return true;
             } else {
                 return false;
             }
         } else if ("push".equals(app)) {
-            if ("1".equals(data.getEnableDisableNoneReader())) {
+            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
                 return true;
             } else {
                 return false;
             }
         } else if ("gb28181".equals(app)) {
-            if ("1".equals(data.getEnableDisableNoneReader())) {
+            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
                 R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(data.getGbDeviceId(), SecurityConstants.INNER);
                 if (deviceR.getCode() == Constants.SUCCESS && deviceR.getData() != null) {
-                    mediaServerService.stopGb28181Play(InviteSessionType.PLAY, data, deviceR.getData(), data.getDeviceCode());
+                    InviteSessionType type = isPlayback ? InviteSessionType.PLAYBACK : InviteSessionType.PLAY;
+                    mediaServerService.stopGb28181Play(type, data, deviceR.getData(), data.getDeviceCode());
                 }
                 return true;
             } else {
                 return false;
             }
         } else if ("jt1078".equals(app)) {
-            if ("1".equals(data.getEnableDisableNoneReader())) {
+            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
                 R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(data.getJtMobileNo(), SecurityConstants.INNER);
                 if (deviceR.getCode() == Constants.SUCCESS && deviceR.getData() != null) {
-                    mediaServerService.stopJt1078Play(InviteSessionType.PLAY, data, deviceR.getData(), data.getDeviceCode());
+                    InviteSessionType type = isPlayback ? InviteSessionType.PLAYBACK : InviteSessionType.PLAY;
+                    mediaServerService.stopJt1078Play(type, data, deviceR.getData(), data.getDeviceCode());
                 }
                 return true;
             } else {
                 return false;
             }
         }
-        return true;
+        return isPlayback;
     }
 
     @Override
     public ResultForOnPublish authenticatePublish(ZlmMediaServer mediaServer, String app, String stream, String params) {
         ResultForOnPublish result = new ResultForOnPublish();
         result.setEnable_audio(true);
+        // 默认不允许录制
+        result.setEnable_mp4(false);
 
         // 海康sdk 海康isup 大华sdk
         if ("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)) {
             R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
 
-            if (r.getCode() != Constants.SUCCESS) {
-                result.setEnable_mp4(false);
-            } else if (r.getData() == null) {
-                result.setEnable_mp4(false);
-            } else {
-                result.setEnable_mp4("1".equals(r.getData().getEnableMp4()));
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                // 判断是否是回放流
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                // 只有非回放流且配置了录制才允许录制
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                }
             }
         }
         // 推流
         if ("push".equals(app)) {
             R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
 
-            if (r.getCode() != Constants.SUCCESS) {
-                result.setEnable_mp4(false);
-            } else if (r.getData() == null) {
-                result.setEnable_mp4(false);
-            } else {
-                result.setEnable_mp4("1".equals(r.getData().getEnableMp4()));
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                // 判断是否是回放流
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                // 只有非回放流且配置了录制才允许录制
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                }
             }
             if (userSetting.getPushAuthority()) {
                 // 对于推流进行鉴权

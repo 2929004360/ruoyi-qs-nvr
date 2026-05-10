@@ -37,4 +37,13 @@ public class RtpServerParam {
     
     /** 通道号 */
     private Integer channel;
+
+    /** 是否回放 */
+    private Boolean playback;
+
+    /** 回放开始时间 */
+    private String startTime;
+
+    /** 回放结束时间 */
+    private String endTime;
 }

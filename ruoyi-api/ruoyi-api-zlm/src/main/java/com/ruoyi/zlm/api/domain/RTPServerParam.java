@@ -26,4 +26,19 @@ public class RTPServerParam implements Serializable {
      * tcp模式，0时为不启用tcp监听，1时为启用tcp监听，2时为tcp主动连接模式
      */
     private Integer tcpMode;
+
+    /**
+     * 通道号
+     */
+    private Integer channel;
+
+    /**
+     * 回放开始时间
+     */
+    private String startTime;
+
+    /**
+     * 回放结束时间
+     */
+    private String endTime;
 }

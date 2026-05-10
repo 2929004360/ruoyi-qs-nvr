@@ -283,4 +283,24 @@ public interface RemoteDaHuaService {
      */
     @GetMapping(value = "/api/dahua/queryRecord/{id}/{channelId}")
     R<ArrayList<HashMap<String, Object>>> queryRecord(@PathVariable Long id, @PathVariable int channelId, @RequestParam String startTime, @RequestParam String endTime, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 大华设备开始录像回放
+     *
+     * @param rtpServerParam 回放参数
+     * @param source         请求来源
+     * @return
+     */
+    @PostMapping(value = "/api/dahua/startPlayback")
+    R<Void> startPlayback(@RequestBody RtpServerParam rtpServerParam, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 大华设备停止录像回放
+     *
+     * @param id     设备id
+     * @param source 请求来源
+     * @return
+     */
+    @GetMapping(value = "/api/dahua/stopPlayback/{id}")
+    R<Void> stopPlayback(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

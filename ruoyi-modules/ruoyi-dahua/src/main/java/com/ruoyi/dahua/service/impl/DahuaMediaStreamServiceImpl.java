@@ -2,6 +2,7 @@ package com.ruoyi.dahua.service.impl;
 
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.dahua.callback.FPlayBackDataCallBack;
 import com.ruoyi.dahua.callback.FRealDatarTPCallback;
 import com.ruoyi.dahua.lib.NetSDKLib;
 import com.ruoyi.dahua.manager.StreamManager;
@@ -172,6 +173,193 @@ public class DahuaMediaStreamServiceImpl implements IDahuaMediaStreamService {
             remoteZlmService.closeRTPServer(rtpServerParam.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
         } catch (Exception e) {
             log.error("[大华设备] 清理zlm资源失败，streamKey：{}", streamKey, e);
+        }
+    }
+
+    /**
+     * 开始回放
+     *
+     * @param lLong
+     * @param device
+     * @param playbackKey
+     * @param rtpServerParam
+     */
+    @Async("taskExecutor")
+    @Override
+    public void startPlayback(NetSDKLib.LLong lLong, QsDevice device, String playbackKey, RtpServerParam rtpServerParam) {
+        if (StreamManager.playbackKeyAndLatchMap.containsKey(playbackKey)) {
+            log.info("回放通道已在运行，忽略重复开启: {}", playbackKey);
+            return;
+        }
+
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        StreamManager.playbackKeyAndLatchMap.put(playbackKey, latch);
+        StreamManager.playbackKeyAndRtpServerParamMap.put(playbackKey, rtpServerParam);
+
+        NetSDKLib.LLong lPlaybackHandle = null;
+        FPlayBackDataCallBack fPlayBackDataCallBack = null;
+        boolean needCleanup = true;
+
+        try {
+            // 开始时间
+            NetSDKLib.NET_TIME stTimeStart = new NetSDKLib.NET_TIME();
+            // 结束时间
+            NetSDKLib.NET_TIME stTimeEnd = new NetSDKLib.NET_TIME();
+
+            // 开始时间
+            String[] dateStartByFile = rtpServerParam.getStartTime().split(" ");
+            String[] dateStart1 = dateStartByFile[0].split("-");
+            String[] dateStart2 = dateStartByFile[1].split(":");
+
+            stTimeStart.dwYear = Integer.parseInt(dateStart1[0]);
+            stTimeStart.dwMonth = Integer.parseInt(dateStart1[1]);
+            stTimeStart.dwDay = Integer.parseInt(dateStart1[2]);
+
+            stTimeStart.dwHour = Integer.parseInt(dateStart2[0]);
+            stTimeStart.dwMinute = Integer.parseInt(dateStart2[1]);
+            stTimeStart.dwSecond = Integer.parseInt(dateStart2[2]);
+
+
+            // 结束时间
+            String[] dateEndByFile = rtpServerParam.getEndTime().split(" ");
+            String[] dateEnd1 = dateEndByFile[0].split("-");
+            String[] dateEnd2 = dateEndByFile[1].split(":");
+
+            stTimeEnd.dwYear = Integer.parseInt(dateEnd1[0]);
+            stTimeEnd.dwMonth = Integer.parseInt(dateEnd1[1]);
+            stTimeEnd.dwDay = Integer.parseInt(dateEnd1[2]);
+
+            stTimeEnd.dwHour = Integer.parseInt(dateEnd2[0]);
+            stTimeEnd.dwMinute = Integer.parseInt(dateEnd2[1]);
+            stTimeEnd.dwSecond = Integer.parseInt(dateEnd2[2]);
+
+            log.info("开始回放大华设备, deviceId:{}, ip:{}, loginId:{}, channel:{}, startTime:{}, endTime:{}",
+                    device.getId(), device.getIpAddress(), lLong.longValue(),
+                    device.getChannel(), rtpServerParam.getStartTime(), rtpServerParam.getEndTime());
+            
+            // 验证登录句柄
+            if (lLong == null || lLong.longValue() == 0) {
+                log.error("登录句柄无效, deviceId:{}", device.getId());
+                throw new RuntimeException("登录句柄无效");
+            }
+
+            int channelToUse = device.getChannel();
+
+            // 创建RTP回调
+            fPlayBackDataCallBack = new FPlayBackDataCallBack(
+                    rtpServerParam.getIp(),
+                    rtpServerParam.getPort(),
+                    rtpServerParam.getSsrc()
+            );
+
+            log.info("调用 CLIENT_PlayBackByDataType, loginId:{}, channel:{}, startTime:{}, endTime:{}", 
+                    lLong.longValue(), channelToUse, 
+                    rtpServerParam.getStartTime(), rtpServerParam.getEndTime());
+            
+            NetSDKLib.NET_IN_PLAYBACK_BY_DATA_TYPE stIn = new NetSDKLib.NET_IN_PLAYBACK_BY_DATA_TYPE();
+            stIn.emDataType = NetSDKLib.EM_REAL_DATA_TYPE.EM_REAL_DATA_TYPE_GBPS;
+            stIn.nChannelID = channelToUse;
+            stIn.stStartTime = stTimeStart;
+            stIn.stStopTime = stTimeEnd;
+            stIn.nPlayDirection = 0;
+            stIn.cbDownLoadPos = DaHuaServiceImpl.PlayBackPosCallBack.getInstance();
+            stIn.dwPosUser = null;
+            stIn.fDownLoadDataCallBack = fPlayBackDataCallBack;
+            stIn.dwDataUser = null;
+
+            NetSDKLib.NET_OUT_PLAYBACK_BY_DATA_TYPE stOut = new NetSDKLib.NET_OUT_PLAYBACK_BY_DATA_TYPE();
+            lPlaybackHandle = DaHuaServiceImpl.netsdk.CLIENT_PlayBackByDataType(lLong, stIn, stOut, 10000);
+
+            if (lPlaybackHandle.longValue() != 0) {
+                StreamManager.playbackKeyAndPlaybackHandleMap.put(playbackKey, lPlaybackHandle);
+                StreamManager.playbackKeyAndFPlayBackDataCallBackMap.put(playbackKey, fPlayBackDataCallBack);
+
+                log.info("大华设备回放成功, deviceId:{}, channel:{}, playbackKey:{}",
+                        device.getId(), device.getChannel(), playbackKey);
+
+                latch.await();
+                needCleanup = false;
+            } else {
+                log.error("大华设备回放失败, deviceId:{}, channel:{}, error:{}",
+                        device.getId(), device.getChannel(), DaHuaServiceImpl.getErrorCodePrint());
+                throw new RuntimeException("大华设备回放失败");
+            }
+        } catch (Exception e) {
+            log.error("大华设备回放异常, deviceId:{}, channel:{}", device.getId(), device.getChannel(), e);
+            throw new RuntimeException(e);
+        } finally {
+            if (needCleanup) {
+                if(lPlaybackHandle != null){
+                    cleanupPlaybackResources(playbackKey, rtpServerParam, lPlaybackHandle, fPlayBackDataCallBack);
+                }
+            }
+            StreamManager.playbackKeyAndLatchMap.remove(playbackKey);
+        }
+    }
+
+    /**
+     * 停止回放
+     *
+     * @param lLong
+     * @param id
+     * @param channel
+     * @param playbackKey
+     */
+    @Override
+    public void stopPlayback(NetSDKLib.LLong lLong, Long id, Integer channel, String playbackKey) {
+        java.util.concurrent.CountDownLatch latch = StreamManager.playbackKeyAndLatchMap.get(playbackKey);
+        if (latch != null) {
+            latch.countDown();
+            log.info("结束回放实例: {}", playbackKey);
+        }
+
+        RtpServerParam rtpServerParam = StreamManager.playbackKeyAndRtpServerParamMap.get(playbackKey);
+        NetSDKLib.LLong playbackHandle = StreamManager.playbackKeyAndPlaybackHandleMap.get(playbackKey);
+        FPlayBackDataCallBack fPlayBackDataCallBack = StreamManager.playbackKeyAndFPlayBackDataCallBackMap.get(playbackKey);
+
+        cleanupPlaybackResources(playbackKey, rtpServerParam, playbackHandle, fPlayBackDataCallBack);
+        log.info("停止回放, deviceId:{}, channel:{}", id, channel);
+    }
+
+    /**
+     * 统一回放资源清理方法
+     *
+     * @param playbackKey
+     * @param rtpServerParam
+     * @param playbackHandle
+     * @param fPlayBackDataCallBack
+     */
+    @Override
+    public void cleanupPlaybackResources(String playbackKey, RtpServerParam rtpServerParam,
+                                         NetSDKLib.LLong playbackHandle, FPlayBackDataCallBack fPlayBackDataCallBack) {
+        try {
+            if (playbackHandle != null && playbackHandle.longValue() != 0) {
+                DaHuaServiceImpl.netsdk.CLIENT_StopPlayBack(playbackHandle);
+            }
+        } catch (Exception e) {
+            log.error("[大华设备] 停止回放失败, playbackKey:{}", playbackKey, e);
+        }
+
+        try {
+            if (fPlayBackDataCallBack != null) {
+                fPlayBackDataCallBack.close();
+            }
+        } catch (Exception e) {
+            log.error("[大华设备] 关闭回调失败, playbackKey:{}", playbackKey, e);
+        }
+
+        StreamManager.playbackKeyAndPlaybackHandleMap.remove(playbackKey);
+        StreamManager.playbackKeyAndFPlayBackDataCallBackMap.remove(playbackKey);
+        StreamManager.playbackKeyAndRtpServerParamMap.remove(playbackKey);
+
+        if (rtpServerParam != null) {
+            try {
+                log.info("[大华设备] 清理回放zlm资源, playbackKey:{}, ssrc:{}", playbackKey, rtpServerParam.getSsrc());
+                remoteZlmService.releaseSsrc(rtpServerParam.getMediaServerId(), rtpServerParam.getSsrc(), SecurityConstants.INNER);
+                remoteZlmService.closeRTPServer(rtpServerParam.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
+            } catch (Exception e) {
+                log.error("[大华设备] 清理回放zlm资源失败, playbackKey:{}", playbackKey, e);
+            }
         }
     }
 }

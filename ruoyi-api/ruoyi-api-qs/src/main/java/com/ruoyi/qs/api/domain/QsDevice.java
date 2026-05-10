@@ -157,4 +157,13 @@ public class QsDevice extends BaseEntity
 
     /** JT1078-车牌颜色 */
     private String jtPlateColor;
+
+    /** 回放流状态(0=停止,1=回放中) */
+    private String playbackStreamStatus;
+
+    /** 回放使用的流媒体服务ID */
+    private String playbackMediaServerId;
+
+    /** 回放时zlm返回的key，用于停止回放 */
+    private String playbackStreamKey;
 }

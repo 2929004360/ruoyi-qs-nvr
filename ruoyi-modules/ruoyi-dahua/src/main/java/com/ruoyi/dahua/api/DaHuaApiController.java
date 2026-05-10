@@ -321,4 +321,24 @@ public class DaHuaApiController {
     public R<ArrayList<HashMap<String, Object>>> queryRecord(@PathVariable Long id, @PathVariable int channelId, @NotBlank(message = "开始时间不能为空") String startTime, @NotBlank(message = "结束时间不能为空") String endTime) {
         return R.ok(daHuaService.queryRecord(id, channelId, startTime, endTime));
     }
+
+    /**
+     * 大华设备开始录像回放
+     */
+    @InnerAuth
+    @PostMapping("/startPlayback")
+    public R<Void> startPlayback(@RequestBody com.ruoyi.common.core.domain.RtpServerParam rtpServerParam) {
+        daHuaService.startPlayback(rtpServerParam);
+        return R.ok();
+    }
+
+    /**
+     * 大华设备停止录像回放
+     */
+    @InnerAuth
+    @GetMapping("/stopPlayback/{id}")
+    public R<Void> stopPlayback(@PathVariable Long id) {
+        daHuaService.stopPlayback(id);
+        return R.ok();
+    }
 }

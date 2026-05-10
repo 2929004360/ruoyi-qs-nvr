@@ -1004,4 +1004,81 @@ public class DaHuaServiceImpl implements IDaHuaService {
         }
         return true;
     }
+
+    /**
+     * 大华设备开始录像回放
+     *
+     * @param rtpServerParam 回放参数
+     */
+    @Override
+    public void startPlayback(RtpServerParam rtpServerParam) {
+        log.info("开始回放大华设备录像, deviceId:{}", rtpServerParam.getId());
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", rtpServerParam.getId(), r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}, channel:{}", device.getId(), device.getIpAddress(), device.getChannel());
+
+        String playbackKey = "dahua:playback:" + device.getId() + ":" + device.getChannel();
+
+        NetSDKLib.LLong lLong = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+
+        if (lLong == null || lLong.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", device.getId(), device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+        log.info("开始回放大华设备录像, deviceId:{}, channel:{}, playbackKey:{}", device.getId(), device.getChannel(), playbackKey);
+        mediaStreamService.startPlayback(lLong, device, playbackKey, rtpServerParam);
+        log.info("回放大华设备录像调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
+    }
+
+    /**
+     * 大华设备停止录像回放
+     *
+     * @param id 设备id
+     */
+    @Override
+    public void stopPlayback(Long id) {
+        log.info("开始停止回放大华设备录像, deviceId:{}", id);
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}, channel:{}", device.getId(), device.getIpAddress(), device.getChannel());
+        String playbackKey = "dahua:playback:" + device.getId() + ":" + device.getChannel();
+
+        NetSDKLib.LLong lLong = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+
+        if (lLong == null || lLong.longValue() == 0) {
+            log.warn("大华设备未登录，无法停止回放, deviceId:{}, IP:{}", id, device.getIpAddress());
+            return;
+        }
+        log.info("停止回放大华设备录像, deviceId:{}, channel:{}, playbackKey:{}", device.getId(), device.getChannel(), playbackKey);
+        mediaStreamService.stopPlayback(lLong, device.getId(), device.getChannel(), playbackKey);
+        log.info("停止回放大华设备录像调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
+    }
+
+    // 回调建议写成单例模式, 回调里处理数据，需要另开线程
+    // 回放进度回调
+    public static class PlayBackPosCallBack implements NetSDKLib.fDownLoadPosCallBack {
+        private PlayBackPosCallBack() {
+        }
+
+        private static class PlayBackPosCallBackHolder {
+            private static final PlayBackPosCallBack posCB = new PlayBackPosCallBack();
+        }
+
+        public static final PlayBackPosCallBack getInstance() {
+            return PlayBackPosCallBackHolder.posCB;
+        }
+
+        @Override
+        public void invoke(NetSDKLib.LLong lPlayHandle, int dwTotalSize, int dwDownLoadSize, Pointer dwUser) {
+//            System.out.println("PlayBackPosCallBack dwTotalSize： " + dwTotalSize + "dwDownLoadSize+ " + dwDownLoadSize);
+        }
+    }
 }

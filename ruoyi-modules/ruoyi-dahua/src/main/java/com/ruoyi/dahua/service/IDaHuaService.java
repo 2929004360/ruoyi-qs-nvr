@@ -216,11 +216,25 @@ public interface IDaHuaService {
     /**
      * 大华设备查询录像
      *
-     * @param id        设备id
-     * @param channelId 通道id
-     * @param startTime 开始时间
-     * @param endTime   结束时间
+     * @param id         设备id
+     * @param channelId  通道id
+     * @param startTime  开始时间
+     * @param endTime    结束时间
      * @return
      */
     ArrayList<HashMap<String, Object>> queryRecord(Long id, int channelId, String startTime, String endTime);
+
+    /**
+     * 大华设备开始录像回放
+     *
+     * @param rtpServerParam 回放参数
+     */
+    void startPlayback(RtpServerParam rtpServerParam);
+
+    /**
+     * 大华设备停止录像回放
+     *
+     * @param id 设备id
+     */
+    void stopPlayback(Long id);
 }
