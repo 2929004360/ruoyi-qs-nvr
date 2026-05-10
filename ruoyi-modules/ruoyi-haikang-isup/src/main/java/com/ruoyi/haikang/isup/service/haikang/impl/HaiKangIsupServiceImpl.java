@@ -765,4 +765,38 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
                 return "未知类型(" + fileType + ")";
         }
     }
+
+    @Override
+    public void startPlayback(RtpServerParam rtpServerParam) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        String playbackKey = "haikang_isup_playback_" + device.getId() + "_" + device.getChannel();
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            throw new ServiceException("未找到用户信息");
+        }
+
+        mediaStreamService.startPlayback(lUserID, device, playbackKey, rtpServerParam);
+    }
+
+    @Override
+    public void stopPlayback(Long id) {
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        String playbackKey = "haikang_isup_playback_" + device.getId() + "_" + device.getChannel();
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            throw new ServiceException("未找到用户信息");
+        }
+        mediaStreamService.stopPlayback(lUserID, device.getId(), device.getChannel(), playbackKey);
+    }
 }

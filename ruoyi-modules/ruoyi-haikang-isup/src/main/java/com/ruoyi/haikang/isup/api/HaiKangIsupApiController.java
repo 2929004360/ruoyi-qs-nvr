@@ -88,6 +88,31 @@ public class HaiKangIsupApiController {
     }
 
     /**
+     * 开始回放
+     *
+     * @param rtpServerParam 回放参数
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/startPlayback")
+    public R<Void> startPlayback(@RequestBody RtpServerParam rtpServerParam) {
+        haiKangIsupService.startPlayback(rtpServerParam);
+        return R.ok();
+    }
+
+    /**
+     * 停止回放
+     *
+     * @param id 设备id
+     */
+    @InnerAuth
+    @GetMapping("/stopPlayback/{id}")
+    public R<Void> stopPlayback(@PathVariable Long id) {
+        haiKangIsupService.stopPlayback(id);
+        return R.ok();
+    }
+
+    /**
      * 开始云台控制
      */
     @InnerAuth

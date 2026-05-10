@@ -40,6 +40,11 @@ public class RemoteGb28181FallbackFactory implements FallbackFactory<RemoteGb281
             }
 
             @Override
+            public R<Void> playbackStreamCmd(RtpServerParam rtpServer, String inner) {
+                return R.fail("gb28181 请求回放视频流失败:" + throwable.getMessage());
+            }
+
+            @Override
             public R<DeviceChannel> getDeviceChannelByChannelId(String gbDeviceId, String gbChannelId, String inner) {
                 return R.fail("gb28181 根据设备id和通道获取设备通道:" + throwable.getMessage());
             }

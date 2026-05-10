@@ -42,7 +42,7 @@ public class HaiKangIsupController extends BaseController {
         return success(FRegisterCallBack.deviceList);
     }
 
-        /**
+    /**
      * 海康设备查询录像
      *
      * @param deviceId  设备id

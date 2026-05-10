@@ -30,4 +30,32 @@ public interface IHaikangIsupMediaStreamService {
      * @param streamKey
      */
     void stopPlay(Integer lUserID, Long id, Integer channel, String streamKey);
+
+    /**
+     * 开始回放
+     *
+     * @param lUserID
+     * @param device
+     * @param playbackKey
+     * @param rtpServerParam
+     */
+    void startPlayback(Integer lUserID, QsDevice device, String playbackKey, RtpServerParam rtpServerParam);
+
+    /**
+     * 停止回放
+     *
+     * @param lUserID
+     * @param id
+     * @param channel
+     * @param playbackKey
+     */
+    void stopPlayback(Integer lUserID, Long id, Integer channel, String playbackKey);
+
+    /**
+     * 清理回放资源
+     *
+     * @param playbackKey
+     * @param rtpServerParam
+     */
+    void cleanupPlaybackResources(String playbackKey, RtpServerParam rtpServerParam);
 }

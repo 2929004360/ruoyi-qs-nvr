@@ -60,4 +60,7 @@ public class StreamPullPlay implements Serializable{
 
     /** 拉流代理时zlm返回的key，用于停止拉流代理 */
     private String streamKey;
+
+    /** 是否是回放流 */
+    private boolean isPlayback;
 }

@@ -343,6 +343,17 @@ public interface IMediaServerService {
     void startGb28181Play(QsDevice qsDevice, Device gbDevice, ErrorCallback<StreamInfo> callback);
 
     /**
+     * gb28181 回放
+     *
+     * @param qsDevice
+     * @param gbDevice
+     * @param startTime
+     * @param endTime
+     * @param callback
+     */
+    void startGb28181Playback(QsDevice qsDevice, Device gbDevice, String startTime, String endTime, ErrorCallback<StreamInfo> callback);
+
+    /**
      * 连接rtp服务
      *
      * @param mediaServer

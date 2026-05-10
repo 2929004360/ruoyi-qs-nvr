@@ -146,6 +146,16 @@ public class RemoteHaiKangFallbackFactory implements FallbackFactory<RemoteHaiKa
             public R<ArrayList<HashMap<String, Object>>> getRecMonth(Long deviceId, int channelId, String startTime, String endTime, String source) {
                 return R.fail("海康sdk查询录像失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Void> startPlayback(RtpServerParam rtpServerParam, String source) {
+                return R.fail("海康sdk开始回放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlayback(Long id, String inner) {
+                return R.fail("海康sdk停止回放失败:" + throwable.getMessage());
+            }
         };
     }
 }

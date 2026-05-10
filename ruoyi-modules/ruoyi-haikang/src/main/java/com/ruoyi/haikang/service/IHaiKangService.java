@@ -65,6 +65,20 @@ public interface IHaiKangService {
     void stopPlay(Long id);
 
     /**
+     * 开始回放
+     *
+     * @param rtpServerParam
+     */
+    void startPlayback(RtpServerParam rtpServerParam);
+
+    /**
+     * 停止回放
+     *
+     * @param id 设备id
+     */
+    void stopPlayback(Long id);
+
+    /**
      * 开始云台控制
      *
      * @param deviceId 设备id

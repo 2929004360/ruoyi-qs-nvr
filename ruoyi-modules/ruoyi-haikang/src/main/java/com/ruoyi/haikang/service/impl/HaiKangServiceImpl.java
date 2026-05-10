@@ -318,6 +318,58 @@ public class HaiKangServiceImpl implements IHaiKangService {
         log.info("停止播放接口调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
     }
 
+    @Override
+    public void startPlayback(RtpServerParam rtpServerParam) {
+        log.info("开始调用回放接口, deviceId:{}", rtpServerParam.getId());
+        
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", rtpServerParam.getId(), r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", rtpServerParam.getId(), device.getIpAddress());
+
+        String playbackKey = "haikang_playback_" + device.getId() + "_" + device.getChannel();
+
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", rtpServerParam.getId(), device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效, deviceId:{}, userId:{}", rtpServerParam.getId(), lUserID);
+
+        log.info("开始回放海康设备流, deviceId:{}, channel:{}, playbackKey:{}", device.getId(), device.getChannel(), playbackKey);
+        mediaStreamService.startPlayback(lUserID, device, playbackKey, rtpServerParam);
+        log.info("回放接口调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
+    }
+
+    @Override
+    public void stopPlayback(Long id) {
+        log.info("开始调用停止回放接口, deviceId:{}", id);
+        
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+        
+        String playbackKey = "haikang_playback_" + device.getId() + "_" + device.getChannel();
+
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.warn("海康设备未登录，无法停止回放, deviceId:{}, IP:{}", id, device.getIpAddress());
+            return;
+        }
+        log.debug("设备用户ID有效, deviceId:{}, userId:{}", id, lUserID);
+
+        log.info("停止回放海康设备流, deviceId:{}, channel:{}, playbackKey:{}", device.getId(), device.getChannel(), playbackKey);
+        mediaStreamService.stopPlayback(lUserID, device.getId(), device.getChannel(), playbackKey);
+        log.info("停止回放接口调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
+    }
+
     //设备版本解析
     public void parseVersion(int version, HaikangDeviceInfo deviceInfo) {
         int firstVersion = (version & 0XFF << 24) >> 24;

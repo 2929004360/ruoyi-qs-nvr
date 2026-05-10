@@ -12,6 +12,7 @@ import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
 import com.ruoyi.jt1078.api.RemoteJt1078Service;
 import com.ruoyi.jt1078.api.domain.Jt1078Device;
+import com.ruoyi.onvif.api.RemoteOnvifService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.*;
@@ -68,6 +69,9 @@ public class ZlmController {
     private RemoteQsDeviceService remoteQsDeviceService;
 
     @Autowired
+    private RemoteOnvifService remoteOnvifService;
+
+    @Autowired
     @Lazy
     private IInviteStreamService inviteStreamService;
 
@@ -107,6 +111,79 @@ public class ZlmController {
                     r.setMsg(msg);
                 }
 
+                result.setResult(r);
+            } else {
+                result.setResult(R.fail(code, msg));
+            }
+        };
+
+        mediaServerService.streamPullPlay(streamPullPlay, callback);
+        return result;
+    }
+
+    /**
+     * ONVIF回放拉流播放
+     *
+     * @param onvifPlayback ONVIF回放拉流播放请求参数
+     * @param request       HttpServletRequest
+     * @return
+     */
+    @PostMapping("/onvifPlayback")
+    public DeferredResult<R<StreamContent>> onvifPlayback(@RequestBody OnvifPlayback onvifPlayback, HttpServletRequest request) {
+        log.info("ONVIF回放拉流播放： app：{}-stream：{}-deviceIp：{}", onvifPlayback.getApp(), onvifPlayback.getStream(), onvifPlayback.getDeviceIp());
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+
+        // 获取ONVIF回放地址
+        R<String> replayUriResult = remoteOnvifService.getReplayUri(
+                onvifPlayback.getDeviceIp(),
+                onvifPlayback.getUsername(),
+                onvifPlayback.getPassword(),
+                onvifPlayback.getRecordingToken(),
+                onvifPlayback.getTrackToken(),
+                SecurityConstants.INNER
+        );
+
+        if (replayUriResult.getCode() != Constants.SUCCESS || StringUtils.isEmpty(replayUriResult.getData())) {
+            result.setResult(R.fail("获取ONVIF回放地址失败"));
+            return result;
+        }
+
+        // 构造拉流播放参数
+        StreamPullPlay streamPullPlay = new StreamPullPlay();
+        streamPullPlay.setDeviceId(onvifPlayback.getDeviceId());
+        streamPullPlay.setApp(onvifPlayback.getApp());
+        streamPullPlay.setStream(onvifPlayback.getStream());
+        streamPullPlay.setUrl(replayUriResult.getData());
+        streamPullPlay.setEnable_audio(onvifPlayback.isEnable_audio());
+        streamPullPlay.setEnable_mp4(false); // 回放不开启云端录像
+        streamPullPlay.setRtp_type(onvifPlayback.getRtp_type());
+        streamPullPlay.setTimeOut(onvifPlayback.getTimeOut());
+        streamPullPlay.setPlayback(true); // ONVIF回放流，设置为回放类型
+
+        // 回调处理
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                R<StreamContent> r = R.ok();
+                if (streamInfo != null) {
+                    if (userSetting.getUseSourceIpAsStreamIp()) {
+                        streamInfo = streamInfo.clone();//深拷贝
+                        String host;
+                        try {
+                            URL url = new URL(request.getRequestURL().toString());
+                            host = url.getHost();
+                        } catch (MalformedURLException e) {
+                            host = request.getLocalAddr();
+                        }
+                        streamInfo.changeStreamIp(host);
+                    }
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                        streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
+                    }
+                    r.setData(new StreamContent(streamInfo));
+                } else {
+                    r.setCode(code);
+                    r.setMsg(msg);
+                }
                 result.setResult(r);
             } else {
                 result.setResult(R.fail(code, msg));
@@ -211,7 +288,7 @@ public class ZlmController {
     }
 
     /**
-     * 大华设备录像回放
+     * 设备录像回放（支持海康SDK、海康ISUP、大华SDK）
      *
      * @param rtpServerParam 创建rtp端口请求参数
      * @param request        HttpServletRequest
@@ -219,11 +296,14 @@ public class ZlmController {
      */
     @PostMapping("/rtpPlayback")
     public DeferredResult<R<StreamContent>> rtpPlayback(@RequestBody RTPServerParam rtpServerParam, HttpServletRequest request) {
-        log.info("大华录像回放： app：{}-stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
+        log.info("设备录像回放：类型={}, app={}, streamId={}", rtpServerParam.getType(), rtpServerParam.getApp(), rtpServerParam.getStreamId());
 
-        if (!(LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType()))) {
+        // 验证支持的类型
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType()))) {
             log.error("不支持的回放类型：{}", rtpServerParam.getType());
-            throw new RuntimeException("不支持的回放类型，仅支持大华设备");
+            throw new RuntimeException("不支持的回放类型，仅支持海康SDK/海康ISUP/大华设备");
         }
 
         // 标记为回放
@@ -231,10 +311,19 @@ public class ZlmController {
 
         DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
 
+        String typeDesc;
+        if (LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())) {
+            typeDesc = "海康SDK";
+        } else if (LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())) {
+            typeDesc = "海康ISUP";
+        } else {
+            typeDesc = "大华SDK";
+        }
+
         result.onTimeout(() -> {
-            log.info("[大华录像回放等待超时] app：{}, stream：{}", rtpServerParam.getApp(), rtpServerParam.getStreamId());
+            log.info("[设备录像回放等待超时] type={}, app={}, streamId={}", typeDesc, rtpServerParam.getApp(), rtpServerParam.getStreamId());
             R<StreamContent> wvpResult = R.fail();
-            wvpResult.setMsg("大华录像回放超时");
+            wvpResult.setMsg(typeDesc + "录像回放超时");
             result.setResult(wvpResult);
 
             inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAYBACK, rtpServerParam.getId());
@@ -296,17 +385,20 @@ public class ZlmController {
     }
 
     /**
-     * 停止大华录像回放
+     * 停止设备录像回放（支持海康SDK、海康ISUP、大华SDK）
      *
      * @param rtpServerParam 创建rtp端口请求参数
      * @return
      */
     @PostMapping("/stopRtpPlayback")
     public AjaxResult stopRtpPlayback(@RequestBody RTPServerParam rtpServerParam) {
-        log.info("停止大华录像回放： id：{}", rtpServerParam.getId());
-        if (!(LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType()))) {
+        log.info("停止设备录像回放：type={}, id={}", rtpServerParam.getType(), rtpServerParam.getId());
+        // 验证支持的类型
+        if (!(LiveStreamType.HIK_SDK.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.HIK_ISUP.getCode().equals(rtpServerParam.getType())
+                || LiveStreamType.DAHUA_SDK.getCode().equals(rtpServerParam.getType()))) {
             log.error("不支持的回放类型：{}", rtpServerParam.getType());
-            throw new RuntimeException("不支持的回放类型，仅支持大华设备");
+            throw new RuntimeException("不支持的回放类型，仅支持海康SDK/海康ISUP/大华设备");
         }
         // 标记为回放
         rtpServerParam.setPlayback(true);
@@ -649,6 +741,107 @@ public class ZlmController {
     }
 
     /**
+     * gb28181 回放
+     *
+     * @param request
+     * @param id        设备id
+     * @param startTime 开始时间
+     * @param endTime   结束时间
+     * @return
+     */
+    @GetMapping("/startGb28181Playback/{id}")
+    public DeferredResult<R<StreamContent>> startGb28181Playback(
+            HttpServletRequest request,
+            @PathVariable Long id,
+            @RequestParam String startTime,
+            @RequestParam String endTime
+    ) {
+        log.info("[gb28181 开始回放] id={}, startTime={}, endTime={}", id, startTime, endTime);
+        Assert.notNull(id, "设备id");
+        Assert.notNull(startTime, "开始时间");
+        Assert.notNull(endTime, "结束时间");
+
+        R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (qsDevicer.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+
+        QsDevice qsDevice = qsDevicer.getData();
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            throw new RuntimeException("设备不在线 id:" + id);
+        }
+
+        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(qsDevice.getGbDeviceId(), SecurityConstants.INNER);
+        if (deviceR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备信息失败 id:" + qsDevice.getGbDeviceId());
+        }
+        Assert.notNull(deviceR.getData(), "gb28181 国标设备不存在 id:" + qsDevice.getGbDeviceId());
+
+        if (!deviceR.getData().isOnLine()) {
+            throw new RuntimeException("gb28181 国标设备不在线失败 id:" + qsDevice.getGbDeviceId());
+        }
+
+        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId(qsDevice.getGbDeviceId(), qsDevice.getGbChannelId(), SecurityConstants.INNER);
+        if (deviceChannelR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备通道失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        Assert.notNull(deviceChannelR.getData(), "gb28181 获取设备通道失败不存在 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+
+        if (!"ON".equals(deviceChannelR.getData().getStatus())) {
+            throw new RuntimeException("gb28181 国标设备通道不在线失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+
+        result.onTimeout(() -> {
+            log.info("[回放等待超时] gbDeviceId={}, gbChannelId={}", qsDevice.getGbDeviceId(), qsDevice.getGbChannelId());
+            R<StreamContent> wvpResult = R.fail();
+            wvpResult.setMsg("回放超时");
+            result.setResult(wvpResult);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAYBACK, qsDevice.getId());
+            mediaServerService.stopGb28181Play(InviteSessionType.PLAYBACK, qsDevice, deviceR.getData(), qsDevice.getDeviceCode() + "_playback");
+        });
+
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                R<StreamContent> r = R.ok();
+                if (streamInfo != null) {
+                    if (userSetting.getUseSourceIpAsStreamIp()) {
+                        streamInfo = streamInfo.clone();
+                        String host;
+                        try {
+                            URL url = new URL(request.getRequestURL().toString());
+                            host = url.getHost();
+                        } catch (MalformedURLException e) {
+                            host = request.getLocalAddr();
+                        }
+                        streamInfo.changeStreamIp(host);
+                    }
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                        streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
+                    }
+                    r.setData(new StreamContent(streamInfo));
+                } else {
+                    r.setCode(code);
+                    r.setMsg(msg);
+                }
+
+                result.setResult(r);
+            } else {
+                result.setResult(R.fail(code, msg));
+            }
+        };
+
+        qsDevice.setStreamMode(deviceR.getData().getStreamMode());
+        mediaServerService.startGb28181Playback(qsDevice, deviceR.getData(), startTime, endTime, callback);
+        return result;
+    }
+
+    /**
      * gb28181 停止点播
      *
      * @param id 设备id
@@ -694,6 +887,58 @@ public class ZlmController {
         }
 
         mediaServerService.stopGb28181Play(InviteSessionType.PLAY, qsDevice, deviceR.getData(), qsDevice.getDeviceCode());
+        JSONObject json = new JSONObject();
+        json.put("deviceId", qsDevice.getGbDeviceId());
+        json.put("channelId", qsDevice.getGbChannelId());
+        return AjaxResult.success(json);
+    }
+
+    /**
+     * gb28181 停止回放
+     *
+     * @param id 设备id
+     * @return
+     */
+    @GetMapping("/stopGb28181Playback/{id}")
+    public AjaxResult stopGb28181Playback(@PathVariable Long id) {
+
+        log.info("[gb28181 停止回放] id={}", id);
+        Assert.notNull(id, "设备id");
+
+        R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (qsDevicer.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+
+        QsDevice qsDevice = qsDevicer.getData();
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            throw new RuntimeException("设备不在线 id:" + id);
+        }
+
+        R<Device> deviceR = remoteGb28181Service.getDeviceByDeviceId(qsDevice.getGbDeviceId(), SecurityConstants.INNER);
+        if (deviceR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备信息失败 id:" + qsDevice.getGbDeviceId());
+        }
+        Assert.notNull(deviceR.getData(), "gb28181 国标设备不存在 id:" + qsDevice.getGbDeviceId());
+
+        if (!deviceR.getData().isOnLine()) {
+            throw new RuntimeException("gb28181 国标设备不在线失败 id:" + qsDevice.getGbDeviceId());
+        }
+
+        R<DeviceChannel> deviceChannelR = remoteGb28181Service.getDeviceChannelByChannelId(qsDevice.getGbDeviceId(), qsDevice.getGbChannelId(), SecurityConstants.INNER);
+        if (deviceChannelR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("gb28181 获取设备通道失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        Assert.notNull(deviceChannelR.getData(), "gb28181 获取设备通道失败不存在 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+
+        if (!"ON".equals(deviceChannelR.getData().getStatus())) {
+            throw new RuntimeException("gb28181 国标设备通道不在线失败 gbDeviceId:" + qsDevice.getGbDeviceId() + "，gbChannelId:" + qsDevice.getGbChannelId());
+        }
+
+        mediaServerService.stopGb28181Play(InviteSessionType.PLAYBACK, qsDevice, deviceR.getData(), qsDevice.getDeviceCode() + "_playback");
         JSONObject json = new JSONObject();
         json.put("deviceId", qsDevice.getGbDeviceId());
         json.put("channelId", qsDevice.getGbChannelId());

@@ -3,6 +3,7 @@ package com.ruoyi.haikang.service.impl;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.haikang.callback.FPlayBackDataCallBack;
 import com.ruoyi.haikang.callback.FRealDataForRtpOverTcpCallback;
 import com.ruoyi.haikang.manager.StreamManager;
 import com.ruoyi.haikang.net.Client;
@@ -180,6 +181,221 @@ public class HaikangMediaStreamServiceImpl implements IHaikangMediaStreamService
             remoteZlmService.closeRTPServer(rtpServerParam.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
         } catch (Exception e) {
             log.error("[海康设备] 清理zlm资源失败，streamKey：{}", streamKey, e);
+        }
+    }
+
+    /**
+     * 开始回放
+     *
+     * @param lUserID
+     * @param device
+     * @param playbackKey
+     * @param rtpServerParam
+     */
+    @Async("taskExecutor")
+    @Override
+    public void startPlayback(Integer lUserID, QsDevice device, String playbackKey, RtpServerParam rtpServerParam) {
+        if (StreamManager.playbackKeyAndLatchMap.containsKey(playbackKey)) {
+            log.info("回放通道已在运行，忽略重复开启: {}", playbackKey);
+            return;
+        }
+
+        CountDownLatch latch = new CountDownLatch(1);
+        StreamManager.playbackKeyAndLatchMap.put(playbackKey, latch);
+        StreamManager.playbackKeyAndRtpServerParamMap.put(playbackKey, rtpServerParam);
+
+        long playbackHandle = -1;
+        FPlayBackDataCallBack fPlayBackDataCallBack = null;
+        boolean needCleanup = true;
+
+        try {
+            // 开始时间
+            HCNetSDK.NET_DVR_TIME stTimeStart = new HCNetSDK.NET_DVR_TIME();
+            // 结束时间
+            HCNetSDK.NET_DVR_TIME stTimeEnd = new HCNetSDK.NET_DVR_TIME();
+
+            // 开始时间
+            String[] dateStartByFile = rtpServerParam.getStartTime().split(" ");
+            String[] dateStart1 = dateStartByFile[0].split("-");
+            String[] dateStart2 = dateStartByFile[1].split(":");
+
+            stTimeStart.dwYear = Integer.parseInt(dateStart1[0]);
+            stTimeStart.dwMonth = Integer.parseInt(dateStart1[1]);
+            stTimeStart.dwDay = Integer.parseInt(dateStart1[2]);
+            stTimeStart.dwHour = Integer.parseInt(dateStart2[0]);
+            stTimeStart.dwMinute = Integer.parseInt(dateStart2[1]);
+            stTimeStart.dwSecond = Integer.parseInt(dateStart2[2]);
+
+            // 结束时间
+            String[] dateEndByFile = rtpServerParam.getEndTime().split(" ");
+            String[] dateEnd1 = dateEndByFile[0].split("-");
+            String[] dateEnd2 = dateEndByFile[1].split(":");
+
+            stTimeEnd.dwYear = Integer.parseInt(dateEnd1[0]);
+            stTimeEnd.dwMonth = Integer.parseInt(dateEnd1[1]);
+            stTimeEnd.dwDay = Integer.parseInt(dateEnd1[2]);
+            stTimeEnd.dwHour = Integer.parseInt(dateEnd2[0]);
+            stTimeEnd.dwMinute = Integer.parseInt(dateEnd2[1]);
+            stTimeEnd.dwSecond = Integer.parseInt(dateEnd2[2]);
+
+            log.info("开始回放海康设备, deviceId:{}, ip:{}, lUserID:{}, channel:{}, startTime:{}, endTime:{}",
+                    device.getId(), device.getIpAddress(), lUserID,
+                    device.getChannel(), rtpServerParam.getStartTime(), rtpServerParam.getEndTime());
+
+            // 验证登录句柄
+            if (lUserID == null || lUserID == 0) {
+                log.error("登录句柄无效, deviceId:{}", device.getId());
+                throw new RuntimeException("登录句柄无效");
+            }
+
+            int channelToUse = device.getChannel();
+
+            // 创建RTP回调
+            fPlayBackDataCallBack = new FPlayBackDataCallBack(
+                    rtpServerParam.getIp(),
+                    rtpServerParam.getPort(),
+                    rtpServerParam.getSsrc()
+            );
+
+            // 构造回放参数
+            HCNetSDK.NET_DVR_VOD_PARA vodPara = new HCNetSDK.NET_DVR_VOD_PARA();
+            vodPara.dwSize = vodPara.size();
+            
+            // 设置通道
+            vodPara.struIDInfo.dwSize = vodPara.struIDInfo.size();
+            vodPara.struIDInfo.dwChannel = channelToUse;
+            
+            // 设置时间
+            vodPara.struBeginTime = stTimeStart;
+            vodPara.struEndTime = stTimeEnd;
+            
+            // 设置码流类型
+            if ("1".equals(device.getStreamType())) {
+                vodPara.byStreamType = 0; // 主码流
+            } else {
+                vodPara.byStreamType = 1; // 子码流
+            }
+            
+            vodPara.write();
+
+            log.info("调用 NET_DVR_PlayBackByTime_V40, lUserID:{}, channel:{}", lUserID, channelToUse);
+            
+            playbackHandle = client.hCNetSDK.NET_DVR_PlayBackByTime_V40(lUserID, vodPara);
+
+            if (playbackHandle != -1) {
+                // 设置回放数据回调
+                boolean setCallbackResult = client.hCNetSDK.NET_DVR_SetPlayDataCallBack((int) playbackHandle, fPlayBackDataCallBack, 0);
+                if (!setCallbackResult) {
+                    log.error("设置回放数据回调失败, error:{}", client.hCNetSDK.NET_DVR_GetLastError());
+                }
+                
+                // 开始回放
+                boolean startResult = client.hCNetSDK.NET_DVR_PlayBackControl((int) playbackHandle, 1, 0, null);
+                if (!startResult) {
+                    log.error("开始回放失败, error:{}", client.hCNetSDK.NET_DVR_GetLastError());
+                }
+                
+                StreamManager.playbackKeyAndPlaybackHandleMap.put(playbackKey, playbackHandle);
+                StreamManager.playbackKeyAndFPlayBackDataCallBackMap.put(playbackKey, fPlayBackDataCallBack);
+
+                log.info("海康设备回放成功, deviceId:{}, channel:{}, playbackKey:{}",
+                        device.getId(), device.getChannel(), playbackKey);
+
+                latch.await();
+                needCleanup = false;
+            } else {
+                log.error("海康设备回放失败, deviceId:{}, channel:{}, error:{}",
+                        device.getId(), device.getChannel(), client.hCNetSDK.NET_DVR_GetLastError());
+                throw new RuntimeException("海康设备回放失败");
+            }
+        } catch (Exception e) {
+            log.error("海康设备回放异常, deviceId:{}, channel:{}", device.getId(), device.getChannel(), e);
+            throw new RuntimeException(e);
+        } finally {
+            if (needCleanup) {
+                if (playbackHandle != -1) {
+                    cleanupPlaybackResources(playbackKey, rtpServerParam, playbackHandle, fPlayBackDataCallBack);
+                }
+            }
+            StreamManager.playbackKeyAndLatchMap.remove(playbackKey);
+        }
+    }
+
+    /**
+     * 停止回放
+     *
+     * @param lUserID
+     * @param deviceId
+     * @param channel
+     * @param playbackKey
+     */
+    @Override
+    public void stopPlayback(Integer lUserID, Long deviceId, Integer channel, String playbackKey) {
+        CountDownLatch latch = StreamManager.playbackKeyAndLatchMap.get(playbackKey);
+        if (latch != null) {
+            latch.countDown();
+            log.info("结束回放实例: {}", playbackKey);
+        }
+
+        RtpServerParam rtpServerParam = StreamManager.playbackKeyAndRtpServerParamMap.get(playbackKey);
+        Long playbackHandle = StreamManager.playbackKeyAndPlaybackHandleMap.get(playbackKey);
+        FPlayBackDataCallBack fPlayBackDataCallBack = StreamManager.playbackKeyAndFPlayBackDataCallBackMap.get(playbackKey);
+
+        cleanupPlaybackResources(playbackKey, rtpServerParam, playbackHandle, fPlayBackDataCallBack);
+
+        StreamManager.playbackKeyAndLatchMap.remove(playbackKey);
+        log.info("停止回放, deviceId:{}, channel:{}", deviceId, channel);
+    }
+
+    /**
+     * 统一回放资源清理方法
+     *
+     * @param playbackKey
+     * @param rtpServerParam
+     * @param playbackHandle
+     * @param fPlayBackDataCallBack
+     */
+    @Override
+    public void cleanupPlaybackResources(String playbackKey, RtpServerParam rtpServerParam,
+                                         Long playbackHandle, FPlayBackDataCallBack fPlayBackDataCallBack) {
+        try {
+            if (playbackHandle != null && playbackHandle != -1) {
+                client.hCNetSDK.NET_DVR_StopPlayBack(playbackHandle.intValue());
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 停止回放失败, playbackKey:{}", playbackKey, e);
+        }
+
+        try {
+            if (fPlayBackDataCallBack != null) {
+                fPlayBackDataCallBack.close();
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 关闭回放回调失败, playbackKey:{}", playbackKey, e);
+        }
+
+        StreamManager.playbackKeyAndPlaybackHandleMap.remove(playbackKey);
+        StreamManager.playbackKeyAndFPlayBackDataCallBackMap.remove(playbackKey);
+        StreamManager.playbackKeyAndRtpServerParamMap.remove(playbackKey);
+
+        if (rtpServerParam != null) {
+            cleanupPlaybackZlmResources(playbackKey, rtpServerParam);
+        }
+    }
+
+    /**
+     * 清理回放zlm资源
+     *
+     * @param playbackKey
+     * @param rtpServerParam
+     */
+    private void cleanupPlaybackZlmResources(String playbackKey, RtpServerParam rtpServerParam) {
+        try {
+            log.info("[海康设备] 清理回放zlm资源, playbackKey:{}, ssrc:{}", playbackKey, rtpServerParam.getSsrc());
+            remoteZlmService.releaseSsrc(rtpServerParam.getMediaServerId(), rtpServerParam.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(rtpServerParam.getMediaServerId(), rtpServerParam, SecurityConstants.INNER);
+        } catch (Exception e) {
+            log.error("[海康设备] 清理回放zlm资源失败, playbackKey:{}", playbackKey, e);
         }
     }
 }

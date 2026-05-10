@@ -138,6 +138,78 @@ public class Gb28181ApiController {
     }
 
     /**
+     * 请求回放视频流
+     *
+     * @param rtpServer
+     * @return
+     */
+    @PostMapping("/playbackStreamCmd")
+    R<Boolean> playbackStreamCmd(@RequestBody RtpServerParam rtpServer) throws Exception {
+        Device device = deviceService.getDeviceByDeviceId(rtpServer.getGbDeviceId());
+
+        if (device == null) {
+            throw new RuntimeException("国标设备不存在 deviceId:" + rtpServer.getGbDeviceId());
+        }
+        CompletableFuture<R<Boolean>> future = new CompletableFuture<>();
+
+        try {
+            sipCommander.playbackStreamCmd(device, rtpServer, (eventResult) -> {
+                ResponseEvent responseEvent = (ResponseEvent) eventResult.event;
+                String contentString = new String(responseEvent.getResponse().getRawContent());
+
+                if (device.getStreamMode().equalsIgnoreCase("TCP-ACTIVE")) {
+                    String substring = contentString.indexOf("y=") > 0
+                            ? contentString.substring(0, contentString.indexOf("y="))
+                            : contentString;
+
+                    log.info("[TCP主动连接对方] deviceId: {}, channelId: {}, 连接对方的地址", rtpServer.getGbDeviceId(), rtpServer.getGbChannelId());
+                    R<Boolean> r = remoteZlmService.connectRtpServer(rtpServer.getMediaServerId(), "", 0, rtpServer.getStream(), SecurityConstants.INNER);
+
+                    if (r.getCode() != Constants.SUCCESS) {
+                        sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+                        remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+                        remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+                        future.complete(R.ok(false, "[TCP主动连接对方] deviceId:" + rtpServer.getGbDeviceId() + ", channelId:" + rtpServer.getGbChannelId()));
+                        return;
+                    }
+
+                    Boolean result = r.getData();
+                    log.info("[TCP主动连接对方] 结果: {}", result);
+                    if (!result) {
+                        sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+                        remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+                        remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+                        future.complete(R.ok(false, "[TCP主动连接对方] deviceId:" + rtpServer.getGbDeviceId() + ", channelId:" + rtpServer.getGbChannelId()));
+                    }
+                }
+
+                future.complete(R.ok(true, "国标28181请求回放视频流成功"));
+            }, (event) -> {
+                sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+                remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+                remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+                future.complete(R.fail("国标28181请求回放视频流失败"));
+            }, userSetting.getPlayTimeout().longValue());
+        } catch (Exception e) {
+            log.error("发送国标回放sip错误 deviceId:{}", rtpServer.getGbDeviceId(), e);
+            future.complete(R.fail(false, "国标28181请求回放视频流失败"));
+            remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+            sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+        }
+
+        try {
+            return future.get(userSetting.getPlayTimeout().longValue(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.error("等待回放响应超时或出错 deviceId:{}", rtpServer.getGbDeviceId(), e);
+            remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
+            remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
+            sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
+            return R.fail(false, "国标28181请求回放视频流超时或出错");
+        }
+    }
+
+    /**
      * 根据设备id和通道获取设备通道
      *
      * @param gbDeviceId

@@ -85,6 +85,24 @@ public interface RemoteHaiKangService {
     public R<Void> stopPlay(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 
     /**
+     * 开始回放
+     *
+     * @param rtpServerParam 回放参数
+     * @param source         请求来源
+     */
+    @PostMapping("/api/haikang/startPlayback")
+    public R<Void> startPlayback(@RequestBody RtpServerParam rtpServerParam, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 停止回放
+     *
+     * @param id    设备id
+     * @param inner 请求来源
+     */
+    @GetMapping("/api/haikang/stopPlayback/{id}")
+    public R<Void> stopPlayback(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
      * 开始云台控制
      *
      * @param deviceId  设备id

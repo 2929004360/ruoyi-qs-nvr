@@ -95,6 +95,16 @@ public class RemoteHaiKangIsupFallbackFactory implements FallbackFactory<RemoteH
             public R<ArrayList<HashMap<String, Object>>> getRecMonth(Long deviceId, Integer channelId, String startTime, String endTime, String inner) {
                 return R.fail("海康isup查询录像失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Void> startPlayback(RtpServerParam rtpServerParam, String inner) {
+                return R.fail("海康isup开始回放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlayback(Long id, String inner) {
+                return R.fail("海康isup停止回放失败:" + throwable.getMessage());
+            }
         };
     }
 }

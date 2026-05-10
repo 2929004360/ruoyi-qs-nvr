@@ -46,6 +46,16 @@ public interface RemoteGb28181Service {
     R<Void> playStreamCmd(@RequestBody RtpServerParam rtpServer, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 
     /**
+     * 请求回放视频流
+     *
+     * @param rtpServer
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/playbackStreamCmd")
+    R<Void> playbackStreamCmd(@RequestBody RtpServerParam rtpServer, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
      * 根据设备id和通道获取设备通道
      *
      * @param gbDeviceId

@@ -112,6 +112,30 @@ public class HaiKangApiController {
     }
 
     /**
+     * 开始回放
+     *
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/startPlayback")
+    public R<Void> startPlayback(@RequestBody RtpServerParam rtpServerParam) {
+        haiKangService.startPlayback(rtpServerParam);
+        return R.ok();
+    }
+
+    /**
+     * 停止回放
+     *
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/stopPlayback/{id}")
+    public R<Void> stopPlayback(@PathVariable Long id) {
+        haiKangService.stopPlayback(id);
+        return R.ok();
+    }
+
+    /**
      * 开始云台控制
      */
     @InnerAuth

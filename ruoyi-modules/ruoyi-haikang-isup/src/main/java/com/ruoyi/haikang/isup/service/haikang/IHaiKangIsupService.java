@@ -125,4 +125,18 @@ public interface IHaiKangIsupService {
      * @return
      */
     ArrayList<HashMap<String, Object>> queryRecord(Long deviceId, Integer channelId, String startTime, String endTime);
+
+    /**
+     * 开始回放
+     *
+     * @param rtpServerParam
+     */
+    void startPlayback(RtpServerParam rtpServerParam);
+
+    /**
+     * 停止回放
+     *
+     * @param id 设备id
+     */
+    void stopPlayback(Long id);
 }

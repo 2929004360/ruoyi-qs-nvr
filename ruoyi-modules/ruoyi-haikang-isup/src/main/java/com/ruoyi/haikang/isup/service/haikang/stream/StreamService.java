@@ -1,5 +1,6 @@
 package com.ruoyi.haikang.isup.service.haikang.stream;
 
+import com.ruoyi.haikang.isup.callBack.FPLAYBACK_NEWLINK_CB_FILE;
 import com.ruoyi.haikang.isup.callBack.FPREVIEW_NEWLINK_CB_FILE;
 import com.ruoyi.haikang.isup.config.HaikangIsupConfig;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
@@ -25,7 +26,7 @@ public class StreamService {
 
     public final FPREVIEW_NEWLINK_CB_FILE fpreview_newlink_cb_file;
 
-//    private final PlaybackNewlinkCallbackCallBack playbackNewlinkCallbackCallBack = new PlaybackNewlinkCallbackCallBack();
+    public final FPLAYBACK_NEWLINK_CB_FILE fplayback_newlink_cb_file;
 
     private final HaikangIsupConfig haikangIsupConfig;
 
@@ -151,8 +152,9 @@ public class StreamService {
         HCISUPStream.NET_EHOME_PLAYBACK_LISTEN_PARAM struPlayBackListen = new HCISUPStream.NET_EHOME_PLAYBACK_LISTEN_PARAM();
         System.arraycopy(haikangIsupConfig.getSmsBackServer().getIp().getBytes(), 0, struPlayBackListen.struIPAdress.szIP, 0, haikangIsupConfig.getSmsBackServer().getIp().length());
         struPlayBackListen.struIPAdress.wPort = (short) haikangIsupConfig.getSmsBackServer().getPort(); //流媒体服务器监听端口
-//        struPlayBackListen.fnNewLinkCB = playbackNewlinkCallbackCallBack;
+        struPlayBackListen.fnNewLinkCB = fplayback_newlink_cb_file;
         struPlayBackListen.byLinkMode = 0; //0- TCP方式，1- UDP方式
+        struPlayBackListen.write();
 
         int m_lPlayBackListenHandle = StreamService.hCEhomeStream.NET_ESTREAM_StartListenPlayBack(struPlayBackListen);
         if (m_lPlayBackListenHandle < -1) {

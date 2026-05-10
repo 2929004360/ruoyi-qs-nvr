@@ -69,29 +69,46 @@ public class MediaServiceImpl implements IMediaService {
         // 判断是否是回放流
         boolean isPlayback = stream.equals(data.getPlaybackStreamKey());
 
-        // 拉流代理
-        if ("rtsp".equals(app) || "rtmp".equals(app) || "flv".equals(app) || "hls".equals(app)) {
-            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
-                // 回放流或配置了无人观看停用
-                // 修改数据
+        // 拉流代理 (rtsp/rtmp/flv/hls/onvif)
+        if ("rtsp".equals(app) || "rtmp".equals(app) || "flv".equals(app) || "hls".equals(app) || "onvif".equals(app)) {
+            if (isPlayback) {
+                // 回放流一定要关闭
                 StreamPullPlay streamPullPlay = new StreamPullPlay();
                 streamPullPlay.setDeviceId(data.getId());
-                streamPullPlay.setStreamKey(isPlayback ? data.getPlaybackStreamKey() : data.getStreamKey());
-                streamPullPlay.setMediaServerId(isPlayback ? data.getPlaybackMediaServerId() : data.getMediaServerId());
-
+                streamPullPlay.setStreamKey(data.getPlaybackStreamKey());
+                streamPullPlay.setMediaServerId(data.getPlaybackMediaServerId());
+                streamPullPlay.setPlayback(true);
+                mediaServerService.stopStreamPullPlay(streamPullPlay);
+                return true;
+            } else if ("1".equals(data.getEnableDisableNoneReader())) {
+                // 非回放流且配置了无人观看停用
+                StreamPullPlay streamPullPlay = new StreamPullPlay();
+                streamPullPlay.setDeviceId(data.getId());
+                streamPullPlay.setStreamKey(data.getStreamKey());
+                streamPullPlay.setMediaServerId(data.getMediaServerId());
+                streamPullPlay.setPlayback(false);
                 mediaServerService.stopStreamPullPlay(streamPullPlay);
                 return true;
             } else {
                 return false;
             }
         } else if ("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)) {
-            if (isPlayback || "1".equals(data.getEnableDisableNoneReader())) {
-                // 回放流或配置了无人观看停用
+            if (isPlayback) {
+                // 回放流一定要关闭
                 RTPServerParam rtpServerParam = new RTPServerParam();
                 rtpServerParam.setId(data.getId());
                 rtpServerParam.setType(data.getType());
                 rtpServerParam.setStreamId(stream);
-                rtpServerParam.setPlayback(isPlayback);
+                rtpServerParam.setPlayback(true);
+                mediaServerService.stopRtpPlay(rtpServerParam);
+                return true;
+            } else if ("1".equals(data.getEnableDisableNoneReader())) {
+                // 非回放流且配置了无人观看停用
+                RTPServerParam rtpServerParam = new RTPServerParam();
+                rtpServerParam.setId(data.getId());
+                rtpServerParam.setType(data.getType());
+                rtpServerParam.setStreamId(stream);
+                rtpServerParam.setPlayback(false);
                 mediaServerService.stopRtpPlay(rtpServerParam);
                 return true;
             } else {
@@ -146,6 +163,21 @@ public class MediaServiceImpl implements IMediaService {
                 // 只有非回放流且配置了录制才允许录制
                 if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
                     result.setEnable_mp4(true);
+                }
+            }
+        }
+        // ONVIF 拉流播放
+        if ("onvif".equals(app)) {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                // 判断是否是回放流
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                // 只有非回放流且配置了录制才允许录制
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                } else {
+                    // 回放流明确禁用录像
+                    result.setEnable_mp4(false);
                 }
             }
         }
