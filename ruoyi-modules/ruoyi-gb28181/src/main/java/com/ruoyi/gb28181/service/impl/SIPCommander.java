@@ -33,6 +33,7 @@ import javax.sip.InvalidArgumentException;
 import javax.sip.PeerUnavailableException;
 import javax.sip.ResponseEvent;
 import javax.sip.SipException;
+import javax.sip.header.CallIdHeader;
 import javax.sip.message.Request;
 import java.text.ParseException;
 import java.util.List;
@@ -293,27 +294,37 @@ public class SIPCommander implements ISIPCommander {
 
     @Override
     public void playbackStreamCmd(Device device, RtpServerParam rtpServer, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent, Long timeout) throws SipException, InvalidArgumentException, ParseException {
-        String sdpIp = rtpServer.getIp();
-
+        log.info("{} 分配的ZLM为: {} [{}:{}]", rtpServer.getStream(), rtpServer.getMediaServerId(), rtpServer.getIp(), rtpServer.getPort());
+        String sdpIp;
+        if (!ObjectUtils.isEmpty(device.getSdpIp())) {
+            sdpIp = device.getSdpIp();
+        }else {
+            sdpIp = rtpServer.getIp();
+        }
         StringBuffer content = new StringBuffer(200);
         content.append("v=0\r\n");
-        content.append("o=" + rtpServer.getGbDeviceId() + " 0 0 IN IP4 " + sdpIp + "\r\n");
+        content.append("o=" + device.getDeviceId() + " 0 0 IN IP4 " + sdpIp + "\r\n");
         content.append("s=Playback\r\n");
+        content.append("u=" + rtpServer.getGbChannelId() + ":0\r\n");
         content.append("c=IN IP4 " + sdpIp + "\r\n");
         
-        // 添加回放时间范围
+        // 添加回放时间范围，将时间字符串转换为时间戳
         if (rtpServer.getStartTime() != null && rtpServer.getEndTime() != null) {
-            content.append("t=" + rtpServer.getStartTime() + " " + rtpServer.getEndTime() + "\r\n");
+            long startTimeTimestamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestamp(rtpServer.getStartTime());
+            long endTimeTimestamp = DateUtil.yyyy_MM_dd_HH_mm_ssToTimestamp(rtpServer.getEndTime());
+            content.append("t=" + startTimeTimestamp + " " + endTimeTimestamp + "\r\n");
         } else {
             content.append("t=0 0\r\n");
         }
 
+        String streamMode = device.getStreamMode();
+
         if (userSetting.getSeniorSdp()) {
-            if ("TCP-PASSIVE".equalsIgnoreCase(device.getStreamMode())) {
+            if ("TCP-PASSIVE".equalsIgnoreCase(streamMode)) {
                 content.append("m=video " + rtpServer.getPort() + " TCP/RTP/AVP 96 126 125 99 34 98 97\r\n");
-            } else if ("TCP-ACTIVE".equalsIgnoreCase(device.getStreamMode())) {
+            } else if ("TCP-ACTIVE".equalsIgnoreCase(streamMode)) {
                 content.append("m=video " + rtpServer.getPort() + " TCP/RTP/AVP 96 126 125 99 34 98 97\r\n");
-            } else if ("UDP".equalsIgnoreCase(device.getStreamMode())) {
+            } else if ("UDP".equalsIgnoreCase(streamMode)) {
                 content.append("m=video " + rtpServer.getPort() + " RTP/AVP 96 126 125 99 34 98 97\r\n");
             }
             content.append("a=recvonly\r\n");
@@ -325,54 +336,51 @@ public class SIPCommander implements ISIPCommander {
             content.append("a=rtpmap:99 H265/90000\r\n");
             content.append("a=rtpmap:98 H264/90000\r\n");
             content.append("a=rtpmap:97 MPEG4/90000\r\n");
-            if ("TCP-PASSIVE".equalsIgnoreCase(device.getStreamMode())) { // tcp被动模式
+            if ("TCP-PASSIVE".equalsIgnoreCase(streamMode)) { // tcp被动模式
                 content.append("a=setup:passive\r\n");
                 content.append("a=connection:new\r\n");
-            } else if ("TCP-ACTIVE".equalsIgnoreCase(device.getStreamMode())) { // tcp主动模式
+            } else if ("TCP-ACTIVE".equalsIgnoreCase(streamMode)) { // tcp主动模式
                 content.append("a=setup:active\r\n");
                 content.append("a=connection:new\r\n");
             }
         } else {
-            if ("TCP-PASSIVE".equalsIgnoreCase(device.getStreamMode())) {
+            if ("TCP-PASSIVE".equalsIgnoreCase(streamMode)) {
                 content.append("m=video " + rtpServer.getPort() + " TCP/RTP/AVP 96 97 98 99\r\n");
-            } else if ("TCP-ACTIVE".equalsIgnoreCase(device.getStreamMode())) {
+            } else if ("TCP-ACTIVE".equalsIgnoreCase(streamMode)) {
                 content.append("m=video " + rtpServer.getPort() + " TCP/RTP/AVP 96 97 98 99\r\n");
-            } else if ("UDP".equalsIgnoreCase(device.getStreamMode())) {
+            } else if ("UDP".equalsIgnoreCase(streamMode)) {
                 content.append("m=video " + rtpServer.getPort() + " RTP/AVP 96 97 98 99\r\n");
             }
             content.append("a=recvonly\r\n");
             content.append("a=rtpmap:96 PS/90000\r\n");
-            content.append("a=rtpmap:98 H264/90000\r\n");
             content.append("a=rtpmap:97 MPEG4/90000\r\n");
+            content.append("a=rtpmap:98 H264/90000\r\n");
             content.append("a=rtpmap:99 H265/90000\r\n");
-            if ("TCP-PASSIVE".equalsIgnoreCase(device.getStreamMode())) { // tcp被动模式
+            if ("TCP-PASSIVE".equalsIgnoreCase(streamMode)) {
+                // tcp被动模式
                 content.append("a=setup:passive\r\n");
                 content.append("a=connection:new\r\n");
-            } else if ("TCP-ACTIVE".equalsIgnoreCase(device.getStreamMode())) { // tcp主动模式
+            } else if ("TCP-ACTIVE".equalsIgnoreCase(streamMode)) {
+                // tcp主动模式
                 content.append("a=setup:active\r\n");
                 content.append("a=connection:new\r\n");
             }
         }
 
-        content.append("y=" + rtpServer.getSsrc() + "\r\n"); // ssrc
+        //ssrc
+        content.append("y=" + rtpServer.getSsrc() + "\r\n");
 
-        Request request = headerProvider.createInviteRequest(device, rtpServer.getGbChannelId(), content.toString(), SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null, rtpServer.getSsrc(), sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
-        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, (e -> {
-            sessionManager.removeByStream(rtpServer.getApp(), rtpServer.getStream());
-            remoteZlmService.releaseSsrc(rtpServer.getMediaServerId(), rtpServer.getSsrc(), SecurityConstants.INNER);
-            remoteZlmService.closeRTPServer(rtpServer.getMediaServerId(), rtpServer, SecurityConstants.INNER);
-            errorEvent.response(e);
-        }), e -> {
-            ResponseEvent responseEvent = (ResponseEvent) e.event;
+        CallIdHeader callIdHeader = sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport());
+        Request request = headerProvider.createPlaybackInviteRequest(device, rtpServer.getGbChannelId(), content.toString(), SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null, callIdHeader, rtpServer.getSsrc());
+
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, errorEvent, event -> {
+            ResponseEvent responseEvent = (ResponseEvent) event.event;
             SIPResponse response = (SIPResponse) responseEvent.getResponse();
-            String callId = response.getCallIdHeader().getCallId();
-            SsrcTransaction ssrcTransaction = SsrcTransaction.buildForDevice(device.getDeviceId(), rtpServer.getGbChannelId(),
-                    callId, rtpServer.getApp(), rtpServer.getStream(), rtpServer.getSsrc(), rtpServer.getMediaServerId(), response,
-                    InviteSessionType.PLAYBACK);
-            ssrcTransaction.setApp(rtpServer.getApp());
-            ssrcTransaction.setStream(rtpServer.getStream());
+            SsrcTransaction ssrcTransaction = SsrcTransaction.buildForDevice(device.getDeviceId(),
+                    rtpServer.getGbChannelId(), callIdHeader.getCallId(), rtpServer.getApp(), rtpServer.getStream(), rtpServer.getSsrc(),
+                    rtpServer.getMediaServerId(), response, InviteSessionType.PLAYBACK);
             sessionManager.put(ssrcTransaction);
-            okEvent.response(e);
+            okEvent.response(event);
         }, timeout);
     }
 
@@ -384,7 +392,7 @@ public class SIPCommander implements ISIPCommander {
             log.info("[停止播放] 发送 BYE 请求 deviceId: {}, channelId: {}",
                     rtpServer.getGbDeviceId(),
                     rtpServer.getGbChannelId());
-            Request byeRequest = headerProvider.createByteRequestForDeviceInvite(
+            Request byeRequest = headerProvider.createByteRequest(
                     device,
                     ssrcTransaction.getChannelId(),
                     ssrcTransaction.getSipTransactionInfo()

@@ -43,6 +43,8 @@ public class InviteInfo {
 
     private String endTime;
 
+    private String gbStreamId;
+
 
     public static InviteInfo getInviteInfo(String deviceId, Long channelId, String stream, SSRCInfo ssrcInfo, String mediaServerId,
                                            String receiveIp, Integer receivePort, String streamMode,

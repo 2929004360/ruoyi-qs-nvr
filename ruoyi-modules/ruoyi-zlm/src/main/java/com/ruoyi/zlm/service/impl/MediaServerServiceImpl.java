@@ -1920,7 +1920,12 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
                 RtpServerParam rtpServer = new RtpServerParam();
                 rtpServer.setApp("gb28181");
-                rtpServer.setStream(qsDevice.getDeviceCode());
+                // 回放类型使用保存的 gbStreamId，点播使用原来的 deviceCode
+                if (type == InviteSessionType.PLAYBACK && inviteInfo.getGbStreamId() != null) {
+                    rtpServer.setStream(inviteInfo.getGbStreamId());
+                } else {
+                    rtpServer.setStream(qsDevice.getDeviceCode());
+                }
                 rtpServer.setGbDeviceId(qsDevice.getGbDeviceId());
                 rtpServer.setGbChannelId(qsDevice.getGbChannelId());
 
@@ -2481,6 +2486,9 @@ public class MediaServerServiceImpl implements IMediaServerService {
         log.info("[国标28181] =======================================");
 
         InviteInfo inviteInfo = InviteInfo.getInviteInfo(device.getId().toString(), device.getId(), ssrcInfo.getStream(), ssrcInfo, mediaServer.getId(), mediaServer.getSdpIp(), ssrcInfo.getPort(), gbDevice.getStreamMode(), sessionType, InviteSessionStatus.ready, userSetting.getRecordSip());
+
+        // 保存传给 GB28181 模块的 streamId，用于停止回放时使用
+        inviteInfo.setGbStreamId(rtpServerParam.getStreamId());
 
         if (!rtpServerParam.isPlayback() && "1".equals(device.getEnableMp4())) {
             inviteInfo.setRecord(true);
