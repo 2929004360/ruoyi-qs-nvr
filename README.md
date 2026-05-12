@@ -15,13 +15,20 @@
 * 流媒体ZLMediaKit
 * 播放器EasyPlayer
 
-## 快速启动
+## 文档
 
 * [zlmediakit](https://docs.zlmediakit.com/zh/) 流媒体服务器
 * [ruoyi-cloud](https://doc.ruoyi.vip/ruoyi-cloud/) ruoyi-cloud文档
-* [ruoyi-qs-nvr](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr) 后端地址
-* [ruoyi-qs-nvr-ui](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr-ui) 前端地址
-* [ruoyi-qs-nvr](http://1.12.55.122:5173/) 文档
+* [ruoyi-qs-nvr](http://1.12.55.122:5173/) 项目文档
+
+## 项目地址
+* gitee：
+  * [ruoyi-qs-nvr](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr) 后端地址
+  * [ruoyi-qs-nvr-ui](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr-ui) 前端地址
+
+* github：
+  * [ruoyi-qs-nvr](https://github.com/2929004360/ruoyi-qs-nvr) 后端地址
+  * [ruoyi-qs-nvr-ui](https://github.com/2929004360/ruoyi-qs-nvr-ui) 前端地址
 
 ## 系统模块
 
