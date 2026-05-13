@@ -345,4 +345,12 @@ public interface QsDeviceMapper {
      * @return
      */
     DeviceStats getDeviceStatistics();
+
+    /**
+     * 根据国标编码查询设备
+     *
+     * @param gbCode 国标编码
+     * @return 设备列表
+     */
+    List<QsDevice> selectQsDeviceByGbCode(String gbCode);
 }

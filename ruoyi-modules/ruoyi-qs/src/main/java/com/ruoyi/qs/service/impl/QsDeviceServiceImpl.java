@@ -120,6 +120,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         qsDevice.setCreateBy(String.valueOf(SecurityUtils.getUserId()));
         qsDevice.setCreateTime(DateUtils.getNowDate());
         qsDevice.setDeviceStatus("ON");
+
+        // 校验国标编码唯一性
+        validateGbCodeUnique(qsDevice, null);
         // RTSP协议
         if (LiveStreamType.RTSP.getCode().equals(qsDevice.getType())) {
             qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
@@ -248,6 +251,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     public int updateQsDevice(QsDevice qsDevice) {
         qsDevice.setUpdateBy(String.valueOf(SecurityUtils.getUserId()));
         qsDevice.setUpdateTime(DateUtils.getNowDate());
+
+        // 校验国标编码唯一性
+        validateGbCodeUnique(qsDevice, qsDevice.getId());
 
         // RTSP协议
         if (LiveStreamType.RTSP.getCode().equals(qsDevice.getType())) {
@@ -1594,6 +1600,35 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             remoteOnvifService.controlWiper(device.getIpAddress(), device.getUserName(), device.getPassword(), isOn, SecurityConstants.INNER);
         } else {
             throw new RuntimeException("不支持的设备类型: " + deviceType);
+        }
+    }
+
+    /**
+     * 校验国标编码唯一性
+     *
+     * @param qsDevice   设备对象
+     * @param excludeId  排除的设备ID（更新时使用）
+     */
+    private void validateGbCodeUnique(QsDevice qsDevice, Long excludeId) {
+        String gbCode = qsDevice.getGbCode();
+        if (ObjectUtils.isEmpty(gbCode)) {
+            return;
+        }
+
+        List<QsDevice> existingDevices = qsDeviceMapper.selectQsDeviceByGbCode(gbCode);
+        if (existingDevices.isEmpty()) {
+            return;
+        }
+
+        // 过滤掉当前更新的设备
+        if (excludeId != null) {
+            existingDevices = existingDevices.stream()
+                    .filter(device -> !device.getId().equals(excludeId))
+                    .toList();
+        }
+
+        if (!existingDevices.isEmpty()) {
+            throw new RuntimeException("国标编码已存在，请重新输入");
         }
     }
 }

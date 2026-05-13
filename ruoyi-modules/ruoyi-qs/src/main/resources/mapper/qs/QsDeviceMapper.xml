@@ -51,6 +51,39 @@
         <result property="playbackStreamStatus" column="playback_stream_status"/>
         <result property="playbackMediaServerId" column="playback_media_server_id"/>
         <result property="playbackStreamKey" column="playback_stream_key"/>
+        <result property="gbManufacturer" column="gb_manufacturer"/>
+        <result property="gbModel" column="gb_model"/>
+        <result property="gbOwner" column="gb_owner"/>
+        <result property="gbBlock" column="gb_block"/>
+        <result property="gbAddress" column="gb_address"/>
+        <result property="gbParental" column="gb_parental"/>
+        <result property="gbSafetyWay" column="gb_safety_way"/>
+        <result property="gbRegisterWay" column="gb_register_way"/>
+        <result property="gbCertNum" column="gb_cert_num"/>
+        <result property="gbCertifiable" column="gb_certifiable"/>
+        <result property="gbErrCode" column="gb_err_code"/>
+        <result property="gbEndTime" column="gb_end_time"/>
+        <result property="gbSecrecy" column="gb_secrecy"/>
+        <result property="gbIpAddress" column="gb_ip_address"/>
+        <result property="gbPort" column="gb_port"/>
+        <result property="gbPassword" column="gb_password"/>
+        <result property="gbStatus" column="gb_status"/>
+        <result property="gbLongitudeDouble" column="gb_longitude_double"/>
+        <result property="gbLatitudeDouble" column="gb_latitude_double"/>
+        <result property="gbPositionType" column="gb_position_type"/>
+        <result property="gbRoomType" column="gb_room_type"/>
+        <result property="gbUseType" column="gb_use_type"/>
+        <result property="gbSupplyLightType" column="gb_supply_light_type"/>
+        <result property="gbDirectionType" column="gb_direction_type"/>
+        <result property="gbResolution" column="gb_resolution"/>
+        <result property="gbDownloadSpeed" column="gb_download_speed"/>
+        <result property="gbSvcSpaceSupportMod" column="gb_svc_space_support_mod"/>
+        <result property="gbSvcTimeSupportMode" column="gb_svc_time_support_mode"/>
+        <result property="gpsAltitude" column="gps_altitude"/>
+        <result property="gpsSpeed" column="gps_speed"/>
+        <result property="gpsDirection" column="gps_direction"/>
+        <result property="gpsTime" column="gps_time"/>
+        <result property="enableBroadcast" column="enable_broadcast"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -169,6 +202,39 @@
                playback_stream_status,
                playback_media_server_id,
                playback_stream_key,
+               gb_manufacturer,
+               gb_model,
+               gb_owner,
+               gb_block,
+               gb_address,
+               gb_parental,
+               gb_safety_way,
+               gb_register_way,
+               gb_cert_num,
+               gb_certifiable,
+               gb_err_code,
+               gb_end_time,
+               gb_secrecy,
+               gb_ip_address,
+               gb_port,
+               gb_password,
+               gb_status,
+               gb_longitude_double,
+               gb_latitude_double,
+               gb_position_type,
+               gb_room_type,
+               gb_use_type,
+               gb_supply_light_type,
+               gb_direction_type,
+               gb_resolution,
+               gb_download_speed,
+               gb_svc_space_support_mod,
+               gb_svc_time_support_mode,
+               gps_altitude,
+               gps_speed,
+               gps_direction,
+               gps_time,
+               enable_broadcast,
                create_by,
                create_time,
                update_by,
@@ -250,6 +316,39 @@
             <if test="playbackStreamStatus != null">playback_stream_status,</if>
             <if test="playbackMediaServerId != null">playback_media_server_id,</if>
             <if test="playbackStreamKey != null">playback_stream_key,</if>
+            <if test="gbManufacturer != null">gb_manufacturer,</if>
+            <if test="gbModel != null">gb_model,</if>
+            <if test="gbOwner != null">gb_owner,</if>
+            <if test="gbBlock != null">gb_block,</if>
+            <if test="gbAddress != null">gb_address,</if>
+            <if test="gbParental != null">gb_parental,</if>
+            <if test="gbSafetyWay != null">gb_safety_way,</if>
+            <if test="gbRegisterWay != null">gb_register_way,</if>
+            <if test="gbCertNum != null">gb_cert_num,</if>
+            <if test="gbCertifiable != null">gb_certifiable,</if>
+            <if test="gbErrCode != null">gb_err_code,</if>
+            <if test="gbEndTime != null">gb_end_time,</if>
+            <if test="gbSecrecy != null">gb_secrecy,</if>
+            <if test="gbIpAddress != null">gb_ip_address,</if>
+            <if test="gbPort != null">gb_port,</if>
+            <if test="gbPassword != null">gb_password,</if>
+            <if test="gbStatus != null">gb_status,</if>
+            <if test="gbLongitudeDouble != null">gb_longitude_double,</if>
+            <if test="gbLatitudeDouble != null">gb_latitude_double,</if>
+            <if test="gbPositionType != null">gb_position_type,</if>
+            <if test="gbRoomType != null">gb_room_type,</if>
+            <if test="gbUseType != null">gb_use_type,</if>
+            <if test="gbSupplyLightType != null">gb_supply_light_type,</if>
+            <if test="gbDirectionType != null">gb_direction_type,</if>
+            <if test="gbResolution != null">gb_resolution,</if>
+            <if test="gbDownloadSpeed != null">gb_download_speed,</if>
+            <if test="gbSvcSpaceSupportMod != null">gb_svc_space_support_mod,</if>
+            <if test="gbSvcTimeSupportMode != null">gb_svc_time_support_mode,</if>
+            <if test="gpsAltitude != null">gps_altitude,</if>
+            <if test="gpsSpeed != null">gps_speed,</if>
+            <if test="gpsDirection != null">gps_direction,</if>
+            <if test="gpsTime != null">gps_time,</if>
+            <if test="enableBroadcast != null">enable_broadcast,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -291,6 +390,7 @@
             <if test="gbBusinessGroupId != null">#{gbBusinessGroupId},</if>
             <if test="gbParentId != null">#{gbParentId},</if>
             <if test="manufacturer != null">#{manufacturer},</if>
+            <if test="address != null">#{address},</if>
             <if test="ptzType != null">#{ptzType},</if>
             <if test="gbDeviceId != null">#{gbDeviceId},</if>
             <if test="gbChannelId != null">#{gbChannelId},</if>
@@ -301,6 +401,39 @@
             <if test="playbackStreamStatus != null">#{playbackStreamStatus},</if>
             <if test="playbackMediaServerId != null">#{playbackMediaServerId},</if>
             <if test="playbackStreamKey != null">#{playbackStreamKey},</if>
+            <if test="gbManufacturer != null">#{gbManufacturer},</if>
+            <if test="gbModel != null">#{gbModel},</if>
+            <if test="gbOwner != null">#{gbOwner},</if>
+            <if test="gbBlock != null">#{gbBlock},</if>
+            <if test="gbAddress != null">#{gbAddress},</if>
+            <if test="gbParental != null">#{gbParental},</if>
+            <if test="gbSafetyWay != null">#{gbSafetyWay},</if>
+            <if test="gbRegisterWay != null">#{gbRegisterWay},</if>
+            <if test="gbCertNum != null">#{gbCertNum},</if>
+            <if test="gbCertifiable != null">#{gbCertifiable},</if>
+            <if test="gbErrCode != null">#{gbErrCode},</if>
+            <if test="gbEndTime != null">#{gbEndTime},</if>
+            <if test="gbSecrecy != null">#{gbSecrecy},</if>
+            <if test="gbIpAddress != null">#{gbIpAddress},</if>
+            <if test="gbPort != null">#{gbPort},</if>
+            <if test="gbPassword != null">#{gbPassword},</if>
+            <if test="gbStatus != null">#{gbStatus},</if>
+            <if test="gbLongitudeDouble != null">#{gbLongitudeDouble},</if>
+            <if test="gbLatitudeDouble != null">#{gbLatitudeDouble},</if>
+            <if test="gbPositionType != null">#{gbPositionType},</if>
+            <if test="gbRoomType != null">#{gbRoomType},</if>
+            <if test="gbUseType != null">#{gbUseType},</if>
+            <if test="gbSupplyLightType != null">#{gbSupplyLightType},</if>
+            <if test="gbDirectionType != null">#{gbDirectionType},</if>
+            <if test="gbResolution != null">#{gbResolution},</if>
+            <if test="gbDownloadSpeed != null">#{gbDownloadSpeed},</if>
+            <if test="gbSvcSpaceSupportMod != null">#{gbSvcSpaceSupportMod},</if>
+            <if test="gbSvcTimeSupportMode != null">#{gbSvcTimeSupportMode},</if>
+            <if test="gpsAltitude != null">#{gpsAltitude},</if>
+            <if test="gpsSpeed != null">#{gpsSpeed},</if>
+            <if test="gpsDirection != null">#{gpsDirection},</if>
+            <if test="gpsTime != null">#{gpsTime},</if>
+            <if test="enableBroadcast != null">#{enableBroadcast},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -357,6 +490,39 @@
             <if test="playbackStreamStatus != null">playback_stream_status = #{playbackStreamStatus},</if>
             <if test="playbackMediaServerId != null">playback_media_server_id = #{playbackMediaServerId},</if>
             <if test="playbackStreamKey != null">playback_stream_key = #{playbackStreamKey},</if>
+            <if test="gbManufacturer != null">gb_manufacturer = #{gbManufacturer},</if>
+            <if test="gbModel != null">gb_model = #{gbModel},</if>
+            <if test="gbOwner != null">gb_owner = #{gbOwner},</if>
+            <if test="gbBlock != null">gb_block = #{gbBlock},</if>
+            <if test="gbAddress != null">gb_address = #{gbAddress},</if>
+            <if test="gbParental != null">gb_parental = #{gbParental},</if>
+            <if test="gbSafetyWay != null">gb_safety_way = #{gbSafetyWay},</if>
+            <if test="gbRegisterWay != null">gb_register_way = #{gbRegisterWay},</if>
+            <if test="gbCertNum != null">gb_cert_num = #{gbCertNum},</if>
+            <if test="gbCertifiable != null">gb_certifiable = #{gbCertifiable},</if>
+            <if test="gbErrCode != null">gb_err_code = #{gbErrCode},</if>
+            <if test="gbEndTime != null">gb_end_time = #{gbEndTime},</if>
+            <if test="gbSecrecy != null">gb_secrecy = #{gbSecrecy},</if>
+            <if test="gbIpAddress != null">gb_ip_address = #{gbIpAddress},</if>
+            <if test="gbPort != null">gb_port = #{gbPort},</if>
+            <if test="gbPassword != null">gb_password = #{gbPassword},</if>
+            <if test="gbStatus != null">gb_status = #{gbStatus},</if>
+            <if test="gbLongitudeDouble != null">gb_longitude_double = #{gbLongitudeDouble},</if>
+            <if test="gbLatitudeDouble != null">gb_latitude_double = #{gbLatitudeDouble},</if>
+            <if test="gbPositionType != null">gb_position_type = #{gbPositionType},</if>
+            <if test="gbRoomType != null">gb_room_type = #{gbRoomType},</if>
+            <if test="gbUseType != null">gb_use_type = #{gbUseType},</if>
+            <if test="gbSupplyLightType != null">gb_supply_light_type = #{gbSupplyLightType},</if>
+            <if test="gbDirectionType != null">gb_direction_type = #{gbDirectionType},</if>
+            <if test="gbResolution != null">gb_resolution = #{gbResolution},</if>
+            <if test="gbDownloadSpeed != null">gb_download_speed = #{gbDownloadSpeed},</if>
+            <if test="gbSvcSpaceSupportMod != null">gb_svc_space_support_mod = #{gbSvcSpaceSupportMod},</if>
+            <if test="gbSvcTimeSupportMode != null">gb_svc_time_support_mode = #{gbSvcTimeSupportMode},</if>
+            <if test="gpsAltitude != null">gps_altitude = #{gpsAltitude},</if>
+            <if test="gpsSpeed != null">gps_speed = #{gpsSpeed},</if>
+            <if test="gpsDirection != null">gps_direction = #{gpsDirection},</if>
+            <if test="gpsTime != null">gps_time = #{gpsTime},</if>
+            <if test="enableBroadcast != null">enable_broadcast = #{enableBroadcast},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -744,4 +910,9 @@
             #{item.deviceId}
         </foreach>
     </delete>
+
+    <select id="selectQsDeviceByGbCode" parameterType="String" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        WHERE gb_code = #{gbCode}
+    </select>
 </mapper>
