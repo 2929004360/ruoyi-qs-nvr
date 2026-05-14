@@ -915,4 +915,43 @@
         <include refid="selectQsDeviceVo"/>
         WHERE gb_code = #{gbCode}
     </select>
+
+    <select id="selectQsDeviceByPlatform" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        <where>
+            <if test="qsDevice.deviceName != null and qsDevice.deviceName != ''">
+                and device_name like concat('%', #{qsDevice.deviceName}, '%')
+            </if>
+            <if test="qsDevice.ipAddress != null and qsDevice.ipAddress != ''">
+                and ip_address like concat('%', #{qsDevice.ipAddress}, '%')
+            </if>
+            <if test="qsDevice.type != null and qsDevice.type != ''">
+                and type = #{qsDevice.type}
+            </if>
+            <if test="qsDevice.deviceStatus != null and qsDevice.deviceStatus != ''">
+                and device_status = #{qsDevice.deviceStatus}
+            </if>
+
+            <if test="hasLink != null and platformId != null">
+                <if test="hasLink == true">
+                    and id in (
+                        select device_id
+                        from qs_gb28181_platform_channel
+                        where platform_id = #{platformId}
+                    )
+                </if>
+                <if test="hasLink == false">
+                    and id not in (
+                        select device_id
+                        from qs_gb28181_platform_channel
+                        where platform_id = #{platformId}
+                    )
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <select id="selectAllDeviceIds" resultType="java.lang.Long">
+        select id from qs_device
+    </select>
 </mapper>

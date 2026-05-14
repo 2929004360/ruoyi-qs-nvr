@@ -353,4 +353,13 @@ public interface QsDeviceMapper {
      * @return 设备列表
      */
     List<QsDevice> selectQsDeviceByGbCode(String gbCode);
+
+    List<QsDevice> selectQsDeviceByPlatform(QsDevice qsDevice, Long platformId, Boolean hasLink);
+
+    /**
+     * 查询所有设备ID
+     *
+     * @return 设备ID列表
+     */
+    List<Long> selectAllDeviceIds();
 }

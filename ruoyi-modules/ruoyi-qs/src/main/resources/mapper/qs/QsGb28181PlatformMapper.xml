@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsGb28181PlatformMapper">
+
+    <resultMap type="QsGb28181Platform" id="QsGb28181PlatformResult">
+        <result property="id" column="id"/>
+        <result property="enable" column="enable"/>
+        <result property="name" column="name"/>
+        <result property="serverGbId" column="server_gb_id"/>
+        <result property="serverGbDomain" column="server_gb_domain"/>
+        <result property="serverIp" column="server_ip"/>
+        <result property="serverPort" column="server_port"/>
+        <result property="deviceGbId" column="device_gb_id"/>
+        <result property="deviceIp" column="device_ip"/>
+        <result property="devicePort" column="device_port"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="expires" column="expires"/>
+        <result property="keepTimeout" column="keep_timeout"/>
+        <result property="transport" column="transport"/>
+        <result property="civilCode" column="civil_code"/>
+        <result property="manufacturer" column="manufacturer"/>
+        <result property="model" column="model"/>
+        <result property="address" column="address"/>
+        <result property="characterSet" column="character_set"/>
+        <result property="ptz" column="ptz"/>
+        <result property="rtcp" column="rtcp"/>
+        <result property="status" column="status"/>
+        <result property="catalogGroup" column="catalog_group"/>
+        <result property="registerWay" column="register_way"/>
+        <result property="secrecy" column="secrecy"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="asMessageChannel" column="as_message_channel"/>
+        <result property="catalogWithPlatform" column="catalog_with_platform"/>
+        <result property="catalogWithGroup" column="catalog_with_group"/>
+        <result property="catalogWithRegion" column="catalog_with_region"/>
+        <result property="autoPushChannel" column="auto_push_channel"/>
+        <result property="sendStreamIp" column="send_stream_ip"/>
+        <result property="serverId" column="server_id"/>
+    </resultMap>
+
+    <sql id="selectQsGb28181PlatformVo">
+        select id, enable, name, server_gb_id, server_gb_domain, server_ip, server_port, device_gb_id,
+               device_ip, device_port, username, password, expires, keep_timeout, transport, civil_code,
+               manufacturer, model, address, character_set, ptz, rtcp, status, catalog_group, register_way,
+               secrecy, create_time, update_time, as_message_channel, catalog_with_platform, catalog_with_group,
+               catalog_with_region, auto_push_channel, send_stream_ip, server_id
+        from qs_gb28181_platform
+    </sql>
+
+    <select id="selectQsGb28181PlatformList" parameterType="QsGb28181Platform" resultMap="QsGb28181PlatformResult">
+        <include refid="selectQsGb28181PlatformVo"/>
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE concat('%', #{name}, '%')
+            </if>
+            <if test="serverGbId != null and serverGbId != ''">
+                AND server_gb_id LIKE concat('%', #{serverGbId}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="enable != null">
+                AND enable = #{enable}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectQsGb28181PlatformById" parameterType="Long" resultMap="QsGb28181PlatformResult">
+        <include refid="selectQsGb28181PlatformVo"/>
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectQsGb28181PlatformByServerGbId" parameterType="String" resultMap="QsGb28181PlatformResult">
+        <include refid="selectQsGb28181PlatformVo"/>
+        WHERE server_gb_id = #{serverGbId}
+    </select>
+
+    <insert id="insertQsGb28181Platform" parameterType="QsGb28181Platform" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO qs_gb28181_platform
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="enable != null">enable,</if>
+            <if test="name != null">name,</if>
+            <if test="serverGbId != null">server_gb_id,</if>
+            <if test="serverGbDomain != null">server_gb_domain,</if>
+            <if test="serverIp != null">server_ip,</if>
+            <if test="serverPort != null">server_port,</if>
+            <if test="deviceGbId != null">device_gb_id,</if>
+            <if test="deviceIp != null">device_ip,</if>
+            <if test="devicePort != null">device_port,</if>
+            <if test="username != null">username,</if>
+            <if test="password != null">password,</if>
+            <if test="expires != null">expires,</if>
+            <if test="keepTimeout != null">keep_timeout,</if>
+            <if test="transport != null">transport,</if>
+            <if test="civilCode != null">civil_code,</if>
+            <if test="manufacturer != null">manufacturer,</if>
+            <if test="model != null">model,</if>
+            <if test="address != null">address,</if>
+            <if test="characterSet != null">character_set,</if>
+            <if test="ptz != null">ptz,</if>
+            <if test="rtcp != null">rtcp,</if>
+            <if test="status != null">status,</if>
+            <if test="catalogGroup != null">catalog_group,</if>
+            <if test="registerWay != null">register_way,</if>
+            <if test="secrecy != null">secrecy,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="asMessageChannel != null">as_message_channel,</if>
+            <if test="catalogWithPlatform != null">catalog_with_platform,</if>
+            <if test="catalogWithGroup != null">catalog_with_group,</if>
+            <if test="catalogWithRegion != null">catalog_with_region,</if>
+            <if test="autoPushChannel != null">auto_push_channel,</if>
+            <if test="sendStreamIp != null">send_stream_ip,</if>
+            <if test="serverId != null">server_id,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="enable != null">#{enable},</if>
+            <if test="name != null">#{name},</if>
+            <if test="serverGbId != null">#{serverGbId},</if>
+            <if test="serverGbDomain != null">#{serverGbDomain},</if>
+            <if test="serverIp != null">#{serverIp},</if>
+            <if test="serverPort != null">#{serverPort},</if>
+            <if test="deviceGbId != null">#{deviceGbId},</if>
+            <if test="deviceIp != null">#{deviceIp},</if>
+            <if test="devicePort != null">#{devicePort},</if>
+            <if test="username != null">#{username},</if>
+            <if test="password != null">#{password},</if>
+            <if test="expires != null">#{expires},</if>
+            <if test="keepTimeout != null">#{keepTimeout},</if>
+            <if test="transport != null">#{transport},</if>
+            <if test="civilCode != null">#{civilCode},</if>
+            <if test="manufacturer != null">#{manufacturer},</if>
+            <if test="model != null">#{model},</if>
+            <if test="address != null">#{address},</if>
+            <if test="characterSet != null">#{characterSet},</if>
+            <if test="ptz != null">#{ptz},</if>
+            <if test="rtcp != null">#{rtcp},</if>
+            <if test="status != null">#{status},</if>
+            <if test="catalogGroup != null">#{catalogGroup},</if>
+            <if test="registerWay != null">#{registerWay},</if>
+            <if test="secrecy != null">#{secrecy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="asMessageChannel != null">#{asMessageChannel},</if>
+            <if test="catalogWithPlatform != null">#{catalogWithPlatform},</if>
+            <if test="catalogWithGroup != null">#{catalogWithGroup},</if>
+            <if test="catalogWithRegion != null">#{catalogWithRegion},</if>
+            <if test="autoPushChannel != null">#{autoPushChannel},</if>
+            <if test="sendStreamIp != null">#{sendStreamIp},</if>
+            <if test="serverId != null">#{serverId},</if>
+        </trim>
+    </insert>
+
+    <update id="updateQsGb28181Platform" parameterType="QsGb28181Platform">
+        UPDATE qs_gb28181_platform
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="enable != null">enable = #{enable},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="serverGbId != null">server_gb_id = #{serverGbId},</if>
+            <if test="serverGbDomain != null">server_gb_domain = #{serverGbDomain},</if>
+            <if test="serverIp != null">server_ip = #{serverIp},</if>
+            <if test="serverPort != null">server_port = #{serverPort},</if>
+            <if test="deviceGbId != null">device_gb_id = #{deviceGbId},</if>
+            <if test="deviceIp != null">device_ip = #{deviceIp},</if>
+            <if test="devicePort != null">device_port = #{devicePort},</if>
+            <if test="username != null">username = #{username},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="expires != null">expires = #{expires},</if>
+            <if test="keepTimeout != null">keep_timeout = #{keepTimeout},</if>
+            <if test="transport != null">transport = #{transport},</if>
+            <if test="civilCode != null">civil_code = #{civilCode},</if>
+            <if test="manufacturer != null">manufacturer = #{manufacturer},</if>
+            <if test="model != null">model = #{model},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="characterSet != null">character_set = #{characterSet},</if>
+            <if test="ptz != null">ptz = #{ptz},</if>
+            <if test="rtcp != null">rtcp = #{rtcp},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="catalogGroup != null">catalog_group = #{catalogGroup},</if>
+            <if test="registerWay != null">register_way = #{registerWay},</if>
+            <if test="secrecy != null">secrecy = #{secrecy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="asMessageChannel != null">as_message_channel = #{asMessageChannel},</if>
+            <if test="catalogWithPlatform != null">catalog_with_platform = #{catalogWithPlatform},</if>
+            <if test="catalogWithGroup != null">catalog_with_group = #{catalogWithGroup},</if>
+            <if test="catalogWithRegion != null">catalog_with_region = #{catalogWithRegion},</if>
+            <if test="autoPushChannel != null">auto_push_channel = #{autoPushChannel},</if>
+            <if test="sendStreamIp != null">send_stream_ip = #{sendStreamIp},</if>
+            <if test="serverId != null">server_id = #{serverId},</if>
+        </trim>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteQsGb28181PlatformById" parameterType="Long">
+        DELETE FROM qs_gb28181_platform WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteQsGb28181PlatformByIds" parameterType="Long">
+        DELETE FROM qs_gb28181_platform WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

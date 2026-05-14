@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsGb28181PlatformChannelMapper">
+
+    <resultMap type="QsGb28181PlatformChannel" id="QsGb28181PlatformChannelResult">
+        <result property="id" column="id"/>
+        <result property="platformId" column="platform_id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectQsGb28181PlatformChannelVo">
+        select id, platform_id, device_id, create_time, update_time
+        from qs_gb28181_platform_channel
+    </sql>
+
+    <select id="selectQsGb28181PlatformChannelList" parameterType="QsGb28181PlatformChannel" resultMap="QsGb28181PlatformChannelResult">
+        <include refid="selectQsGb28181PlatformChannelVo"/>
+        <where>
+            <if test="platformId != null">
+                AND platform_id = #{platformId}
+            </if>
+            <if test="deviceId != null">
+                AND device_id = #{deviceId}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectDeviceIdsByPlatformId" parameterType="Long" resultType="Long">
+        select device_id
+        from qs_gb28181_platform_channel
+        where platform_id = #{platformId}
+    </select>
+
+    <select id="selectQsGb28181PlatformChannelById" parameterType="Long" resultMap="QsGb28181PlatformChannelResult">
+        <include refid="selectQsGb28181PlatformChannelVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertQsGb28181PlatformChannel" parameterType="QsGb28181PlatformChannel" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO qs_gb28181_platform_channel
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="platformId != null">platform_id,</if>
+            <if test="deviceId != null">device_id,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="platformId != null">#{platformId},</if>
+            <if test="deviceId != null">#{deviceId},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <insert id="batchInsertQsGb28181PlatformChannel" parameterType="java.util.List">
+        INSERT INTO qs_gb28181_platform_channel (platform_id, device_id, create_time, update_time)
+        VALUES
+        <foreach item="item" collection="list" separator=",">
+            (#{item.platformId}, #{item.deviceId}, #{item.createTime}, #{item.updateTime})
+        </foreach>
+    </insert>
+
+    <delete id="deleteQsGb28181PlatformChannelById" parameterType="Long">
+        DELETE FROM qs_gb28181_platform_channel WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteQsGb28181PlatformChannelByPlatformId" parameterType="Long">
+        DELETE FROM qs_gb28181_platform_channel WHERE platform_id = #{platformId}
+    </delete>
+
+    <delete id="deleteQsGb28181PlatformChannelByIds" parameterType="Long">
+        DELETE FROM qs_gb28181_platform_channel WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteQsGb28181PlatformChannelByDeviceIds">
+        DELETE FROM qs_gb28181_platform_channel
+        WHERE platform_id = #{platformId}
+        AND device_id IN
+        <foreach item="deviceId" collection="deviceIds" open="(" separator="," close=")">
+            #{deviceId}
+        </foreach>
+    </delete>
+
+</mapper>
