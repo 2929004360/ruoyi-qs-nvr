@@ -3,8 +3,10 @@ package com.ruoyi.gb28181.api.factory;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.RemoteGb28181Service;
+import com.ruoyi.gb28181.api.domain.CatalogRequest;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -162,6 +164,51 @@ public class RemoteGb28181FallbackFactory implements FallbackFactory<RemoteGb281
             @Override
             public R<Void> auxiliarySwitch(String deviceId, String channelId, String command, Integer switchId, String inner) {
                 return R.fail("gb28181 辅助开关控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> registerPlatform(Gb28181Platform platform, String inner) {
+                return R.fail("gb28181 平台级联注册失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> unregisterPlatform(Gb28181Platform platform, String inner) {
+                return R.fail("gb28181 平台级联注销失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> sendHeartbeat(Gb28181Platform platform, String inner) {
+                return R.fail("gb28181 平台级联发送心跳失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> sendDeviceInfo(Gb28181Platform platform, String inner) {
+                return R.fail("gb28181 平台级联发送设备信息失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> sendCatalog(CatalogRequest catalogRequest, String inner) {
+                return R.fail("gb28181 平台级联发送目录失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> startPlatformCascade(Long platformId, String inner) {
+                return R.fail("gb28181 平台级联启动失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlatformCascade(Long platformId, String inner) {
+                return R.fail("gb28181 平台级联停止失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> restartPlatformCascade(Long platformId, String inner) {
+                return R.fail("gb28181 平台级联重启失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> pushCatalog(Long platformId, String inner) {
+                return R.fail("gb28181 平台级联推送目录失败:" + throwable.getMessage());
             }
         };
     }

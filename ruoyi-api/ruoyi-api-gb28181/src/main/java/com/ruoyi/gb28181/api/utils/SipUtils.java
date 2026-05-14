@@ -40,6 +40,17 @@ public class SipUtils {
         return getUserIdFromFromHeader(fromHeader);
     }
 
+    public static String getUserIdFromToHeader(Request request) {
+        javax.sip.header.ToHeader toHeader = (javax.sip.header.ToHeader) request.getHeader(javax.sip.header.ToHeader.NAME);
+        return getUserIdFromToHeader(toHeader);
+    }
+
+    public static String getUserIdFromToHeader(javax.sip.header.ToHeader toHeader) {
+        AddressImpl address = (AddressImpl) toHeader.getAddress();
+        SipUri uri = (SipUri) address.getURI();
+        return uri.getUser();
+    }
+
     /**
      * 从subject读取channelId
      */

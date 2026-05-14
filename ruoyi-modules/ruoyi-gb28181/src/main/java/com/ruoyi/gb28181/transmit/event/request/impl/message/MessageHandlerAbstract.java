@@ -2,6 +2,7 @@ package com.ruoyi.gb28181.transmit.event.request.impl.message;
 
 import com.ruoyi.gb28181.common.ErrorCode;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import com.ruoyi.gb28181.transmit.event.MessageSubscribe;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.sip.MessageEvent;
@@ -46,8 +47,33 @@ public abstract class MessageHandlerAbstract extends SIPRequestProcessorParent i
 
         if (messageHandler != null) {
             messageHandler.handForDevice(evt, device, element);
-        }else {
+        } else {
             handMessageEvent(element, null);
+        }
+    }
+
+    @Override
+    public void handForPlatform(RequestEvent evt, Gb28181Platform platform, Element element) {
+        String cmd = XmlUtil.getText(element, "CmdType");
+        if (cmd == null) {
+            try {
+                responseAck((SIPRequest) evt.getRequest(), Response.OK);
+            } catch (SipException | InvalidArgumentException | ParseException e) {
+                log.error("[命令发送失败] 回复200 OK: {}", e.getMessage());
+            }
+            return;
+        }
+        IMessageHandler messageHandler = messageHandlerMap.get(cmd);
+
+        if (messageHandler != null) {
+            messageHandler.handForPlatform(evt, platform, element);
+        } else {
+            log.warn("[平台级联] 未找到对应的Query处理器: {}", cmd);
+            try {
+                responseAck((SIPRequest) evt.getRequest(), Response.OK);
+            } catch (SipException | InvalidArgumentException | ParseException e) {
+                log.error("[命令发送失败] 回复200 OK: {}", e.getMessage());
+            }
         }
     }
 
@@ -59,7 +85,7 @@ public abstract class MessageHandlerAbstract extends SIPRequestProcessorParent i
             String result = XmlUtil.getText(element, "Result");
             if (result == null || "OK".equalsIgnoreCase(result) || data != null) {
                 subscribe.getCallback().run(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMsg(), data);
-            }else {
+            } else {
                 subscribe.getCallback().run(ErrorCode.ERROR100.getCode(), ErrorCode.ERROR100.getMsg(), result);
             }
             messageSubscribe.removeSubscribe(cmd + sn);

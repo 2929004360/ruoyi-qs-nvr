@@ -108,7 +108,10 @@ public class QsGb28181PlatformChannelServiceImpl implements IQsGb28181PlatformCh
             return 0;
         }
 
-        return qsGb28181PlatformChannelMapper.batchInsertQsGb28181PlatformChannel(list);
+        int result = qsGb28181PlatformChannelMapper.batchInsertQsGb28181PlatformChannel(list);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 
     /**
@@ -124,7 +127,10 @@ public class QsGb28181PlatformChannelServiceImpl implements IQsGb28181PlatformCh
         Assert.notNull(platformId, "平台ID不能为空");
         Assert.notEmpty(deviceIds, "设备ID列表不能为空");
 
-        return qsGb28181PlatformChannelMapper.deleteQsGb28181PlatformChannelByDeviceIds(platformId, deviceIds);
+        int result = qsGb28181PlatformChannelMapper.deleteQsGb28181PlatformChannelByDeviceIds(platformId, deviceIds);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 
     /**
@@ -186,7 +192,10 @@ public class QsGb28181PlatformChannelServiceImpl implements IQsGb28181PlatformCh
             return 0;
         }
 
-        return qsGb28181PlatformChannelMapper.batchInsertQsGb28181PlatformChannel(list);
+        int result = qsGb28181PlatformChannelMapper.batchInsertQsGb28181PlatformChannel(list);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 
     /**
@@ -199,6 +208,9 @@ public class QsGb28181PlatformChannelServiceImpl implements IQsGb28181PlatformCh
     @Transactional(rollbackFor = Exception.class)
     public int unlinkAllDevices(Long platformId) {
         Assert.notNull(platformId, "平台ID不能为空");
-        return qsGb28181PlatformChannelMapper.deleteQsGb28181PlatformChannelByPlatformId(platformId);
+        int result = qsGb28181PlatformChannelMapper.deleteQsGb28181PlatformChannelByPlatformId(platformId);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 }

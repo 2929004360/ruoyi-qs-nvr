@@ -1,6 +1,8 @@
 package com.ruoyi.qs.controller;
 
 import lombok.Data;
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.web.controller.BaseController;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.core.web.page.TableDataInfo;
@@ -103,4 +105,6 @@ public class QsGb28181PlatformChannelController extends BaseController {
         private List<Long> deviceIds;
         private Boolean allLink;
     }
+
+
 }

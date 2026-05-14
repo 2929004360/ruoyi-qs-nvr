@@ -107,6 +107,12 @@
             <artifactId>ruoyi-api-zlm</artifactId>
         </dependency>
 
+        <!-- gb28181接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-gb28181</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>

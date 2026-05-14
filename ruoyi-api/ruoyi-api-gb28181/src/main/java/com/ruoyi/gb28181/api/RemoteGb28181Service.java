@@ -5,8 +5,10 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.constant.ServiceNameConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.gb28181.api.domain.CatalogRequest;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import com.ruoyi.gb28181.api.factory.RemoteGb28181FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
@@ -362,4 +364,94 @@ public interface RemoteGb28181Service {
     R<Void> auxiliarySwitch(@PathVariable String deviceId, @PathVariable String channelId,
                            @RequestParam String command, @RequestParam Integer switchId,
                            @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 注册
+     *
+     * @param platform 平台配置
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/register")
+    R<Void> registerPlatform(@RequestBody Gb28181Platform platform, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 注销
+     *
+     * @param platform 平台配置
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/unregister")
+    R<Void> unregisterPlatform(@RequestBody Gb28181Platform platform, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 发送心跳
+     *
+     * @param platform 平台配置
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/heartbeat")
+    R<Void> sendHeartbeat(@RequestBody Gb28181Platform platform, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 发送设备信息
+     *
+     * @param platform 平台配置
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/deviceInfo")
+    R<Void> sendDeviceInfo(@RequestBody Gb28181Platform platform, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 发送目录
+     *
+     * @param catalogRequest 目录请求
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/catalog")
+    R<Void> sendCatalog(@RequestBody CatalogRequest catalogRequest, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 启动单个平台
+     *
+     * @param platformId 平台ID
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/start/{platformId}")
+    R<Void> startPlatformCascade(@PathVariable Long platformId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 停止单个平台
+     *
+     * @param platformId 平台ID
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/stop/{platformId}")
+    R<Void> stopPlatformCascade(@PathVariable Long platformId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 重启单个平台
+     *
+     * @param platformId 平台ID
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/restart/{platformId}")
+    R<Void> restartPlatformCascade(@PathVariable Long platformId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 平台级联 - 手动推送目录
+     *
+     * @param platformId 平台ID
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/gb28181/platform/cascade/catalog/{platformId}")
+    R<Void> pushCatalog(@PathVariable Long platformId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

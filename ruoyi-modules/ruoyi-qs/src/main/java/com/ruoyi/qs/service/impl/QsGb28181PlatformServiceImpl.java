@@ -4,6 +4,7 @@ import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.common.core.utils.StringUtils;
 import com.ruoyi.qs.api.domain.QsGb28181Platform;
 import com.ruoyi.qs.mapper.QsGb28181PlatformMapper;
+import com.ruoyi.qs.service.Gb28181PlatformSyncService;
 import com.ruoyi.qs.service.IQsGb28181PlatformService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import java.util.List;
 public class QsGb28181PlatformServiceImpl implements IQsGb28181PlatformService {
 
     private final QsGb28181PlatformMapper qsGb28181PlatformMapper;
+    private final Gb28181PlatformSyncService gb28181PlatformSyncService;
 
     /**
      * 查询国标GB28181平台配置列表
@@ -93,7 +95,10 @@ public class QsGb28181PlatformServiceImpl implements IQsGb28181PlatformService {
         }
 
         qsGb28181Platform.setUpdateTime(DateUtils.getNowDate());
-        return qsGb28181PlatformMapper.updateQsGb28181Platform(qsGb28181Platform);
+        int result = qsGb28181PlatformMapper.updateQsGb28181Platform(qsGb28181Platform);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 
     /**

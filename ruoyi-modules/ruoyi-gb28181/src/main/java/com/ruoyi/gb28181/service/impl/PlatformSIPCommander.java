@@ -1,0 +1,396 @@
+package com.ruoyi.gb28181.service.impl;
+
+import com.ruoyi.gb28181.api.domain.Gb28181Platform;
+import com.ruoyi.gb28181.api.utils.SipUtils;
+import com.ruoyi.gb28181.auth.DigestClientAuthenticationHelper;
+import com.ruoyi.gb28181.config.SipConfig;
+import com.ruoyi.gb28181.runner.SipLayer;
+import com.ruoyi.gb28181.service.IPlatformSIPCommander;
+import com.ruoyi.gb28181.task.platform.PlatformCascadeTaskManager;
+import com.ruoyi.gb28181.transmit.SIPSender;
+import com.ruoyi.gb28181.transmit.cmd.PlatformSIPRequestHeaderProvider;
+import com.ruoyi.qs.api.domain.SimpleDeviceInfo;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Component;
+import org.springframework.util.ObjectUtils;
+
+import javax.sip.InvalidArgumentException;
+import javax.sip.PeerUnavailableException;
+import javax.sip.SipException;
+import javax.sip.SipFactory;
+import javax.sip.header.AuthorizationHeader;
+import javax.sip.header.CallIdHeader;
+import javax.sip.header.WWWAuthenticateHeader;
+import javax.sip.message.Request;
+import javax.sip.message.Response;
+import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * 平台级联SIP命令服务实现
+ *
+ * @author ruoyi
+ */
+@Slf4j
+@Component
+public class PlatformSIPCommander implements IPlatformSIPCommander {
+
+    @Autowired
+    private SipConfig sipConfig;
+
+    @Autowired
+    private SipLayer sipLayer;
+
+    @Autowired
+    private SIPSender sipSender;
+
+    @Autowired
+    private PlatformSIPRequestHeaderProvider platformSIPRequestHeaderProvider;
+
+    @Autowired
+    @Lazy
+    private PlatformCascadeTaskManager platformCascadeTaskManager;
+
+    // 保存各平台的CSEQ
+    private final Map<Long, Long> platformCSeqMap = new ConcurrentHashMap<>();
+
+    // 保存各平台的CallId
+    private final Map<Long, CallIdHeader> platformCallIdMap = new ConcurrentHashMap<>();
+
+    // 保存CallId对应的请求上下文
+    private final Map<String, RegisterContext> registerContextMap = new ConcurrentHashMap<>();
+
+    // 认证帮助类
+    private DigestClientAuthenticationHelper authHelper;
+
+    @Data
+    private static class RegisterContext {
+        private Gb28181Platform platform;
+        private String viaTag;
+        private String fromTag;
+        private String toTag;
+        private Long cseq;
+    }
+
+    public PlatformSIPCommander() {
+        try {
+            this.authHelper = new DigestClientAuthenticationHelper();
+        } catch (NoSuchAlgorithmException e) {
+            log.error("Failed to initialize DigestClientAuthenticationHelper", e);
+        }
+    }
+
+    public void handleRegisterResponse(Response response, String localIp) {
+        CallIdHeader callIdHeader = (CallIdHeader) response.getHeader(CallIdHeader.NAME);
+        RegisterContext context = registerContextMap.get(callIdHeader.getCallId());
+        if (context == null) {
+            log.warn("No register context found for callId: {}", callIdHeader.getCallId());
+            return;
+        }
+
+        int statusCode = response.getStatusCode();
+        if (statusCode == Response.UNAUTHORIZED) {
+            log.info("[平台级联] 收到401 Unauthorized，准备发送带认证的REGISTER请求，平台: {}", context.platform.getName());
+            try {
+                WWWAuthenticateHeader wwwAuthenticate = (WWWAuthenticateHeader) response.getHeader(WWWAuthenticateHeader.NAME);
+                if (wwwAuthenticate == null) {
+                    log.warn("No WWWAuthenticate header found in 401 response");
+                    return;
+                }
+
+                // 创建新的REGISTER请求，带Authorization头
+                Request originalRequest = platformSIPRequestHeaderProvider.createRegisterRequest(context.platform, context.viaTag, context.fromTag, context.toTag, callIdHeader, context.cseq);
+                AuthorizationHeader authHeader = authHelper.createAuthorizationHeader(
+                        SipFactory.getInstance().createHeaderFactory(),
+                        originalRequest,
+                        wwwAuthenticate,
+                        context.platform.getDeviceGbId(),
+                        context.platform.getPassword()
+                );
+
+                Request authRequest = platformSIPRequestHeaderProvider.createRegisterRequest(
+                        context.platform,
+                        SipUtils.getNewViaTag(),
+                        context.fromTag,
+                        context.toTag,
+                        callIdHeader,
+                        context.cseq + 1,
+                        authHeader
+                );
+
+                sipSender.transmitRequest(localIp, authRequest);
+                platformCSeqMap.put(context.platform.getId(), context.cseq + 2);
+                log.info("[平台级联] 已发送带认证的REGISTER请求，平台: {}", context.platform.getName());
+            } catch (Exception e) {
+                log.error("[平台级联] 处理401响应失败", e);
+            }
+        } else if (statusCode == Response.OK) {
+            log.info("[平台级联] 注册成功！平台: {}", context.platform.getName());
+            registerContextMap.remove(callIdHeader.getCallId());
+            // 记录注册成功
+            platformCascadeTaskManager.onRegisterSuccess(context.platform.getId());
+        } else {
+            log.warn("[平台级联] 收到REGISTER响应，状态码: {}, 平台: {}, 标记为离线", statusCode, context.platform.getName());
+            registerContextMap.remove(callIdHeader.getCallId());
+            // 注册失败，通知更新平台状态为离线，但保持任务运行以便重试
+            platformCascadeTaskManager.onRegisterFailure(context.platform.getId());
+        }
+    }
+
+    @Override
+    public void register(Gb28181Platform platform) throws SipException, InvalidArgumentException, ParseException {
+        Long platformId = platform.getId();
+        Long cseq = platformCSeqMap.getOrDefault(platformId, 1L);
+        String viaTag = SipUtils.getNewViaTag();
+        String fromTag = SipUtils.getNewFromTag();
+
+        // 获取或创建CallId
+        CallIdHeader callIdHeader = platformCallIdMap.get(platformId);
+        if (callIdHeader == null) {
+            callIdHeader = sipSender.getNewCallIdHeader(
+                    ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp(),
+                    platform.getTransport()
+            );
+            platformCallIdMap.put(platformId, callIdHeader);
+        }
+
+        // 保存上下文
+        RegisterContext context = new RegisterContext();
+        context.platform = platform;
+        context.viaTag = viaTag;
+        context.fromTag = fromTag;
+        context.toTag = null;
+        context.cseq = cseq;
+        registerContextMap.put(callIdHeader.getCallId(), context);
+
+        Request request = platformSIPRequestHeaderProvider.createRegisterRequest(
+                platform,
+                viaTag,
+                fromTag,
+                null,
+                callIdHeader,
+                cseq
+        );
+
+        // 发送请求
+        String localIp = ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp();
+        sipSender.transmitRequest(localIp, request);
+
+        // 更新CSEQ
+        platformCSeqMap.put(platformId, cseq + 1);
+
+        log.info("[平台级联] 发送注册请求到平台: {}, CSEQ: {}", platform.getName(), cseq);
+    }
+
+    @Override
+    public void unregister(Gb28181Platform platform) throws SipException, InvalidArgumentException, ParseException {
+        Long platformId = platform.getId();
+        Long cseq = platformCSeqMap.getOrDefault(platformId, 1L);
+
+        CallIdHeader callIdHeader = platformCallIdMap.get(platformId);
+        if (callIdHeader == null) {
+            log.warn("[平台级联] 未找到平台 {} 的CallId，无法注销", platform.getName());
+            return;
+        }
+
+        // 发送Expires=0的REGISTER请求
+        String originalExpires = platform.getExpires();
+        platform.setExpires("0");
+
+        Request request = platformSIPRequestHeaderProvider.createRegisterRequest(
+                platform,
+                SipUtils.getNewViaTag(),
+                SipUtils.getNewFromTag(),
+                null,
+                callIdHeader,
+                cseq
+        );
+
+        // 恢复原来的Expires
+        platform.setExpires(originalExpires);
+
+        String localIp = ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp();
+        sipSender.transmitRequest(localIp, request);
+
+        platformCSeqMap.put(platformId, cseq + 1);
+
+        log.info("[平台级联] 发送注销请求到平台: {}", platform.getName());
+    }
+
+    @Override
+    public void keepAlive(Gb28181Platform platform) throws SipException, InvalidArgumentException, ParseException {
+        CallIdHeader callIdHeader = sipSender.getNewCallIdHeader(
+                ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp(),
+                platform.getTransport()
+        );
+
+        Request request = platformSIPRequestHeaderProvider.createKeepAliveRequest(
+                platform,
+                SipUtils.getNewViaTag(),
+                SipUtils.getNewFromTag(),
+                null,
+                callIdHeader
+        );
+
+        String localIp = ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp();
+        sipSender.transmitRequest(localIp, request);
+
+        log.debug("[平台级联] 发送心跳到平台: {}", platform.getName());
+    }
+
+    @Override
+    public void sendDeviceInfo(Gb28181Platform platform) throws SipException, InvalidArgumentException, ParseException {
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        sendDeviceInfo(platform, sn);
+    }
+
+    @Override
+    public void sendDeviceInfo(Gb28181Platform platform, int sn) throws SipException, InvalidArgumentException, ParseException {
+        String charset = ObjectUtils.isEmpty(platform.getCharacterSet()) ? "GB2312" : platform.getCharacterSet();
+        StringBuffer content = new StringBuffer();
+
+        content.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        content.append("<Response>\r\n");
+        content.append("<CmdType>DeviceInfo</CmdType>\r\n");
+        content.append("<SN>" + sn + "</SN>\r\n");
+        content.append("<DeviceID>" + platform.getDeviceGbId() + "</DeviceID>\r\n");
+        content.append("<Result>OK</Result>\r\n");
+
+        // 设备信息（直接放在 Response 下，不要额外的 DeviceInfo 包裹）
+        if (!ObjectUtils.isEmpty(platform.getName())) {
+            content.append("<DeviceName>" + platform.getName() + "</DeviceName>\r\n"); // 改成 DeviceName
+        }
+        content.append("<Manufacturer>" + (ObjectUtils.isEmpty(platform.getManufacturer()) ? "RUOYI-QS-NVR" : platform.getManufacturer()) + "</Manufacturer>\r\n");
+        if (!ObjectUtils.isEmpty(platform.getModel())) {
+            content.append("<Model>" + platform.getModel() + "</Model>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(platform.getAddress())) {
+            content.append("<Address>" + platform.getAddress() + "</Address>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(platform.getCivilCode())) {
+            content.append("<CivilCode>" + platform.getCivilCode() + "</CivilCode>\r\n");
+        }
+        content.append("<Parental>" + (platform.getCatalogGroup() != null ? platform.getCatalogGroup() : 0) + "</Parental>\r\n");
+        if (platform.getRegisterWay() != null) {
+            content.append("<RegisterWay>" + platform.getRegisterWay() + "</RegisterWay>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(platform.getSecrecy())) {
+            content.append("<Secrecy>" + platform.getSecrecy() + "</Secrecy>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(platform.getDeviceIp())) {
+            content.append("<IPAddress>" + platform.getDeviceIp() + "</IPAddress>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(platform.getDevicePort())) {
+            content.append("<Port>" + platform.getDevicePort() + "</Port>\r\n");
+        }
+        if (platform.getPtz() != null) {
+            content.append("<PTZType>" + platform.getPtz() + "</PTZType>\r\n");
+        }
+        content.append("<Status>" + (Integer.valueOf(1).equals(platform.getStatus()) ? "ON" : "OFF") + "</Status>\r\n");
+        content.append("<Longitude>" + 0 + "</Longitude>\r\n");
+        content.append("<Latitude>" + 0 + "</Latitude>\r\n");
+
+        content.append("</Response>\r\n");
+
+        sendMessage(platform, content.toString());
+        log.info("[平台级联] 发送设备信息到平台: {}, SN: {}", platform.getName(), sn);
+    }
+
+    @Override
+    public void sendCatalog(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList) throws SipException, InvalidArgumentException, ParseException {
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        sendCatalog(platform, deviceList, sn);
+    }
+
+    @Override
+    public void sendCatalog(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, int sn) throws SipException, InvalidArgumentException, ParseException {
+        String charset = ObjectUtils.isEmpty(platform.getCharacterSet()) ? "GB2312" : platform.getCharacterSet();
+        StringBuffer content = new StringBuffer();
+
+        content.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        content.append("<Response>\r\n");
+        content.append("<CmdType>Catalog</CmdType>\r\n");
+        content.append("<SN>" + sn + "</SN>\r\n");
+        content.append("<DeviceID>" + platform.getDeviceGbId() + "</DeviceID>\r\n");
+
+        if (deviceList == null) {
+            deviceList = List.of();
+        }
+
+        // 过滤掉 DeviceID 为空的设备
+        List<SimpleDeviceInfo> validDeviceList = new java.util.ArrayList<>();
+        for (SimpleDeviceInfo device : deviceList) {
+            String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+            if (!ObjectUtils.isEmpty(deviceId)) {
+                validDeviceList.add(device);
+            } else {
+                log.warn("[平台级联] 跳过 DeviceID 为空的设备: {}", device.getDeviceName());
+            }
+        }
+
+        content.append("<SumNum>" + validDeviceList.size() + "</SumNum>\r\n");
+        content.append("<DeviceList Num=\"" + validDeviceList.size() + "\">\r\n");
+
+        for (SimpleDeviceInfo device : validDeviceList) {
+            String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+            content.append("<Item>\r\n");
+            content.append("<DeviceID>" + deviceId + "</DeviceID>\r\n");
+            content.append("<Name>" + (ObjectUtils.isEmpty(device.getDeviceName()) ? "" : device.getDeviceName()) + "</Name>\r\n");
+            content.append("<Manufacturer>" + (ObjectUtils.isEmpty(device.getManufacturer()) ? "泉视" : device.getManufacturer()) + "</Manufacturer>\r\n");
+            if (!ObjectUtils.isEmpty(device.getAddress())) {
+                content.append("<Address>" + device.getAddress() + "</Address>\r\n");
+            }
+            content.append("<Status>" + ("ON".equals(device.getDeviceStatus()) ? "ON" : "OFF") + "</Status>\r\n");
+            content.append("<Parental>0</Parental>\r\n");
+            if (device.getChannel() != null) {
+                content.append("<Channel>" + device.getChannel() + "</Channel>\r\n");
+            }
+            if (!ObjectUtils.isEmpty(device.getIpAddress())) {
+                content.append("<IPAddress>" + device.getIpAddress() + "</IPAddress>\r\n");
+            }
+            if (device.getPort() != null) {
+                content.append("<Port>" + device.getPort() + "</Port>\r\n");
+            }
+            if (!ObjectUtils.isEmpty(device.getPtzType())) {
+                content.append("<PTZType>" + device.getPtzType() + "</PTZType>\r\n");
+            }
+            content.append("<Longitude>" + (ObjectUtils.isEmpty(device.getLongitude()) ? 0 : device.getLongitude()) + "</Longitude>\r\n");
+            content.append("<Latitude>" + (ObjectUtils.isEmpty(device.getLatitude()) ? 0 : device.getLatitude()) + "</Latitude>\r\n");
+            content.append("</Item>\r\n");
+        }
+
+        content.append("</DeviceList>\r\n");
+        content.append("</Response>\r\n");
+
+        sendMessage(platform, content.toString());
+        log.info("[平台级联] 发送目录到平台: {}, 设备数: {}, SN: {}", platform.getName(), deviceList.size(), sn);
+    }
+
+    /**
+     * 发送MESSAGE消息
+     */
+    private void sendMessage(Gb28181Platform platform, String content) throws SipException, InvalidArgumentException, ParseException {
+        CallIdHeader callIdHeader = sipSender.getNewCallIdHeader(
+                ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp(),
+                platform.getTransport()
+        );
+
+        Request request = platformSIPRequestHeaderProvider.createMessageRequest(
+                platform,
+                content,
+                SipUtils.getNewViaTag(),
+                SipUtils.getNewFromTag(),
+                null,
+                callIdHeader
+        );
+
+        String localIp = ObjectUtils.isEmpty(platform.getDeviceIp()) ? sipLayer.getLocalIp(null) : platform.getDeviceIp();
+        sipSender.transmitRequest(localIp, request);
+    }
+}

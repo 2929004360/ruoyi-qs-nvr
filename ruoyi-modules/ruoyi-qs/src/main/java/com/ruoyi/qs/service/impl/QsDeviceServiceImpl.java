@@ -22,6 +22,7 @@ import com.ruoyi.qs.api.domain.QsRegion;
 import com.ruoyi.qs.domain.*;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.mapper.QsRegionMapper;
+import com.ruoyi.qs.service.Gb28181PlatformSyncService;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.utils.StreamDetector;
 import com.ruoyi.zlm.api.RemoteZlmService;
@@ -86,6 +87,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 
     @Autowired
     private QsRegionMapper qsRegionMapper;
+
+    @Autowired
+    private Gb28181PlatformSyncService gb28181PlatformSyncService;
 
     /**
      * 查询视频监控设备
@@ -238,7 +242,10 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
         if (LiveStreamType.JT1078.getCode().equals(qsDevice.getType())) {
             qsDevice.setDeviceCode("device_" + IdUtil.getSnowflakeNextId());
         }
-        return qsDeviceMapper.insertQsDevice(qsDevice);
+        int result = qsDeviceMapper.insertQsDevice(qsDevice);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 
     /**
@@ -342,7 +349,10 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
 //                throw new RuntimeException(r.getMsg());
 //            }
 //        }
-        return qsDeviceMapper.updateQsDevice(qsDevice);
+        int result = qsDeviceMapper.updateQsDevice(qsDevice);
+        // 异步推送目录到所有在线平台（带防抖）
+        gb28181PlatformSyncService.triggerPushCatalog();
+        return result;
     }
 
     /**
