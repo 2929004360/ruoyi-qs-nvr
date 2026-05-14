@@ -3,7 +3,9 @@ package com.ruoyi.qs.service.impl;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.qs.api.domain.QsGb28181PlatformChannel;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
+import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.mapper.QsGb28181PlatformChannelMapper;
+import com.ruoyi.qs.service.Gb28181PlatformSyncService;
 import com.ruoyi.qs.service.IQsGb28181PlatformChannelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class QsGb28181PlatformChannelServiceImpl implements IQsGb28181PlatformCh
 
     private final QsGb28181PlatformChannelMapper qsGb28181PlatformChannelMapper;
     private final QsDeviceMapper qsDeviceMapper;
+    private final Gb28181PlatformSyncService gb28181PlatformSyncService;
 
     /**
      * 查询平台通道关联列表

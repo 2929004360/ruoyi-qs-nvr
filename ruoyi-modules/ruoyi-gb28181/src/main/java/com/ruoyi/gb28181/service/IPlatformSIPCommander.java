@@ -52,6 +52,11 @@ public interface IPlatformSIPCommander {
     void sendCatalog(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, int sn) throws SipException, InvalidArgumentException, ParseException;
 
     /**
+     * 发送设备状态
+     */
+    void sendDeviceStatus(Gb28181Platform platform, int sn) throws SipException, InvalidArgumentException, ParseException;
+
+    /**
      * 处理REGISTER响应
      */
     void handleRegisterResponse(Response response, String localIp);

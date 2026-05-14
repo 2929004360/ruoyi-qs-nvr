@@ -8,6 +8,7 @@ import com.ruoyi.zlm.common.InviteSessionType;
 import com.ruoyi.zlm.domain.MediaServerLoad;
 import com.ruoyi.zlm.domain.RecordInfo;
 import com.ruoyi.zlm.domain.Snap;
+import com.ruoyi.zlm.domain.dto.ZLMResult;
 
 import java.util.List;
 import java.util.Map;
@@ -392,4 +393,22 @@ public interface IMediaServerService {
      * @param stream
      */
     void stopJt1078Play(InviteSessionType type, QsDevice qsDevice, Jt1078Device device, String stream);
+
+    /**
+     * 开始发送RTP流到指定地址
+     *
+     * @param mediaServer
+     * @param param
+     * @return
+     */
+    ZLMResult<?> startSendRtp(ZlmMediaServer mediaServer, Map<String, Object> param);
+
+    /**
+     * 停止发送RTP流
+     *
+     * @param mediaServer
+     * @param param
+     * @return
+     */
+    ZLMResult<?> stopSendRtp(ZlmMediaServer mediaServer, Map<String, Object> param);
 }

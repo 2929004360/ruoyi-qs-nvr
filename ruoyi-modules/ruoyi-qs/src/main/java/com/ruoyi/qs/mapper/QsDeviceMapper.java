@@ -362,4 +362,12 @@ public interface QsDeviceMapper {
      * @return 设备ID列表
      */
     List<Long> selectAllDeviceIds();
+
+    /**
+     * 根据 gbCode 查询设备
+     *
+     * @param gbCode 国标设备编号
+     * @return
+     */
+    QsDevice getDeviceByGbCode(String gbCode);
 }

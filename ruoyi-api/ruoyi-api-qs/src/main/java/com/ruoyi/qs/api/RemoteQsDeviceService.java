@@ -143,4 +143,14 @@ public interface RemoteQsDeviceService {
      */
     @PostMapping("/api/device/updateDeviceStatusByJtMobileNo/{jtMobileNo}/{deviceStatus}")
     public R<Boolean> updateDeviceStatusByJtMobileNo(@PathVariable String jtMobileNo, @PathVariable String deviceStatus, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 根据 gbDeviceId 获取设备
+     *
+     * @param gbCode 国标设备编号
+     * @param inner  请求来源
+     * @return
+     */
+    @GetMapping("/api/device/getDeviceByGbCode/{gbCode}")
+    public R<QsDevice> getDeviceByGbCode(@PathVariable String gbCode, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

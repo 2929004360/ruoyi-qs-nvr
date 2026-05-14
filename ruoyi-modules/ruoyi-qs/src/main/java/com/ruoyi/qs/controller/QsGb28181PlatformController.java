@@ -26,6 +26,7 @@ import java.util.List;
  *
  * @author ruoyi
  */
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/platform")

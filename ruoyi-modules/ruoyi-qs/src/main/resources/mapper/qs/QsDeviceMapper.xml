@@ -954,4 +954,9 @@
     <select id="selectAllDeviceIds" resultType="java.lang.Long">
         select id from qs_device
     </select>
+
+    <select id="getDeviceByGbCode" parameterType="String" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        WHERE gb_code = #{gbCode}
+    </select>
 </mapper>

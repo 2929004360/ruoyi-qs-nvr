@@ -372,6 +372,27 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         log.info("[平台级联] 发送目录到平台: {}, 设备数: {}, SN: {}", platform.getName(), deviceList.size(), sn);
     }
 
+    @Override
+    public void sendDeviceStatus(Gb28181Platform platform, int sn) throws SipException, InvalidArgumentException, ParseException {
+        String charset = ObjectUtils.isEmpty(platform.getCharacterSet()) ? "GB2312" : platform.getCharacterSet();
+        StringBuffer content = new StringBuffer();
+
+        content.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        content.append("<Response>\r\n");
+        content.append("<CmdType>DeviceStatus</CmdType>\r\n");
+        content.append("<SN>" + sn + "</SN>\r\n");
+        content.append("<DeviceID>" + platform.getDeviceGbId() + "</DeviceID>\r\n");
+        content.append("<Result>OK</Result>\r\n");
+
+        content.append("<Online>ON</Online>\r\n");
+        content.append("<Status>OK</Status>\r\n");
+
+        content.append("</Response>\r\n");
+
+        sendMessage(platform, content.toString());
+        log.info("[平台级联] 发送设备状态到平台: {}, SN: {}", platform.getName(), sn);
+    }
+
     /**
      * 发送MESSAGE消息
      */

@@ -1641,4 +1641,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
             throw new RuntimeException("国标编码已存在，请重新输入");
         }
     }
+
+    @Override
+    public QsDevice getDeviceByGbCode(String gbCode) {
+        return qsDeviceMapper.getDeviceByGbCode(gbCode);
+    }
 }

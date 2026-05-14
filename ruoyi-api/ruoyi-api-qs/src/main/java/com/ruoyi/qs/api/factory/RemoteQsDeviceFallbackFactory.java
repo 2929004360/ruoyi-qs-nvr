@@ -88,6 +88,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<Boolean> updateDeviceStatusByJtMobileNo(String jtMobileNo, String deviceStatus, String inner) {
                 return R.fail("根据 jtMobileNo 更新设备在线状态失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<QsDevice> getDeviceByGbCode(String gbCode, String inner) {
+                return R.fail("根据 gbCode 获取设备失败:" + throwable.getMessage());
+            }
         };
     }
 }

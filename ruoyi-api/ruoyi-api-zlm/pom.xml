@@ -28,6 +28,12 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-gb28181</artifactId>
         </dependency>
+
+        <!-- qs api接口-->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-qs</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

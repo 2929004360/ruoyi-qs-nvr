@@ -3,6 +3,7 @@ package com.ruoyi.zlm.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.ruoyi.common.core.utils.StringUtils;
 import com.ruoyi.zlm.api.config.ZLMServerConfig;
 import com.ruoyi.zlm.api.domain.*;
 import com.ruoyi.zlm.common.CommonCallback;
@@ -192,6 +193,11 @@ public class ZLMMediaNodeServerServiceImpl implements IMediaNodeServerService {
             }
             return;
         }
+
+        if(StringUtils.isEmpty(streamId)){
+            return;
+        }
+
         Map<String, Object> param = new HashMap<>();
         param.put("stream_id", streamId);
         zlmresTfulUtils.closeRtpServer(mediaServer, param, zlmResult -> {

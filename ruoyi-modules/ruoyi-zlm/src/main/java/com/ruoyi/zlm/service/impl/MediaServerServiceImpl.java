@@ -1209,6 +1209,8 @@ public class MediaServerServiceImpl implements IMediaServerService {
         rtpServer.setChannel(rtpServerParam.getChannel());
         rtpServer.setStartTime(rtpServerParam.getStartTime());
         rtpServer.setEndTime(rtpServerParam.getEndTime());
+        rtpServer.setMediaServerId(mediaServer.getId());
+
 
         log.info("[点播开始] 设备编号: {}, 通道编号: {}, 收流端口： {}, 流ID：{}, SSRC: {}", device.getId().toString(), device.getId(), ssrcInfo.getPort(), ssrcInfo.getStream(), ssrcInfo.getSsrc());
 
@@ -1627,6 +1629,28 @@ public class MediaServerServiceImpl implements IMediaServerService {
 
         if (mediaServer == null) {
             callback.run(InviteErrorCode.FAIL.getCode(), "无可用的节点", null);
+            return;
+        }
+
+        // GB28181 设备播放
+        if (LiveStreamType.GB28181.getCode().equals(device.getType())) {
+            R<Device> gbDeviceR = remoteGb28181Service.getDeviceByDeviceId(device.getGbDeviceId(), SecurityConstants.INNER);
+            if (gbDeviceR.getCode() == Constants.SUCCESS && gbDeviceR.getData() != null) {
+                startGb28181Play(device, gbDeviceR.getData(), callback);
+            } else {
+                callback.run(InviteErrorCode.FAIL.getCode(), "获取GB28181设备信息失败", null);
+            }
+            return;
+        }
+        
+        // JT1078 设备播放
+        if (LiveStreamType.JT1078.getCode().equals(device.getType())) {
+            R<Jt1078Device> jtDeviceR = remoteJt1078Service.getDeviceByMobileNo(device.getJtMobileNo(), SecurityConstants.INNER);
+            if (jtDeviceR.getCode() == Constants.SUCCESS && jtDeviceR.getData() != null) {
+                startJt1078Play(device, jtDeviceR.getData(), callback);
+            } else {
+                callback.run(InviteErrorCode.FAIL.getCode(), "获取JT1078设备信息失败", null);
+            }
             return;
         }
 
@@ -2647,5 +2671,15 @@ public class MediaServerServiceImpl implements IMediaServerService {
         } else {
             return localBasePath + "/" + url;
         }
+    }
+
+    @Override
+    public ZLMResult<?> startSendRtp(ZlmMediaServer mediaServer, Map<String, Object> param) {
+        return zlmresTfulUtils.startSendRtp(mediaServer, param);
+    }
+
+    @Override
+    public ZLMResult<?> stopSendRtp(ZlmMediaServer mediaServer, Map<String, Object> param) {
+        return zlmresTfulUtils.stopSendRtp(mediaServer, param);
     }
 }

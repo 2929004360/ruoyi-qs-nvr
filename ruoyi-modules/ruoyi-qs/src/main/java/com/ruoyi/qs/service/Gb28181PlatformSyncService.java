@@ -1,15 +1,15 @@
-﻿package com.ruoyi.qs.service;
+package com.ruoyi.qs.service;
 
-import com.ruoyi.common.security.annotation.Async;
-import com.ruoyi.common.security.utils.SecurityUtils;
+import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.gb28181.api.RemoteGb28181Service;
 import com.ruoyi.qs.api.domain.QsGb28181Platform;
-import com.ruoyi.qs.service.IQsGb28181PlatformService;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Gb28181PlatformSyncService {
 
     @Autowired
+    @Lazy
     private IQsGb28181PlatformService qsGb28181PlatformService;
 
     @Autowired
@@ -108,7 +109,7 @@ public class Gb28181PlatformSyncService {
                         log.info("[国标平台同步] [{}/{}] 正在推送目录到平台: [{}] ID: {}", 
                                 onlineCount, platformList.size(), platform.getName(), platform.getId());
                         
-                        remoteGb28181Service.pushCatalog(platform.getId(), SecurityUtils.INNER);
+                        remoteGb28181Service.pushCatalog(platform.getId(), SecurityConstants.INNER);
                         
                         long platformEndTime = System.currentTimeMillis();
                         log.info("[国标平台同步] [{}/{}] 推送目录到平台: [{}] 成功！耗时: {}ms", 

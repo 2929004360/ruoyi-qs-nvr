@@ -444,4 +444,12 @@ public interface IQsDeviceService {
      * @param isOn       true-开, false-关
      */
     void controlWiper(Long id, Integer channelId, Boolean isOn);
+
+    /**
+     * 根据 gbCode 查询设备
+     *
+     * @param gbCode 国标设备编号
+     * @return
+     */
+    QsDevice getDeviceByGbCode(String gbCode);
 }

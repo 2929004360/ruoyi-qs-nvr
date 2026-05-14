@@ -159,4 +159,20 @@ public class QsDeviceApiController {
         Boolean result = qsDeviceService.updateDeviceStatusByJtMobileNo(jtMobileNo, deviceStatus);
         return R.ok(result);
     }
+
+    /**
+     * 根据 gbCode 查询设备
+     *
+     * @param gbCode 国标设备编号
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/getDeviceByGbCode/{gbCode}")
+    public R<QsDevice> getDeviceByGbCode(@PathVariable String gbCode) {
+        QsDevice qsDevice = qsDeviceService.getDeviceByGbCode(gbCode);
+        if (qsDevice == null){
+            return R.fail("设备不存在");
+        }
+        return R.ok(qsDevice);
+    }
 }

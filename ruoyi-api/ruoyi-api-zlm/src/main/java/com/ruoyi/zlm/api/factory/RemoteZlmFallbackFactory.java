@@ -2,12 +2,15 @@ package com.ruoyi.zlm.api.factory;
 
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
-import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.zlm.api.RemoteZlmService;
+import com.ruoyi.zlm.api.domain.Gb28181PlatformPlay;
+import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * zlm接口服务降级处理
@@ -40,6 +43,31 @@ public class RemoteZlmFallbackFactory implements FallbackFactory<RemoteZlmServic
             @Override
             public R<Boolean> connectRtpServer(String mediaServerId, String address, int port, String stream, String inner) {
                 return R.fail("zlm接口服务调用失败，connectRtpServer:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<?> startSendRtp(String mediaServerId, Map<String, Object> param, String inner) {
+                return R.fail("zlm接口服务调用失败，startSendRtp:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<?> stopSendRtp(String mediaServerId, Map<String, Object> param, String inner) {
+                return R.fail("zlm接口服务调用失败，stopSendRtp:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<ZlmMediaServer> getDefaultMediaServer(String inner) {
+                return R.fail("zlm接口服务调用失败，getDefaultMediaServer:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<ZlmMediaServer> getOneFromDatabase(String id, String inner) {
+                return R.fail("zlm接口服务调用失败，getOneFromDatabase:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> gb28181PlatformPlay(Gb28181PlatformPlay platformPlay, String inner) {
+                return R.fail("zlm接口服务调用失败，gb28181PlatformPlay: " + throwable.getMessage());
             }
         };
     }
