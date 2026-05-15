@@ -3,7 +3,6 @@ package com.ruoyi.qs.service.impl;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.qs.api.domain.QsGb28181PlatformChannel;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
-import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.mapper.QsGb28181PlatformChannelMapper;
 import com.ruoyi.qs.service.Gb28181PlatformSyncService;
 import com.ruoyi.qs.service.IQsGb28181PlatformChannelService;
@@ -15,6 +14,8 @@ import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 国标GB28181平台通道关联Service业务层处理
@@ -215,5 +216,33 @@ public class QsGb28181PlatformChannelServiceImpl implements IQsGb28181PlatformCh
         // 异步推送目录到所有在线平台（带防抖）
         gb28181PlatformSyncService.triggerPushCatalog();
         return result;
+    }
+
+    /**
+     * 根据平台ID统计关联设备数量
+     *
+     * @param platformId 平台ID
+     * @return 设备数量
+     */
+    @Override
+    public int countDeviceByPlatformId(Long platformId) {
+        Assert.notNull(platformId, "平台ID不能为空");
+        return qsGb28181PlatformChannelMapper.countDeviceByPlatformId(platformId);
+    }
+
+    /**
+     * 批量统计各平台关联设备数量
+     *
+     * @param platformIds 平台ID列表
+     * @return 平台ID到设备数量的映射
+     */
+    @Override
+    public Map<Long, Integer> countDeviceByPlatformIds(List<Long> platformIds) {
+        Assert.notEmpty(platformIds, "平台ID列表不能为空");
+        return platformIds.stream()
+                .collect(Collectors.toMap(
+                        platformId -> platformId,
+                        platformId -> qsGb28181PlatformChannelMapper.countDeviceByPlatformId(platformId)
+                ));
     }
 }

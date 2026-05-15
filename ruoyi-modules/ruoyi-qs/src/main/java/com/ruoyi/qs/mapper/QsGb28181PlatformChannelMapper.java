@@ -86,4 +86,12 @@ public interface QsGb28181PlatformChannelMapper {
      * @return 结果
      */
     int deleteQsGb28181PlatformChannelByDeviceIds(@Param("platformId") Long platformId, @Param("deviceIds") List<Long> deviceIds);
+
+    /**
+     * 根据平台ID统计关联设备数量
+     *
+     * @param platformId 平台ID
+     * @return 设备数量
+     */
+    int countDeviceByPlatformId(Long platformId);
 }

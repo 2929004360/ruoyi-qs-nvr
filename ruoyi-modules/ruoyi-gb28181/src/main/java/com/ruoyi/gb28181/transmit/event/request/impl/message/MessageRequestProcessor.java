@@ -120,6 +120,12 @@ public class MessageRequestProcessor extends SIPRequestProcessorParent implement
                         if (device != null) {
                             messageHandler.handForDevice(evt, device, rootElement);
                         } else if (platform != null) {
+                            // 检查平台是否启用了消息通道
+                            if (platform.getAsMessageChannel() == null || platform.getAsMessageChannel() != 1) {
+                                log.info("[消息通道开关] 平台未启用消息通道，直接回复200，platform: {}", platform.getName());
+                                responseAck(request, Response.OK);
+                                return;
+                            }
                             messageHandler.handForPlatform(evt, platform, rootElement);
                         }
                     } else {

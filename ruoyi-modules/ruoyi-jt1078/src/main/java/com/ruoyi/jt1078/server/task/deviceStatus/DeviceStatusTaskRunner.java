@@ -82,13 +82,17 @@ public class DeviceStatusTaskRunner {
         if (task == null) {
             return false;
         }
+        Duration duration = Duration.ofSeconds((expirationTime - System.currentTimeMillis()) / 1000);
+        if (duration.getSeconds() < 0) {
+            log.warn("[更新状态任务时间] 过期时间已过期，不更新： {}", key);
+            return false;
+        }
         log.debug("[更新状态任务时间] 编号： {}", key);
         // 如果值更改时间，如果队列中有多个元素时 超时无法出发。目前采用移除再加入的方法
         delayQueue.remove(task);
         task.setDelayTime(expirationTime);
         delayQueue.offer(task);
         String redisKey = String.format("%s_%s", prefix, task.getDeviceId());
-        Duration duration = Duration.ofSeconds((expirationTime - System.currentTimeMillis()) / 1000);
         redisTemplate.expire(redisKey, duration);
         return true;
     }

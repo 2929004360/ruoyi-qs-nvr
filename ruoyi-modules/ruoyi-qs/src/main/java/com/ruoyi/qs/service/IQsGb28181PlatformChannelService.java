@@ -3,6 +3,7 @@ package com.ruoyi.qs.service;
 import com.ruoyi.qs.api.domain.QsGb28181PlatformChannel;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 国标GB28181平台通道关联Service接口
@@ -92,4 +93,20 @@ public interface IQsGb28181PlatformChannelService {
      * @return 结果
      */
     int unlinkAllDevices(Long platformId);
+
+    /**
+     * 根据平台ID统计关联设备数量
+     *
+     * @param platformId 平台ID
+     * @return 设备数量
+     */
+    int countDeviceByPlatformId(Long platformId);
+
+    /**
+     * 批量统计各平台关联设备数量
+     *
+     * @param platformIds 平台ID列表
+     * @return 平台ID到设备数量的映射
+     */
+    Map<Long, Integer> countDeviceByPlatformIds(List<Long> platformIds);
 }

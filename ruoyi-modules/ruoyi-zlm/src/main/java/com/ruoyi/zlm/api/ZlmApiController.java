@@ -166,6 +166,7 @@ public class ZlmApiController {
                             params.put("is_udp", platformPlay.getIsUdp() != null ? platformPlay.getIsUdp() : 1);
                             params.put("use_ps", 1);
                             params.put("pt", 96);
+                            params.put("rtcp", platformPlay.getRtcp() != null ? platformPlay.getRtcp() : 0);
                             
                             log.info("[准备调用startSendRtp] params: {}", params);
                             R<?> startSendRtpResult = startSendRtp(zlmMediaServer.getId(), params);

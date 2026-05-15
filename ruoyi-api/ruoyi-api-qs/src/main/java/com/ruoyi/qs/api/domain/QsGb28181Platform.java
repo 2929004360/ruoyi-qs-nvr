@@ -1,5 +1,6 @@
 package com.ruoyi.qs.api.domain;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ruoyi.common.core.web.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -178,4 +179,10 @@ public class QsGb28181Platform extends BaseEntity {
      * 流媒体服务器ID
      */
     private String serverId;
+
+    /**
+     * 关联设备数量
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer deviceCount;
 }

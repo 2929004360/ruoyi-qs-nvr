@@ -88,4 +88,10 @@
         </foreach>
     </delete>
 
+    <select id="countDeviceByPlatformId" parameterType="Long" resultType="int">
+        SELECT COUNT(*)
+        FROM qs_gb28181_platform_channel
+        WHERE platform_id = #{platformId}
+    </select>
+
 </mapper>

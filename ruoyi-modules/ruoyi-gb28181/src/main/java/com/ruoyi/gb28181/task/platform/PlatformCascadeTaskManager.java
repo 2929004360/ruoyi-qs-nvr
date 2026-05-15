@@ -290,6 +290,7 @@ public class PlatformCascadeTaskManager {
             taskInfo.setRegistered(true);
             taskInfo.setLastRegisterTime(System.currentTimeMillis());
             updatePlatformStatus(platformId, 1);
+            log.info("[平台级联] 平台 {} 注册成功", taskInfo.getPlatform().getName());
         }
     }
 

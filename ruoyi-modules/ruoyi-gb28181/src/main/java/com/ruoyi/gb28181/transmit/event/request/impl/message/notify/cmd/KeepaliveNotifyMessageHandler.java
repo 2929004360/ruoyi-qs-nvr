@@ -3,8 +3,10 @@ package com.ruoyi.gb28181.transmit.event.request.impl.message.notify.cmd;
 import com.ruoyi.gb28181.api.common.RemoteAddressInfo;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import com.ruoyi.gb28181.api.domain.SipMsgInfo;
 import com.ruoyi.gb28181.service.IDeviceService;
+
 import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.IMessageHandler;
@@ -36,7 +38,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Component
 public class KeepaliveNotifyMessageHandler extends SIPRequestProcessorParent implements InitializingBean, IMessageHandler {
 
-
     private final static String cmdType = "Keepalive";
 
     private final ConcurrentLinkedQueue<SipMsgInfo> taskQueue = new ConcurrentLinkedQueue<>();
@@ -65,6 +66,18 @@ public class KeepaliveNotifyMessageHandler extends SIPRequestProcessorParent imp
             return;
         }
         taskQueue.offer(new SipMsgInfo(evt, device, rootElement));
+    }
+
+    @Override
+    public void handForPlatform(RequestEvent evt, Gb28181Platform platform, Element rootElement) {
+        log.info("[平台心跳] 收到上级平台 {} 的心跳消息", platform.getName());
+        // 上级平台心跳直接回复200 OK，不需要排队处理
+        try {
+            responseAck((SIPRequest) evt.getRequest(), Response.OK);
+            log.info("[平台心跳] 回复上级平台心跳成功");
+        } catch (SipException | InvalidArgumentException | ParseException e) {
+            log.error("[命令发送失败] 平台心跳回复: {}", e.getMessage());
+        }
     }
 
     @Scheduled(fixedDelay = 100)

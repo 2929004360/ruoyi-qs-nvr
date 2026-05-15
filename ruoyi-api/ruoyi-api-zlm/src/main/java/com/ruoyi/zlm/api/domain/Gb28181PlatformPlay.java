@@ -19,4 +19,8 @@ public class Gb28181PlatformPlay implements Serializable {
      * 是否使用UDP，1=UDP，0=TCP
      */
     private Integer isUdp;
+    /**
+     * 是否启用RTCP，1=启用，0=禁用
+     */
+    private Integer rtcp;
 }

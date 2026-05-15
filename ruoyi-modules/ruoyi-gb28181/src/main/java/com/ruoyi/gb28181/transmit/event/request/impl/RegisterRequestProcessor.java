@@ -6,8 +6,10 @@ import com.ruoyi.gb28181.api.common.RemoteAddressInfo;
 import com.ruoyi.gb28181.config.SipConfig;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import com.ruoyi.gb28181.api.domain.GbSipDate;
 import com.ruoyi.gb28181.service.IDeviceService;
+import com.ruoyi.gb28181.service.IGb28181PlatformService;
 import com.ruoyi.gb28181.transmit.ISIPProcessorObserver;
 import com.ruoyi.gb28181.transmit.SIPSender;
 import com.ruoyi.gb28181.transmit.event.request.ISIPRequestProcessor;
@@ -61,6 +63,9 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
     @Autowired
     private IDeviceService deviceService;
 
+    @Autowired
+    private IGb28181PlatformService gb28181PlatformService;
+
     @Override
     public void afterPropertiesSet() throws Exception {
         // 添加消息处理的订阅
@@ -86,6 +91,16 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
             AddressImpl address = (AddressImpl) fromHeader.getAddress();
             SipUri uri = (SipUri) address.getURI();
             String deviceId = uri.getUser();
+
+            // 先检查是否是上级平台的注册，如果是就不处理，因为上级平台不应该向我们注册！
+            Gb28181Platform platform = gb28181PlatformService.selectGb28181PlatformByDeviceGbId(deviceId);
+            if (platform != null) {
+                log.warn("[注册请求] 收到上级平台 {} 的注册请求！这通常说明平台级联配置搞反了！", platform.getName());
+                response = getMessageFactory().createResponse(Response.FORBIDDEN, request);
+                response.setReasonPhrase("上级平台不应向下级平台注册");
+                sipSender.transmitRequest(request.getLocalAddress().getHostAddress(), response);
+                return;
+            }
 
             Device device = deviceService.getDeviceByDeviceId(deviceId);
 
@@ -194,6 +209,7 @@ public class RegisterRequestProcessor extends SIPRequestProcessorParent implemen
                 String GB_Ver = string.split(":")[1].trim();
                 ver = GB_Ver;
             }
+
 
             if(StringUtils.isNotEmpty(ver)){
                 if("3.0".equals(ver)){

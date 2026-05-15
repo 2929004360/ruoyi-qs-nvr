@@ -320,6 +320,7 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
             platformPlay.setSsrc(ssrc);
             platformPlay.setStreamId(streamId);
             platformPlay.setIsUdp(isUdp);
+            platformPlay.setRtcp(platform.getRtcp());
 
             // 调用zlm模块处理上级平台点播
             log.info("[请求ZLM开始推流] 平台ID: {}, 设备: {}, 流ID: {}, ssrc: {}, 目标: {}:{}", 

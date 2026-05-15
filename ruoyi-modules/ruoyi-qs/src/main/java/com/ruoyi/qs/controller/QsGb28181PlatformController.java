@@ -11,15 +11,17 @@ import com.ruoyi.common.log.enums.BusinessType;
 import com.ruoyi.common.security.annotation.RequiresPermissions;
 import com.ruoyi.gb28181.api.RemoteGb28181Service;
 import com.ruoyi.qs.api.domain.QsGb28181Platform;
-import com.ruoyi.qs.api.domain.QsGb28181PlatformChannel;
 import com.ruoyi.qs.service.IQsGb28181PlatformChannelService;
 import com.ruoyi.qs.service.IQsGb28181PlatformService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 国标GB28181平台配置Controller
@@ -44,6 +46,14 @@ public class QsGb28181PlatformController extends BaseController {
     public TableDataInfo list(QsGb28181Platform qsGb28181Platform) {
         startPage();
         List<QsGb28181Platform> list = qsGb28181PlatformService.selectQsGb28181PlatformList(qsGb28181Platform);
+        
+        // 填充关联设备数量
+        if (!CollectionUtils.isEmpty(list)) {
+            List<Long> platformIds = list.stream().map(QsGb28181Platform::getId).collect(Collectors.toList());
+            Map<Long, Integer> deviceCountMap = qsGb28181PlatformChannelService.countDeviceByPlatformIds(platformIds);
+            list.forEach(platform -> platform.setDeviceCount(deviceCountMap.getOrDefault(platform.getId(), 0)));
+        }
+        
         return getDataTable(list);
     }
 
@@ -65,7 +75,12 @@ public class QsGb28181PlatformController extends BaseController {
     @RequiresPermissions("qs:platform:query")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") Long id) {
-        return success(qsGb28181PlatformService.selectQsGb28181PlatformById(id));
+        QsGb28181Platform platform = qsGb28181PlatformService.selectQsGb28181PlatformById(id);
+        if (platform != null) {
+            int deviceCount = qsGb28181PlatformChannelService.countDeviceByPlatformId(id);
+            platform.setDeviceCount(deviceCount);
+        }
+        return success(platform);
     }
 
     /**
@@ -120,14 +135,12 @@ public class QsGb28181PlatformController extends BaseController {
         if (platform == null) {
             return error("平台不存在");
         }
-        log.info("上线平台: id={}, name={}, 当前状态={}", id, platform.getName(), platform.getStatus());
-        // 先更新状态为在线
-        platform.setStatus(1);
-        int updateResult = qsGb28181PlatformService.updateQsGb28181Platform(platform);
-        log.info("更新平台状态结果: id={}, updateResult={}", id, updateResult);
-        // 再调用远程服务
+        if (platform.getEnable() == null || platform.getEnable() != 1) {
+            return error("平台未启用，请先启用平台");
+        }
+        log.info("启动平台级联: id={}, name={}", id, platform.getName());
         remoteGb28181Service.startPlatformCascade(id, SecurityConstants.INNER);
-        log.info("上线平台完成: id={}", id);
+        log.info("启动平台级联完成: id={}", id);
         return success();
     }
 
@@ -138,17 +151,12 @@ public class QsGb28181PlatformController extends BaseController {
     @Log(title = "停止平台级联", businessType = BusinessType.OTHER)
     @PostMapping("/cascade/stop/{id}")
     public AjaxResult stopCascade(@PathVariable Long id) {
-        // 先更新状态为离线
         QsGb28181Platform platform = qsGb28181PlatformService.selectQsGb28181PlatformById(id);
         if (platform != null) {
-            log.info("离线平台: id={}, name={}, 当前状态={}", id, platform.getName(), platform.getStatus());
-            platform.setStatus(0);
-            int updateResult = qsGb28181PlatformService.updateQsGb28181Platform(platform);
-            log.info("更新平台状态结果: id={}, updateResult={}", id, updateResult);
+            log.info("停止平台级联: id={}, name={}", id, platform.getName());
         }
-        // 再调用远程服务
         remoteGb28181Service.stopPlatformCascade(id, SecurityConstants.INNER);
-        log.info("离线平台完成: id={}", id);
+        log.info("停止平台级联完成: id={}", id);
         return success();
     }
 

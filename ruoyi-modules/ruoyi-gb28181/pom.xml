@@ -125,6 +125,42 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-api-zlm</artifactId>
         </dependency>
+
+        <!-- 海康sdk接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-haikang</artifactId>
+        </dependency>
+
+        <!-- 海康isup接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-haikang-isup</artifactId>
+        </dependency>
+
+        <!-- 大华sdk接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-dahua</artifactId>
+        </dependency>
+
+        <!-- onvif接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-onvif</artifactId>
+        </dependency>
+
+        <!-- jt1078接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-jt1078</artifactId>
+        </dependency>
+
+        <!-- gb28181接口 -->
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>ruoyi-api-gb28181</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
