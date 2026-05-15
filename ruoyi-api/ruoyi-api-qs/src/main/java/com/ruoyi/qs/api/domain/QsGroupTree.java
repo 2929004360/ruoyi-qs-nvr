@@ -1,8 +1,8 @@
-package com.ruoyi.qs.domain;
+package com.ruoyi.qs.api.domain;
 
-import com.ruoyi.qs.api.domain.QsGroup;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import java.util.List;
 
 /**
  * 业务分组树
@@ -63,4 +63,9 @@ public class QsGroupTree extends QsGroup {
      * ip地址
      */
     private String ipAddress;
+
+    /**
+     * 子节点列表
+     */
+    private List<QsGroupTree> children;
 }

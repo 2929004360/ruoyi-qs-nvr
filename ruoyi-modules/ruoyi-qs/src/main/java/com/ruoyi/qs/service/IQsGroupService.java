@@ -1,7 +1,7 @@
 package com.ruoyi.qs.service;
 
 import com.ruoyi.qs.api.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
+import com.ruoyi.qs.api.domain.QsGroupTree;
 
 import java.util.List;
 
@@ -45,6 +45,14 @@ public interface IQsGroupService {
      * @return
      */
     List<QsGroupTree> queryForTree(String query, Integer parent, Boolean hasDevice);
+
+    /**
+     * 查询所有分组
+     *
+     * @param query 查询条件
+     * @return
+     */
+    List<QsGroupTree> queryAllGroups(String query);
 
     /**
      * 查询分组节点设备

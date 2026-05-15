@@ -4,7 +4,7 @@ import com.google.common.collect.Lists;
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.qs.common.GbCode;
 import com.ruoyi.qs.api.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
+import com.ruoyi.qs.api.domain.QsGroupTree;
 import com.ruoyi.qs.mapper.QsGroupMapper;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.service.IQsGroupService;
@@ -173,6 +173,17 @@ public class QsGroupServiceImpl implements IQsGroupService {
             }
         }
         return groupTrees;
+    }
+
+    /**
+     * 查询所有分组
+     *
+     * @param query 查询条件
+     * @return
+     */
+    @Override
+    public List<QsGroupTree> queryAllGroups(String query) {
+        return qsGroupMapper.queryAllGroups(query);
     }
 
     /**

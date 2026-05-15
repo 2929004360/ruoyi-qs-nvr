@@ -4,7 +4,7 @@ import com.ruoyi.common.core.web.controller.BaseController;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.common.core.web.page.TableDataInfo;
 import com.ruoyi.qs.api.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
+import com.ruoyi.qs.api.domain.QsGroupTree;
 import com.ruoyi.qs.service.IQsGroupService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

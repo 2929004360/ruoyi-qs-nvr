@@ -7,6 +7,7 @@ import com.ruoyi.gb28181.service.IPlatformSIPCommander;
 import com.ruoyi.gb28181.util.PlatformConvertUtil;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.RemoteQsGb28181PlatformService;
+import com.ruoyi.qs.api.RemoteQsGroupService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.api.domain.QsGb28181Platform;
 import com.ruoyi.qs.api.domain.QsGb28181PlatformChannel;
@@ -44,6 +45,9 @@ public class PlatformCascadeTaskManager {
 
     @Autowired
     private RemoteQsDeviceService remoteQsDeviceService;
+
+    @Autowired
+    private RemoteQsGroupService remoteQsGroupService;
 
     private final Map<Long, PlatformCascadeTaskInfo> taskMap = new ConcurrentHashMap<>();
 
@@ -401,6 +405,23 @@ public class PlatformCascadeTaskManager {
         simpleDeviceInfo.setPtzType(device.getPtzType());
         simpleDeviceInfo.setLongitude(device.getLongitude());
         simpleDeviceInfo.setLatitude(device.getLatitude());
+        simpleDeviceInfo.setGbParentId(device.getGbParentId());
         return simpleDeviceInfo;
+    }
+
+    /**
+     * 获取分组树列表
+     */
+    public List<com.ruoyi.qs.api.domain.QsGroupTree> getGroupTreeList() {
+        try {
+            com.ruoyi.common.core.domain.R<List<com.ruoyi.qs.api.domain.QsGroupTree>> result = 
+                remoteQsGroupService.queryAllGroups(null, SecurityConstants.INNER);
+            if (result != null && result.getData() != null) {
+                return result.getData();
+            }
+        } catch (Exception e) {
+            log.error("[平台级联] 获取分组树失败", e);
+        }
+        return new ArrayList<>();
     }
 }

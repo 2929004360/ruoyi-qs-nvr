@@ -19,6 +19,7 @@ import com.ruoyi.onvif.api.RemoteOnvifService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.api.domain.QsGroup;
 import com.ruoyi.qs.api.domain.QsRegion;
+import com.ruoyi.qs.api.domain.QsGroupTree;
 import com.ruoyi.qs.domain.*;
 import com.ruoyi.qs.mapper.QsDeviceMapper;
 import com.ruoyi.qs.mapper.QsRegionMapper;

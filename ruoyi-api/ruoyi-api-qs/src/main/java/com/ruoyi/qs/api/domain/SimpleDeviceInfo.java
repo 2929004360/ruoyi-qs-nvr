@@ -13,6 +13,7 @@ public class SimpleDeviceInfo {
     private Integer ptzType;
     private String longitude;
     private String latitude;
+    private String gbParentId;
 
     public String getGbCode() {
         return gbCode;
@@ -108,5 +109,13 @@ public class SimpleDeviceInfo {
 
     public void setLatitude(String latitude) {
         this.latitude = latitude;
+    }
+
+    public String getGbParentId() {
+        return gbParentId;
+    }
+
+    public void setGbParentId(String gbParentId) {
+        this.gbParentId = gbParentId;
     }
 }

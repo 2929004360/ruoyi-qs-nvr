@@ -319,6 +319,26 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         content.append("<SN>" + sn + "</SN>\r\n");
         content.append("<DeviceID>" + platform.getDeviceGbId() + "</DeviceID>\r\n");
 
+        // 根据 catalogWithGroup 开关决定是否推送分组目录
+        if (platform.getCatalogWithGroup() != null && platform.getCatalogWithGroup() == 1) {
+            // 启用分组目录推送
+            log.info("[平台级联] 平台 {} 启用分组目录推送", platform.getName());
+            sendCatalogWithGroup(platform, deviceList, content);
+        } else {
+            // 不启用分组目录推送，只推送设备
+            sendCatalogOnlyDevices(platform, deviceList, content);
+        }
+
+        content.append("</Response>\r\n");
+
+        sendMessage(platform, content.toString());
+        log.info("[平台级联] 发送目录到平台: {}, SN: {}", platform.getName(), sn);
+    }
+
+    /**
+     * 只推送设备（不包含分组）
+     */
+    private void sendCatalogOnlyDevices(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, StringBuffer content) {
         if (deviceList == null) {
             deviceList = List.of();
         }
@@ -338,38 +358,167 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         content.append("<DeviceList Num=\"" + validDeviceList.size() + "\">\r\n");
 
         for (SimpleDeviceInfo device : validDeviceList) {
-            String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
-            content.append("<Item>\r\n");
-            content.append("<DeviceID>" + deviceId + "</DeviceID>\r\n");
-            content.append("<Name>" + (ObjectUtils.isEmpty(device.getDeviceName()) ? "" : device.getDeviceName()) + "</Name>\r\n");
-            content.append("<Manufacturer>" + (ObjectUtils.isEmpty(device.getManufacturer()) ? "泉视" : device.getManufacturer()) + "</Manufacturer>\r\n");
-            if (!ObjectUtils.isEmpty(device.getAddress())) {
-                content.append("<Address>" + device.getAddress() + "</Address>\r\n");
-            }
-            content.append("<Status>" + ("ON".equals(device.getDeviceStatus()) ? "ON" : "OFF") + "</Status>\r\n");
-            content.append("<Parental>0</Parental>\r\n");
-            if (device.getChannel() != null) {
-                content.append("<Channel>" + device.getChannel() + "</Channel>\r\n");
-            }
-            if (!ObjectUtils.isEmpty(device.getIpAddress())) {
-                content.append("<IPAddress>" + device.getIpAddress() + "</IPAddress>\r\n");
-            }
-            if (device.getPort() != null) {
-                content.append("<Port>" + device.getPort() + "</Port>\r\n");
-            }
-            if (!ObjectUtils.isEmpty(device.getPtzType())) {
-                content.append("<PTZType>" + device.getPtzType() + "</PTZType>\r\n");
-            }
-            content.append("<Longitude>" + (ObjectUtils.isEmpty(device.getLongitude()) ? 0 : device.getLongitude()) + "</Longitude>\r\n");
-            content.append("<Latitude>" + (ObjectUtils.isEmpty(device.getLatitude()) ? 0 : device.getLatitude()) + "</Latitude>\r\n");
-            content.append("</Item>\r\n");
+            appendDeviceItem(content, device, platform.getDeviceGbId());
         }
 
         content.append("</DeviceList>\r\n");
-        content.append("</Response>\r\n");
+        log.info("[平台级联] 发送目录到平台: {}, 设备数: {}", platform.getName(), validDeviceList.size());
+    }
 
-        sendMessage(platform, content.toString());
-        log.info("[平台级联] 发送目录到平台: {}, 设备数: {}, SN: {}", platform.getName(), deviceList.size(), sn);
+    /**
+     * 推送包含分组的目录
+     */
+    private void sendCatalogWithGroup(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, StringBuffer content) {
+        // 获取所有分组
+        List<com.ruoyi.qs.api.domain.QsGroupTree> groupList = null;
+        try {
+            groupList = platformCascadeTaskManager.getGroupTreeList();
+        } catch (Exception e) {
+            log.error("[平台级联] 获取分组树失败", e);
+        }
+
+        // 构建 id 到 deviceId 的映射表
+        java.util.Map<Integer, String> idToDeviceIdMap = new java.util.HashMap<>();
+        if (groupList != null) {
+            for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+                if (group.getDeviceId() != null) {
+                    idToDeviceIdMap.put(group.getId(), group.getDeviceId());
+                }
+            }
+        }
+
+        // 统计总数
+        int groupCount = groupList != null ? groupList.size() : 0;
+        int deviceCount = 0;
+        if (deviceList != null) {
+            for (SimpleDeviceInfo device : deviceList) {
+                String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+                if (!ObjectUtils.isEmpty(deviceId)) {
+                    deviceCount++;
+                }
+            }
+        }
+        int totalCount = groupCount + deviceCount;
+
+        content.append("<SumNum>" + totalCount + "</SumNum>\r\n");
+        content.append("<DeviceList Num=\"" + totalCount + "\">\r\n");
+
+        // 添加分组项（所有分组）
+        if (groupList != null) {
+            log.info("[平台级联] 开始推分组，分组数量: {}, 平台DeviceGbId={}", groupList.size(), platform.getDeviceGbId());
+            for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+                if (group.getDeviceId() != null) {
+                    // 如果 parentDeviceId 为空，但 parentId 不为空，根据 parentId 查找对应的 deviceId
+                    if (ObjectUtils.isEmpty(group.getParentDeviceId()) && group.getParentId() != null) {
+                        String parentDeviceId = idToDeviceIdMap.get(group.getParentId());
+                        if (!ObjectUtils.isEmpty(parentDeviceId)) {
+                            log.info("[平台级联] 分组 {} 的 parentDeviceId 为空，根据 parentId={} 查找得到 parentDeviceId={}", 
+                                group.getDeviceId(), group.getParentId(), parentDeviceId);
+                            group.setParentDeviceId(parentDeviceId);
+                        }
+                    }
+                    log.info("[平台级联] 推分组: DeviceId={}, Name={}, ParentDeviceId={}, BusinessGroup={}", 
+                        group.getDeviceId(), group.getName(), group.getParentDeviceId(), group.getBusinessGroup());
+                    // 暂时去掉业务分组过滤，先推送所有分组
+                    appendGroupItem(content, group, platform.getDeviceGbId());
+                }
+            }
+        }
+
+        // 添加设备项
+        if (deviceList != null) {
+            // 先收集所有被推送的分组 DeviceID，用于校验设备的 ParentID
+            java.util.Set<String> pushedGroupIds = new java.util.HashSet<>();
+            if (groupList != null) {
+                for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+                    if (group.getDeviceId() != null) {
+                        pushedGroupIds.add(group.getDeviceId());
+                    }
+                }
+            }
+            
+            for (SimpleDeviceInfo device : deviceList) {
+                String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+                if (!ObjectUtils.isEmpty(deviceId)) {
+                    String parentId = ObjectUtils.isEmpty(device.getGbParentId()) ? platform.getDeviceGbId() : device.getGbParentId();
+                    // 检查 parentId 是否有效：如果是数据库 ID（纯数字且长度<10）或者指向未被推送的分组，则使用平台 deviceGbId
+                    if (parentId != null && (parentId.matches("^\\d+$") && parentId.length() < 10 || !pushedGroupIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId()))) {
+                        log.warn("[平台级联] 设备 {} 的 ParentID {} 无效，使用默认 ParentID {}", deviceId, parentId, platform.getDeviceGbId());
+                        parentId = platform.getDeviceGbId();
+                    }
+                    appendDeviceItem(content, device, parentId);
+                }
+            }
+        }
+
+        content.append("</DeviceList>\r\n");
+        log.info("[平台级联] 发送目录到平台: {}, 分组数: {}, 设备数: {}", platform.getName(), groupCount, deviceCount);
+    }
+
+    /**
+     * 添加分组项
+     */
+    private void appendGroupItem(StringBuffer content, com.ruoyi.qs.api.domain.QsGroupTree group, String rootDeviceId) {
+        String parentId = ObjectUtils.isEmpty(group.getParentDeviceId()) ? rootDeviceId : group.getParentDeviceId();
+        content.append("<Item>\r\n");
+        content.append("<DeviceID>" + group.getDeviceId() + "</DeviceID>\r\n");
+        content.append("<Name>" + (ObjectUtils.isEmpty(group.getName()) ? "" : group.getName()) + "</Name>\r\n");
+        content.append("<Manufacturer>泉视</Manufacturer>\r\n");
+        if (!ObjectUtils.isEmpty(group.getCivilCode())) {
+            content.append("<CivilCode>" + group.getCivilCode() + "</CivilCode>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(group.getParentDeviceId())) {
+            content.append("<ParentID>" + parentId + "</ParentID>\r\n");
+        } else {
+            content.append("<ParentID>" + rootDeviceId + "</ParentID>\r\n");
+        }
+        content.append("<Status>ON</Status>\r\n");
+        content.append("<Parental>1</Parental>\r\n");
+        content.append("<Longitude>0</Longitude>\r\n");
+        content.append("<Latitude>0</Latitude>\r\n");
+        content.append("</Item>\r\n");
+    }
+
+    /**
+     * 添加设备项
+     */
+    private void appendDeviceItem(StringBuffer content, SimpleDeviceInfo device, String defaultParentId) {
+        String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+        String parentId = ObjectUtils.isEmpty(device.getGbParentId()) ? defaultParentId : device.getGbParentId();
+        
+        // 检查 parentId 是否有效，如果看起来像是数据库 ID（纯数字且长度小于10），则使用 defaultParentId
+        if (parentId != null && parentId.matches("^\\d+$") && parentId.length() < 10) {
+            log.warn("[平台级联] 设备 {} 的 ParentID {} 可能是数据库 ID，使用默认 ParentID {}", deviceId, parentId, defaultParentId);
+            parentId = defaultParentId;
+        }
+        
+        content.append("<Item>\r\n");
+        content.append("<DeviceID>" + deviceId + "</DeviceID>\r\n");
+        content.append("<Name>" + (ObjectUtils.isEmpty(device.getDeviceName()) ? "" : device.getDeviceName()) + "</Name>\r\n");
+        content.append("<Manufacturer>" + (ObjectUtils.isEmpty(device.getManufacturer()) ? "泉视" : device.getManufacturer()) + "</Manufacturer>\r\n");
+        if (!ObjectUtils.isEmpty(device.getAddress())) {
+            content.append("<Address>" + device.getAddress() + "</Address>\r\n");
+        }
+        content.append("<Status>" + ("ON".equals(device.getDeviceStatus()) ? "ON" : "OFF") + "</Status>\r\n");
+        content.append("<Parental>0</Parental>\r\n");
+        if (device.getChannel() != null) {
+            content.append("<Channel>" + device.getChannel() + "</Channel>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(device.getIpAddress())) {
+            content.append("<IPAddress>" + device.getIpAddress() + "</IPAddress>\r\n");
+        }
+        if (device.getPort() != null) {
+            content.append("<Port>" + device.getPort() + "</Port>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(device.getPtzType())) {
+            content.append("<PTZType>" + device.getPtzType() + "</PTZType>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(parentId)) {
+            content.append("<ParentID>" + parentId + "</ParentID>\r\n");
+        }
+        content.append("<Longitude>" + (ObjectUtils.isEmpty(device.getLongitude()) ? 0 : device.getLongitude()) + "</Longitude>\r\n");
+        content.append("<Latitude>" + (ObjectUtils.isEmpty(device.getLatitude()) ? 0 : device.getLatitude()) + "</Latitude>\r\n");
+        content.append("</Item>\r\n");
     }
 
     @Override

@@ -1,7 +1,7 @@
 package com.ruoyi.qs.mapper;
 
 import com.ruoyi.qs.api.domain.QsGroup;
-import com.ruoyi.qs.domain.QsGroupTree;
+import com.ruoyi.qs.api.domain.QsGroupTree;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.ArrayList;
@@ -109,6 +109,14 @@ public interface QsGroupMapper {
      * @return
      */
     List<QsGroupTree> queryForTree(@Param("query") String query, @Param("parentId") Integer parentId);
+
+    /**
+     * 查询所有分组
+     *
+     * @param query 查询条件
+     * @return
+     */
+    List<QsGroupTree> queryAllGroups(@Param("query") String query);
 
     /**
      * 查询分组节点设备
