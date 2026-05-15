@@ -316,7 +316,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
 
     @Override
     public void sendCatalog(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, int sn) throws SipException, InvalidArgumentException, ParseException {
-        log.info("[平台级联] sendCatalog 被调用，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
         String charset = ObjectUtils.isEmpty(platform.getCharacterSet()) ? "GB2312" : platform.getCharacterSet();
         StringBuffer content = new StringBuffer();
 
@@ -504,7 +503,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
      * 推送包含区域的目录
      */
     private void sendCatalogWithRegion(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, StringBuffer content) {
-        log.info("[平台级联] sendCatalogWithRegion 被调用，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
         // 获取所有区域
         List<com.ruoyi.qs.api.domain.QsRegionTree> regionList = null;
         try {
@@ -512,7 +510,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         } catch (Exception e) {
             log.error("[平台级联] 获取区域树失败", e);
         }
-        log.info("[平台级联] 获取到的 regionList={}", regionList);
 
         // 构建 id 到 deviceId 的映射表
         java.util.Map<Integer, String> idToDeviceIdMap = new java.util.HashMap<>();
@@ -523,7 +520,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                 }
             }
         }
-        log.info("[平台级联] idToDeviceIdMap={}", idToDeviceIdMap);
 
         // 统计总数
         int regionCount = regionList != null ? regionList.size() : 0;
@@ -550,8 +546,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                 if (region.getDeviceId() != null) {
                     // 确保父区域的 deviceId 存在
                     ensureParentRegionDeviceId(region, idToDeviceIdMap);
-                    log.info("[平台级联] 推区域: DeviceId={}, Name={}, ParentDeviceId={}",
-                        region.getDeviceId(), region.getName(), region.getParentDeviceId());
                     appendRegionItem(content, region, platform.getDeviceGbId());
                 }
             }
@@ -574,9 +568,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                 if (!ObjectUtils.isEmpty(deviceId)) {
                     // 设备的 gbCivilCode 是区域的 deviceId
                     String parentId = ObjectUtils.isEmpty(device.getGbCivilCode()) ? platform.getDeviceGbId() : device.getGbCivilCode();
-                    
-                    log.info("[平台级联] 设备 {} (区域模式): gbCivilCode={}, 最终使用 parentId={}, 已推送的区域ID列表={}",
-                        deviceId, device.getGbCivilCode(), parentId, pushedRegionIds);
                     
                     // 检查 parentId 是否有效：如果 parentId 不在 pushedRegionIds 中，且不是平台 deviceId，才使用默认
                     if (parentId != null && !pushedRegionIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId())) {
@@ -656,8 +647,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                 if (region.getDeviceId() != null) {
                     // 确保父区域的 deviceId 存在
                     ensureParentRegionDeviceId(region, regionIdToDeviceIdMap);
-                    log.info("[平台级联] 推区域: DeviceId={}, Name={}, ParentDeviceId={}",
-                        region.getDeviceId(), region.getName(), region.getParentDeviceId());
                     appendRegionItem(content, region, platform.getDeviceGbId());
                 }
             }
@@ -678,15 +667,12 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                             group.setParentDeviceId(parentDeviceId);
                         }
                     }
-                    log.info("[平台级联] 推分组: DeviceId={}, Name={}, ParentDeviceId={}, BusinessGroup={}",
-                        group.getDeviceId(), group.getName(), group.getParentDeviceId(), group.getBusinessGroup());
                     appendGroupItem(content, group, platform.getDeviceGbId());
                 }
             }
         }
 
         // 添加设备项
-        log.info("[平台级联] 开始处理设备，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
         if (deviceList != null) {
             // 先收集所有被推送的区域和分组 DeviceID，用于校验设备的 ParentID
             java.util.Set<String> pushedIds = new java.util.HashSet<>();
@@ -704,7 +690,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                     }
                 }
             }
-            log.info("[平台级联] 已推送的ID列表={}", pushedIds);
             
             for (SimpleDeviceInfo device : deviceList) {
                 String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
@@ -716,9 +701,6 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                     } else if (!ObjectUtils.isEmpty(device.getGbCivilCode()) && pushedIds.contains(device.getGbCivilCode())) {
                         parentId = device.getGbCivilCode();
                     }
-                    
-                    log.info("[平台级联] 设备 {}: gbCivilCode={}, gbParentId={}, 最终使用 parentId={}, 已推送的ID列表={}",
-                        deviceId, device.getGbCivilCode(), device.getGbParentId(), parentId, pushedIds);
                     
                     // 检查 parentId 是否有效：如果 parentId 不在 pushedIds 中，且不是平台 deviceId，才使用默认
                     if (parentId != null && !pushedIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId())) {
