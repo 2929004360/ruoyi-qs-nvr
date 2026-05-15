@@ -3,10 +3,12 @@ package com.ruoyi.zlm.api;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.constant.ServiceNameConstants;
 import com.ruoyi.common.core.domain.R;
+import com.ruoyi.zlm.api.domain.ZlmCloudRecord;
 import com.ruoyi.zlm.api.factory.RemoteZlmCloudRecordFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * zlm接口云端接口 服务
@@ -27,4 +29,14 @@ public interface RemoteZlmCloudRecordService {
      */
     @GetMapping("/api/cloudRecord/task")
     R<Void> task(@RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 查询云端录像列表
+     *
+     * @param zlmCloudRecord 云端录像
+     * @param inner 请求来源
+     * @return
+     */
+    @PostMapping("/api/cloudRecord/list")
+    R<List<ZlmCloudRecord>> selectZlmCloudRecordList(@RequestBody ZlmCloudRecord zlmCloudRecord, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

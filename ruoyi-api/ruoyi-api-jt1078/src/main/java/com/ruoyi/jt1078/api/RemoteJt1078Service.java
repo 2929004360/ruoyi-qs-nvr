@@ -9,6 +9,8 @@ import com.ruoyi.jt1078.api.factory.RemoteJt1078FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -145,4 +147,59 @@ public interface RemoteJt1078Service {
     R<Void> ptzZoom(@PathVariable String mobileNo, @PathVariable int channelNo,
                     @RequestParam int direction, @RequestParam(defaultValue = "50") int speed,
                     @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 查询录像文件列表
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param startTime
+     * @param endTime
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/queryRecord/{mobileNo}/{channelNo}")
+    R<ArrayList<HashMap<String, Object>>> queryRecord(@PathVariable String mobileNo,
+                                                        @PathVariable int channelNo,
+                                                        @RequestParam String startTime,
+                                                        @RequestParam String endTime,
+                                                        @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 远程录像回放
+     *
+     * @param rtpServer
+     * @param startTime
+     * @param endTime
+     * @param playbackMode
+     * @param playbackSpeed
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/jt1078/playback")
+    R<Void> playback(@RequestBody RtpServerParam rtpServer,
+                     @RequestParam String startTime,
+                     @RequestParam String endTime,
+                     @RequestParam(defaultValue = "0") int playbackMode,
+                     @RequestParam(defaultValue = "0") int playbackSpeed,
+                     @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 录像回放控制
+     *
+     * @param mobileNo
+     * @param channelNo
+     * @param playbackMode
+     * @param playbackSpeed
+     * @param playbackTime
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/jt1078/playbackControl/{mobileNo}/{channelNo}")
+    R<Void> playbackControl(@PathVariable String mobileNo,
+                            @PathVariable int channelNo,
+                            @RequestParam int playbackMode,
+                            @RequestParam(defaultValue = "0") int playbackSpeed,
+                            @RequestParam(required = false) String playbackTime,
+                            @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

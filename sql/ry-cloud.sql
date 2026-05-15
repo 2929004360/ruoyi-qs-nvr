@@ -11,7 +11,7 @@
  Target Server Version : 50744
  File Encoding         : 65001
 
- Date: 12/05/2026 17:57:57
+ Date: 16/05/2026 00:14:18
 */
 
 SET NAMES utf8mb4;
@@ -349,13 +349,13 @@ CREATE TABLE `qs_common_group`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `id`(`id`) USING BTREE,
   UNIQUE INDEX `uk_common_group_device_platform`(`device_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 18 CHARACTER SET = utf8 COLLATE = utf8_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 19 CHARACTER SET = utf8 COLLATE = utf8_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of qs_common_group
 -- ----------------------------
 INSERT INTO `qs_common_group` VALUES (16, '12010201032157000001', '测试', NULL, NULL, '12010201032157000001', '2026-04-14 23:08:03', NULL, '12010112', NULL);
-INSERT INTO `qs_common_group` VALUES (17, '11010101002167000002', '测试2', 16, '12010201032157000001', '12010201032157000001', '2026-04-14 23:08:27', '2026-04-14 23:08:50', '12010122', NULL);
+INSERT INTO `qs_common_group` VALUES (18, '11010101002157000002', '测试2', NULL, NULL, '11010101002157000002', '2026-05-15 13:00:50', NULL, '12010112', NULL);
 
 -- ----------------------------
 -- Table structure for qs_common_region
@@ -372,13 +372,13 @@ CREATE TABLE `qs_common_region`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `id`(`id`) USING BTREE,
   UNIQUE INDEX `uk_common_region_device_id`(`device_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8 COLLATE = utf8_bin ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 14 CHARACTER SET = utf8 COLLATE = utf8_bin ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of qs_common_region
 -- ----------------------------
 INSERT INTO `qs_common_region` VALUES (8, '12010112', '超时-1', NULL, NULL, '2026-04-14 15:43:43', '2026-04-14 15:43:54');
-INSERT INTO `qs_common_region` VALUES (12, '12010122', '生成-4', 8, '12010112', '2026-04-14 15:48:21', '2026-04-14 15:48:42');
+INSERT INTO `qs_common_region` VALUES (13, '11010502', '超时-2', NULL, NULL, '2026-05-15 13:05:39', NULL);
 
 -- ----------------------------
 -- Table structure for qs_device
@@ -436,26 +436,140 @@ CREATE TABLE `qs_device`  (
   `playback_stream_status` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '0' COMMENT '回放流状态(0=停止,1=回放中)',
   `playback_media_server_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '回放使用的流媒体服务ID',
   `playback_stream_key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '回放时zlm返回的key，用于停止回放',
+  `gb_manufacturer` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标设备厂商',
+  `gb_model` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标设备型号',
+  `gb_owner` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标设备归属',
+  `gb_block` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标警区',
+  `gb_address` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标安装地址',
+  `gb_parental` int(11) NULL DEFAULT NULL COMMENT '是否有子设备：1-是，0-否',
+  `gb_safety_way` int(11) NULL DEFAULT NULL COMMENT '信令安全模式',
+  `gb_register_way` int(11) NULL DEFAULT NULL COMMENT '注册方式',
+  `gb_cert_num` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '证书序列号',
+  `gb_certifiable` int(11) NULL DEFAULT NULL COMMENT '证书有效标识：1-有效，0-无效',
+  `gb_err_code` int(11) NULL DEFAULT NULL COMMENT '无效原因码',
+  `gb_end_time` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '证书终止有效期',
+  `gb_secrecy` int(11) NULL DEFAULT NULL COMMENT '保密属性：0-不涉密，1-涉密',
+  `gb_ip_address` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标IP地址',
+  `gb_port` int(11) NULL DEFAULT NULL COMMENT '国标端口',
+  `gb_password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标密码',
+  `gb_status` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '国标设备状态',
+  `gb_longitude_double` double NULL DEFAULT NULL COMMENT '国标经度',
+  `gb_latitude_double` double NULL DEFAULT NULL COMMENT '国标纬度',
+  `gb_position_type` int(11) NULL DEFAULT NULL COMMENT '摄像机位置类型',
+  `gb_room_type` int(11) NULL DEFAULT NULL COMMENT '摄像机安装位置属性：1-室外，2-室内',
+  `gb_use_type` int(11) NULL DEFAULT NULL COMMENT '摄像机用途属性：1-治安，2-交通，3-重点',
+  `gb_supply_light_type` int(11) NULL DEFAULT NULL COMMENT '摄像机补光属性：1-无补光，2-红外补光，3-白光补光，4-激光补光，9-其他',
+  `gb_direction_type` int(11) NULL DEFAULT NULL COMMENT '摄像机监视方向属性',
+  `gb_resolution` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '摄像机支持的分辨率',
+  `gb_download_speed` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '下载倍速',
+  `gb_svc_space_support_mod` int(11) NULL DEFAULT NULL COMMENT '空域编码能力',
+  `gb_svc_time_support_mode` int(11) NULL DEFAULT NULL COMMENT '时域编码能力',
+  `gps_altitude` double NULL DEFAULT NULL COMMENT 'GPS高度',
+  `gps_speed` double NULL DEFAULT NULL COMMENT 'GPS速度',
+  `gps_direction` double NULL DEFAULT NULL COMMENT 'GPS方向',
+  `gps_time` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'GPS时间',
+  `enable_broadcast` int(11) NULL DEFAULT NULL COMMENT '是否支持对讲：1-支持，0-不支持',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_device_code`(`device_code`) USING BTREE COMMENT '设备编码唯一',
   INDEX `idx_brand`(`type`) USING BTREE,
   INDEX `idx_status`(`status`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 33 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '视频监控设备接入表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 34 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '视频监控设备接入表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of qs_device
 -- ----------------------------
-INSERT INTO `qs_device` VALUES (2, 'rtmp_2037455934688763904', '测试-rtmp', NULL, NULL, NULL, NULL, '2', NULL, 'rtmp://liteavapp.qcloud.com/live/liteavdemoplayerstreamid', NULL, NULL, 'ENABLE', NULL, '102.74414', '31.04736', NULL, 'TCP', 'ON', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/rtmp-rtmp_2037455934688763904.jpg', NULL, NULL, NULL, NULL, '12010122', NULL, NULL, '大华', '1', 1, NULL, NULL, NULL, NULL, NULL, NULL, '1', '2026-03-27 17:05:24', '1', '2026-05-12 14:29:43', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (19, 'jt1078_2047931947849711617', '测试-1078', NULL, NULL, NULL, NULL, '14', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/jt1078-jt1078_2047931947849711617.jpg', NULL, '1', NULL, NULL, '12010122', NULL, NULL, '70307', NULL, NULL, NULL, NULL, 'TCP-PASSIVE', '19978019429', '粤A18888', '1', '1', '2026-04-26 21:46:17', '1', '2026-05-06 10:06:55', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (20, 'device_2049446307239571456', '测试-onvif-大华', '192.168.1.221', NULL, 'admin', 'hx147258', '5', NULL, 'rtsp://admin:hx147258@192.168.1.221:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif', NULL, NULL, 'ENABLE', '1', '116.33881', '39.90035', NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/onvif-device_2049446307239571456.jpg', NULL, '1', 'http://192.168.1.221', NULL, '12010122', '12010201032157000001', '11010101002167000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 19:10:51', '1', '2026-05-11 09:45:22', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (21, 'device_2049464750143705088', '测试-onvif-海康', '192.168.1.164', NULL, 'haikang', 'hx147258', '5', NULL, 'rtsp://haikang:hx147258@192.168.1.164/Streaming/Channels/101?transportmode=unicast&profile=Profile_101', NULL, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/onvif-device_2049464750143705088.jpg', NULL, '1', 'http://192.168.1.164', NULL, '12010122', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 20:24:08', '', '2026-05-11 09:45:22', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (22, 'device_2049465991368282112', '测试-海康sdk', '192.168.1.164', 8000, 'admin', 'hx147258', '7', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/haikang-device_2049465991368282112.jpg', NULL, '1', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 20:29:04', '', '2026-05-11 09:03:43', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (23, 'device_2049491590749097984', '测试-大华sdk', '192.168.1.221', 37777, 'admin', 'hx147258', '9', NULL, NULL, 0, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', '1', '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/dahua-device_2049491590749097984.jpg', NULL, '1', NULL, NULL, '12010122', '12010201032157000001', '11010101002167000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 22:10:48', '', '2026-05-12 10:10:15', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (24, 'haikang_isup_AZ7528184', '测试-海康isup', '192.168.1.164', NULL, NULL, NULL, '8', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/haikang_isup-haikang_isup_AZ7528184.jpg', NULL, '1', NULL, NULL, '12010122', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 22:39:36', '1', '2026-05-11 09:03:43', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (29, 'device_2052609229205897216', '测试-国标-224', '192.168.1.224', 40178, NULL, NULL, '12', NULL, NULL, NULL, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/gb28181-device_2052609229205897216.jpg', NULL, '1', NULL, NULL, NULL, '12010201032157000001', '11010101002167000002', NULL, NULL, NULL, '34020000001110000001', '11000000011320000001', 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-08 12:39:10', '', '2026-05-12 10:10:15', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (30, 'device_2052943367926497280', '测试-海康sdk', '192.168.1.224', 8000, 'admin', 'hx147258', '7', NULL, NULL, 33, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', NULL, NULL, '1', NULL, NULL, NULL, '12010201032157000001', '11010101002167000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-09 10:46:55', '', '2026-05-11 09:03:43', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (31, 'haikang_isup_GH7413819', '测试-海康isup-224', '192.168.1.224', NULL, NULL, NULL, '8', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', NULL, NULL, '1', NULL, NULL, NULL, '12010201032157000001', '11010101002167000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-09 10:51:20', '', '2026-05-11 09:03:43', NULL, '0', NULL, NULL);
-INSERT INTO `qs_device` VALUES (32, 'device_2053049634913263616', '测试-大华sdk-80', '192.168.1.80', 37777, 'admin', 'ghkj888888', '9', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, NULL, 'TCP', 'OFFLINE', '1', '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/dahua-playback_device_2049446307239571456.jpg', NULL, '1', NULL, NULL, NULL, '12010201032157000001', '11010101002167000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-09 17:49:11', '', '2026-05-11 15:58:16', NULL, '0', NULL, NULL);
+INSERT INTO `qs_device` VALUES (2, 'rtmp_2037455934688763904', '测试-rtmp', NULL, NULL, NULL, NULL, '2', NULL, 'rtmp://liteavapp.qcloud.com/live/liteavdemoplayerstreamid', NULL, NULL, 'ENABLE', NULL, '102.74414', '31.04736', '11010101001327000001', 'TCP', 'OFFLINE', NULL, '0', '1', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/rtmp-rtmp_2037455934688763904.jpg', NULL, NULL, NULL, NULL, '12010112', '12010201032157000001', '12010201032157000001', '大华', '1', 1, NULL, NULL, NULL, NULL, NULL, NULL, '1', '2026-03-27 17:05:24', '1', '2026-05-16 00:13:04', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (19, 'jt1078_2047931947849711617', '测试-1078', NULL, NULL, NULL, NULL, '14', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000012', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/jt1078-jt1078_2047931947849711617.jpg', NULL, '1', NULL, NULL, '12010112', '12010201032157000001', '12010201032157000001', '70307', NULL, NULL, NULL, NULL, 'TCP-PASSIVE', '19978019429', '粤A18888', '1', '1', '2026-04-26 21:46:17', '1', '2026-05-15 13:05:47', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (20, 'device_2049446307239571456', '测试-onvif-大华', '192.168.1.221', NULL, 'admin', 'hx147258', '5', NULL, 'rtsp://admin:hx147258@192.168.1.221:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif', NULL, NULL, 'ENABLE', '1', '116.33881', '39.90035', '11010101001327000011', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/onvif-device_2049446307239571456.jpg', NULL, '1', 'http://192.168.1.221', NULL, '12010112', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 19:10:51', '1', '2026-05-15 20:24:55', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (21, 'device_2049464750143705088', '测试-onvif-海康', '192.168.1.164', NULL, 'haikang', 'hx147258', '5', NULL, 'rtsp://haikang:hx147258@192.168.1.164/Streaming/Channels/101?transportmode=unicast&profile=Profile_101', NULL, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000010', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/onvif-device_2049464750143705088.jpg', NULL, '1', 'http://192.168.1.164', NULL, '12010112', '12010201032157000001', '12010201032157000001', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 20:24:08', '', '2026-05-15 20:24:55', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (22, 'device_2049465991368282112', '测试-海康sdk', '192.168.1.164', 8000, 'admin', 'hx147258', '7', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000002', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/haikang-device_2049465991368282112.jpg', NULL, '1', NULL, NULL, '11010502', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 20:29:04', '', '2026-05-15 23:34:54', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (23, 'device_2049491590749097984', '测试-大华sdk', '192.168.1.221', 37777, 'admin', 'hx147258', '9', NULL, NULL, 0, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000003', 'TCP', 'OFFLINE', '1', '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/dahua-device_2049491590749097984.jpg', NULL, '1', NULL, NULL, '11010502', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 22:10:48', '', '2026-05-15 23:34:54', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (24, 'haikang_isup_AZ7528184', '测试-海康isup', '192.168.1.164', NULL, NULL, NULL, '8', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000009', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/haikang_isup-haikang_isup_AZ7528184.jpg', NULL, '1', NULL, NULL, '11010502', '12010201032157000001', '12010201032157000001', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-04-29 22:39:36', '1', '2026-05-15 23:34:54', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (29, 'device_2052609229205897216', '测试-国标-224', '192.168.1.224', 40178, NULL, NULL, '12', NULL, NULL, NULL, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000008', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/gb28181-device_2052609229205897216.jpg', NULL, '1', NULL, NULL, '11010502', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, '34020000001110000001', '11000000011320000001', 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-08 12:39:10', '', '2026-05-15 22:18:04', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (30, 'device_2052943367926497280', '测试-海康sdk', '192.168.1.224', 8000, 'admin', 'hx147258', '7', NULL, NULL, 33, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000007', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/haikang-device_2052943367926497280.jpg', NULL, '1', NULL, NULL, '11010502', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-09 10:46:55', '', '2026-05-15 23:34:54', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (31, 'haikang_isup_GH7413819', '测试-海康isup-224', '192.168.1.224', NULL, NULL, NULL, '8', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000006', 'TCP', 'OFFLINE', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/haikang_isup-haikang_isup_GH7413819.jpg', NULL, '1', NULL, NULL, '11010502', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-09 10:51:20', '', '2026-05-15 23:34:54', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (32, 'device_2053049634913263616', '测试-大华sdk-80', '192.168.1.80', 37777, 'admin', 'ghkj888888', '9', NULL, NULL, 1, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000005', 'TCP', 'OFFLINE', '1', '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/dahua-device_2053049634913263616.jpg', NULL, '1', NULL, NULL, '11010502', '11010101002157000002', '11010101002157000002', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-09 17:49:11', '1', '2026-05-15 23:34:54', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO `qs_device` VALUES (33, 'device_2054924581021421568', '测试-rtsp', NULL, NULL, NULL, NULL, '1', NULL, 'rtsp://admin:hx147258@192.168.1.164:554/Streaming/Channels/1', NULL, NULL, 'ENABLE', '1', NULL, NULL, '11010101001327000004', 'TCP', 'ON', NULL, '0', '0', '0', NULL, NULL, '0', 'http://127.0.0.1:9300/statics/snap/rtsp-device_2054924581021421568.jpg', NULL, '1', NULL, NULL, '11010502', '12010201032157000001', '12010201032157000001', NULL, NULL, NULL, NULL, NULL, 'TCP-PASSIVE', NULL, NULL, NULL, '1', '2026-05-14 21:59:33', '1', '2026-05-15 23:35:03', NULL, '0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
+-- ----------------------------
+-- Table structure for qs_gb28181_platform
+-- ----------------------------
+DROP TABLE IF EXISTS `qs_gb28181_platform`;
+CREATE TABLE `qs_gb28181_platform`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `enable` tinyint(1) NULL DEFAULT 0 COMMENT '是否启用：0-禁用，1-启用',
+  `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '平台名称',
+  `server_gb_id` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '平台国标编码（SIP服务器ID）',
+  `server_gb_domain` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '平台域（SIP域）',
+  `server_ip` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '平台服务器IP地址',
+  `server_port` int(11) NULL DEFAULT NULL COMMENT '平台服务器端口',
+  `device_gb_id` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '设备国标编码（本地SIP设备ID）',
+  `device_ip` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '设备IP地址',
+  `device_port` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '设备端口',
+  `username` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT 'SIP认证用户名',
+  `password` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT 'SIP认证密码',
+  `expires` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '注册有效期（秒）',
+  `keep_timeout` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '心跳超时时间（秒）',
+  `transport` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '传输协议：UDP/TCP',
+  `civil_code` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '行政区划编码',
+  `manufacturer` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '设备厂商',
+  `model` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '设备型号',
+  `address` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '安装地址',
+  `character_set` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '字符编码：GB2312/UTF-8',
+  `ptz` tinyint(1) NULL DEFAULT 0 COMMENT '是否支持云台控制：0-不支持，1-支持',
+  `rtcp` tinyint(1) NULL DEFAULT 0 COMMENT '是否启用RTCP：0-否，1-是',
+  `status` tinyint(1) NULL DEFAULT 0 COMMENT '状态：0-离线，1-在线',
+  `catalog_group` int(11) NULL DEFAULT NULL COMMENT '目录分组',
+  `register_way` int(11) NULL DEFAULT NULL COMMENT '注册方式：1-IP注册，2-动态域名，3-主动上报',
+  `secrecy` int(11) NULL DEFAULT NULL COMMENT '保密属性',
+  `create_time` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '创建时间',
+  `update_time` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '更新时间',
+  `as_message_channel` tinyint(1) NULL DEFAULT 0 COMMENT '是否作为消息通道：0-否，1-是',
+  `catalog_with_platform` int(11) NULL DEFAULT 1 COMMENT '是否查询平台目录：0-否，1-是',
+  `catalog_with_group` int(11) NULL DEFAULT 1 COMMENT '是否查询分组目录：0-否，1-是',
+  `catalog_with_region` int(11) NULL DEFAULT 1 COMMENT '是否查询区域目录：0-否，1-是',
+  `auto_push_channel` tinyint(1) NULL DEFAULT 1 COMMENT '是否自动推送通道：0-否，1-是',
+  `send_stream_ip` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '推流IP地址',
+  `server_id` varchar(50) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '流媒体服务器ID',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_platform_unique_server_gb_id`(`server_gb_id`) USING BTREE COMMENT '平台国标编码唯一索引'
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '国标GB28181平台配置表' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Records of qs_gb28181_platform
+-- ----------------------------
+INSERT INTO `qs_gb28181_platform` VALUES (4, 1, '测试国标级联', '41010500002000000001', '4101050000', '139.9.214.221', 8116, '34020000001320000001', '192.168.1.200', '8116', '34020000001320000001', '12345678', '3600', '60', 'UDP', NULL, NULL, NULL, NULL, 'GB2312', 1, 1, 1, NULL, NULL, NULL, '2026-05-13 18:30:20.113', '2026-05-15 23:36:24.756', 1, 1, 1, 1, 1, NULL, NULL);
+
+-- ----------------------------
+-- Table structure for qs_gb28181_platform_channel
+-- ----------------------------
+DROP TABLE IF EXISTS `qs_gb28181_platform_channel`;
+CREATE TABLE `qs_gb28181_platform_channel`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `platform_id` bigint(20) NULL DEFAULT NULL COMMENT '国标28181级联id',
+  `device_id` bigint(20) NULL DEFAULT NULL COMMENT '设备id',
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `id`(`id`) USING BTREE,
+  UNIQUE INDEX `uk_platform_gb_channel_platform_id_catalog_id_device_channel_id`(`platform_id`, `device_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8 COLLATE = utf8_bin ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of qs_gb28181_platform_channel
+-- ----------------------------
+INSERT INTO `qs_gb28181_platform_channel` VALUES (1, 4, 2, '2026-05-14 15:14:46', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (2, 4, 23, '2026-05-14 16:17:56', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (3, 4, 22, '2026-05-14 16:17:56', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (4, 4, 33, '2026-05-14 22:00:22', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (5, 4, 32, '2026-05-14 23:33:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (6, 4, 29, '2026-05-15 09:24:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (7, 4, 19, '2026-05-15 09:24:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (8, 4, 20, '2026-05-15 09:24:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (9, 4, 21, '2026-05-15 09:24:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (10, 4, 30, '2026-05-15 09:24:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (11, 4, 24, '2026-05-15 09:24:31', NULL);
+INSERT INTO `qs_gb28181_platform_channel` VALUES (12, 4, 31, '2026-05-15 09:24:31', NULL);
 
 -- ----------------------------
 -- Table structure for sys_config
@@ -694,11 +808,28 @@ CREATE TABLE `sys_job_log`  (
   `end_time` datetime NULL DEFAULT NULL COMMENT '执行结束时间',
   `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
   PRIMARY KEY (`job_log_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '定时任务调度日志表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 18 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '定时任务调度日志表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_job_log
 -- ----------------------------
+INSERT INTO `sys_job_log` VALUES (1, '海康sdk设备状态任务', 'SYSTEM', 'haiKangTask.task', '海康sdk设备状态任务 总共耗时：1524毫秒', '0', '', '2026-05-14 13:46:14', '2026-05-14 13:46:15', '2026-05-14 13:46:15');
+INSERT INTO `sys_job_log` VALUES (2, '大华sdk设备状态任务', 'SYSTEM', 'daHuaTask.task', '大华sdk设备状态任务 总共耗时：13296毫秒', '0', '', '2026-05-14 23:29:03', '2026-05-14 23:29:16', '2026-05-14 23:29:16');
+INSERT INTO `sys_job_log` VALUES (3, '大华sdk设备状态任务', 'SYSTEM', 'daHuaTask.task', '大华sdk设备状态任务 总共耗时：704毫秒', '0', '', '2026-05-14 23:29:30', '2026-05-14 23:29:31', '2026-05-14 23:29:30');
+INSERT INTO `sys_job_log` VALUES (4, '海康sdk设备状态任务', 'SYSTEM', 'haiKangTask.task', '海康sdk设备状态任务 总共耗时：2870毫秒', '0', '', '2026-05-15 09:22:02', '2026-05-15 09:22:05', '2026-05-15 09:22:05');
+INSERT INTO `sys_job_log` VALUES (5, '海康isup设备状态任务', 'SYSTEM', 'haiKangIsupTask.task', '海康isup设备状态任务 总共耗时：1222毫秒', '0', '', '2026-05-15 09:22:04', '2026-05-15 09:22:06', '2026-05-15 09:22:05');
+INSERT INTO `sys_job_log` VALUES (6, '设备状态任务', 'SYSTEM', 'qsDeviceTask.task', '设备状态任务 总共耗时：42毫秒', '0', '', '2026-05-15 09:22:12', '2026-05-15 09:22:12', '2026-05-15 09:22:11');
+INSERT INTO `sys_job_log` VALUES (7, 'onvif设备状态', 'SYSTEM', 'onvifTask.task', 'onvif设备状态 总共耗时：2111毫秒', '0', '', '2026-05-15 09:22:14', '2026-05-15 09:22:16', '2026-05-15 09:22:16');
+INSERT INTO `sys_job_log` VALUES (8, '大华sdk设备状态任务', 'SYSTEM', 'daHuaTask.task', '大华sdk设备状态任务 总共耗时：11330毫秒', '0', '', '2026-05-15 09:22:07', '2026-05-15 09:22:18', '2026-05-15 09:22:17');
+INSERT INTO `sys_job_log` VALUES (9, 'GB28181 设备状态同步任务', 'SYSTEM', 'gb28181Task.task', 'GB28181 设备状态同步任务 总共耗时：292毫秒', '0', '', '2026-05-15 09:22:20', '2026-05-15 09:22:20', '2026-05-15 09:22:20');
+INSERT INTO `sys_job_log` VALUES (10, 'JT1078 设备状态同步任务', 'SYSTEM', 'jt1078Task.task', 'JT1078 设备状态同步任务 总共耗时：527毫秒', '0', '', '2026-05-15 09:22:22', '2026-05-15 09:22:22', '2026-05-15 09:22:22');
+INSERT INTO `sys_job_log` VALUES (11, '大华sdk设备状态任务', 'SYSTEM', 'daHuaTask.task', '大华sdk设备状态任务 总共耗时：710毫秒', '0', '', '2026-05-15 09:23:02', '2026-05-15 09:23:02', '2026-05-15 09:23:02');
+INSERT INTO `sys_job_log` VALUES (12, 'JT1078 设备状态同步任务', 'SYSTEM', 'jt1078Task.task', 'JT1078 设备状态同步任务 总共耗时：126毫秒', '0', '', '2026-05-15 09:23:49', '2026-05-15 09:23:49', '2026-05-15 09:23:48');
+INSERT INTO `sys_job_log` VALUES (13, 'onvif设备状态', 'SYSTEM', 'onvifTask.task', 'onvif设备状态 总共耗时：1982毫秒', '0', '', '2026-05-15 17:56:44', '2026-05-15 17:56:46', '2026-05-15 17:56:45');
+INSERT INTO `sys_job_log` VALUES (14, '海康sdk设备状态任务', 'SYSTEM', 'haiKangTask.task', '海康sdk设备状态任务 总共耗时：1747毫秒', '0', '', '2026-05-15 22:17:36', '2026-05-15 22:17:37', '2026-05-15 22:17:37');
+INSERT INTO `sys_job_log` VALUES (15, '海康isup设备状态任务', 'SYSTEM', 'haiKangIsupTask.task', '海康isup设备状态任务 总共耗时：1172毫秒', '0', '', '2026-05-15 22:17:41', '2026-05-15 22:17:42', '2026-05-15 22:17:41');
+INSERT INTO `sys_job_log` VALUES (16, 'GB28181 设备状态同步任务', 'SYSTEM', 'gb28181Task.task', 'GB28181 设备状态同步任务 总共耗时：342毫秒', '0', '', '2026-05-15 22:18:04', '2026-05-15 22:18:04', '2026-05-15 22:18:04');
+INSERT INTO `sys_job_log` VALUES (17, '大华sdk设备状态任务', 'SYSTEM', 'daHuaTask.task', '大华sdk设备状态任务 总共耗时：2310毫秒', '0', '', '2026-05-15 22:18:16', '2026-05-15 22:18:18', '2026-05-15 22:18:18');
 
 -- ----------------------------
 -- Table structure for sys_logininfor
@@ -714,7 +845,7 @@ CREATE TABLE `sys_logininfor`  (
   PRIMARY KEY (`info_id`) USING BTREE,
   INDEX `idx_sys_logininfor_s`(`status`) USING BTREE,
   INDEX `idx_sys_logininfor_lt`(`access_time`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 170 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '系统访问记录' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 181 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '系统访问记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_logininfor
@@ -789,6 +920,17 @@ INSERT INTO `sys_logininfor` VALUES (166, 'admin', '192.168.81.1', '0', '登录�
 INSERT INTO `sys_logininfor` VALUES (167, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-10 11:25:07');
 INSERT INTO `sys_logininfor` VALUES (168, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-11 09:04:33');
 INSERT INTO `sys_logininfor` VALUES (169, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-12 10:12:13');
+INSERT INTO `sys_logininfor` VALUES (170, 'admin', '192.168.81.1', '0', '退出成功', '2026-05-13 11:34:55');
+INSERT INTO `sys_logininfor` VALUES (171, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-13 11:35:02');
+INSERT INTO `sys_logininfor` VALUES (172, 'admin', '192.168.81.1', '0', '退出成功', '2026-05-14 02:56:42');
+INSERT INTO `sys_logininfor` VALUES (173, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-14 02:56:46');
+INSERT INTO `sys_logininfor` VALUES (174, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-14 12:10:07');
+INSERT INTO `sys_logininfor` VALUES (175, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-14 14:17:07');
+INSERT INTO `sys_logininfor` VALUES (176, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-14 21:52:57');
+INSERT INTO `sys_logininfor` VALUES (177, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-15 09:07:09');
+INSERT INTO `sys_logininfor` VALUES (178, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-15 09:33:20');
+INSERT INTO `sys_logininfor` VALUES (179, 'admin', '192.168.81.1', '0', '退出成功', '2026-05-15 23:35:40');
+INSERT INTO `sys_logininfor` VALUES (180, 'admin', '192.168.81.1', '0', '登录成功', '2026-05-15 23:36:02');
 
 -- ----------------------------
 -- Table structure for sys_menu
@@ -816,14 +958,14 @@ CREATE TABLE `sys_menu`  (
   `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
   `remark` varchar(500) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT '' COMMENT '备注',
   PRIMARY KEY (`menu_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2010 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '菜单权限表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 2011 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '菜单权限表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_menu
 -- ----------------------------
-INSERT INTO `sys_menu` VALUES (1, '系统管理', 0, 10, 'system', NULL, '', '', 1, 0, 'M', '0', '0', '', 'system', 'admin', '2026-03-27 13:52:39', 'admin', '2026-03-27 16:12:34', '系统管理目录');
-INSERT INTO `sys_menu` VALUES (2, '系统监控', 0, 11, 'monitor', NULL, '', '', 1, 0, 'M', '0', '0', '', 'monitor', 'admin', '2026-03-27 13:52:39', 'admin', '2026-03-27 16:12:26', '系统监控目录');
-INSERT INTO `sys_menu` VALUES (3, '系统工具', 0, 12, 'tool', NULL, '', '', 1, 0, 'M', '0', '0', '', 'tool', 'admin', '2026-03-27 13:52:39', 'admin', '2026-03-27 16:12:30', '系统工具目录');
+INSERT INTO `sys_menu` VALUES (1, '系统管理', 0, 11, 'system', NULL, '', '', 1, 0, 'M', '0', '0', '', 'system', 'admin', '2026-03-27 13:52:39', 'admin', '2026-05-13 17:59:00', '系统管理目录');
+INSERT INTO `sys_menu` VALUES (2, '系统监控', 0, 12, 'monitor', NULL, '', '', 1, 0, 'M', '0', '0', '', 'monitor', 'admin', '2026-03-27 13:52:39', 'admin', '2026-05-13 17:58:56', '系统监控目录');
+INSERT INTO `sys_menu` VALUES (3, '系统工具', 0, 13, 'tool', NULL, '', '', 1, 0, 'M', '0', '0', '', 'tool', 'admin', '2026-03-27 13:52:39', 'admin', '2026-05-13 17:58:52', '系统工具目录');
 INSERT INTO `sys_menu` VALUES (100, '用户管理', 1, 1, 'user', 'system/user/index', '', '', 1, 0, 'C', '0', '0', 'system:user:list', 'user', 'admin', '2026-03-27 13:52:39', '', NULL, '用户管理菜单');
 INSERT INTO `sys_menu` VALUES (101, '角色管理', 1, 2, 'role', 'system/role/index', '', '', 1, 0, 'C', '0', '0', 'system:role:list', 'peoples', 'admin', '2026-03-27 13:52:39', '', NULL, '角色管理菜单');
 INSERT INTO `sys_menu` VALUES (102, '菜单管理', 1, 3, 'menu', 'system/menu/index', '', '', 1, 0, 'C', '0', '0', 'system:menu:list', 'tree-table', 'admin', '2026-03-27 13:52:39', '', NULL, '菜单管理菜单');
@@ -914,6 +1056,7 @@ INSERT INTO `sys_menu` VALUES (2006, '业务分组', 2004, 2, 'group', 'qs/commo
 INSERT INTO `sys_menu` VALUES (2007, '电子地图', 0, 3, 'map', 'qs/map/index', NULL, 'map', 1, 0, 'C', '0', '0', 'map', 'component', 'admin', '2026-04-15 00:45:20', 'admin', '2026-04-27 13:26:56', '');
 INSERT INTO `sys_menu` VALUES (2008, '分屏监控', 0, 1, 'live', 'qs/live/index', NULL, 'live', 1, 0, 'C', '0', '0', NULL, 'button', 'admin', '2026-04-15 14:47:32', '', NULL, '');
 INSERT INTO `sys_menu` VALUES (2009, '录像回放', 0, 2, 'recordPlayback', 'zlm/recordPlayback/index', NULL, 'recordPlayback', 1, 0, 'C', '0', '0', NULL, 'education', 'admin', '2026-04-27 13:27:57', '', NULL, '');
+INSERT INTO `sys_menu` VALUES (2010, '国标级联', 0, 10, 'platform', 'qs/platform/index', NULL, 'platform', 1, 0, 'C', '0', '0', NULL, 'input', 'admin', '2026-05-13 17:59:33', '', NULL, '');
 
 -- ----------------------------
 -- Table structure for sys_notice
@@ -931,11 +1074,12 @@ CREATE TABLE `sys_notice`  (
   `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
   `remark` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NULL DEFAULT NULL COMMENT '备注',
   PRIMARY KEY (`notice_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '通知公告表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '通知公告表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_notice
 -- ----------------------------
+INSERT INTO `sys_notice` VALUES (1, 'ruoyi-qs-nvr 系统', '2', 0x3C703EE59FBAE4BA8E72756F79692D636C6F7564E5BC80E58F91E79A846E7672E7B3BBE7BB9FEFBC8CE694AFE68C8172747370EFBC8C72746D70EFBC8C6F6E766966EFBC8CE6B5B7E5BAB773646BEFBC8CE6B5B7E5BAB769737570EFBC8CE5A4A7E58D8E73646BEFBC8C67623238313831EFBC8C6A74383038EFBC8C6A7431303738E7AD89E58D8FE8AEAEE68EA5E585A5EFBC8CE69BB4E69C89E69588E7AEA1E79086E79B91E68EA7E8A786E9A291E380823C2F703E, '0', 'admin', '2026-05-14 12:58:04', '', NULL, NULL);
 
 -- ----------------------------
 -- Table structure for sys_notice_read
@@ -980,7 +1124,7 @@ CREATE TABLE `sys_oper_log`  (
   INDEX `idx_sys_oper_log_bt`(`business_type`) USING BTREE,
   INDEX `idx_sys_oper_log_s`(`status`) USING BTREE,
   INDEX `idx_sys_oper_log_ot`(`oper_time`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1316 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '操作日志记录' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 1417 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '操作日志记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of sys_oper_log
@@ -2201,6 +2345,107 @@ INSERT INTO `sys_oper_log` VALUES (1312, '预置点控制', 0, 'com.ruoyi.qs.con
 INSERT INTO `sys_oper_log` VALUES (1313, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":102,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-11 15:58:05', 46);
 INSERT INTO `sys_oper_log` VALUES (1314, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/23', '192.168.81.1', '', '{\"channelId\":\"0\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[{\"index\":1,\"name\":\"111\"}]}', 0, NULL, '2026-05-11 15:58:41', 899);
 INSERT INTO `sys_oper_log` VALUES (1315, '调度日志', 9, 'com.ruoyi.job.controller.SysJobLogController.clean()', 'DELETE', 1, 'admin', NULL, '/job/log/clean', '192.168.81.1', '', '', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-12 12:03:33', 618);
+INSERT INTO `sys_oper_log` VALUES (1316, '视频监控设备', 2, 'com.ruoyi.qs.controller.QsDeviceController.edit()', 'PUT', 1, 'admin', NULL, '/device', '192.168.81.1', '', '{\"address\":\"1\",\"createBy\":\"1\",\"createTime\":\"2026-03-27 17:05:24\",\"deviceCode\":\"rtmp_2037455934688763904\",\"deviceName\":\"测试-rtmp\",\"deviceStatus\":\"ON\",\"enableAudio\":\"0\",\"enableDisableNoneReader\":\"0\",\"enableMp4\":\"0\",\"gbCivilCode\":\"12010122\",\"gbCode\":\"11010101001327000001\",\"id\":2,\"latitude\":\"31.04736\",\"liveAddress\":\"rtmp://liteavapp.qcloud.com/live/liteavdemoplayerstreamid\",\"longitude\":\"102.74414\",\"manufacturer\":\"大华\",\"params\":{},\"playbackStreamStatus\":\"0\",\"protocol\":\"TCP\",\"ptzType\":1,\"snap\":\"http://127.0.0.1:9300/statics/snap/rtmp-rtmp_2037455934688763904.jpg\",\"status\":\"ENABLE\",\"streamStatus\":\"0\",\"type\":\"2\",\"updateBy\":\"1\",\"updateTime\":\"2026-05-13 14:21:02\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-13 14:21:03', 210);
+INSERT INTO `sys_oper_log` VALUES (1317, '视频监控设备', 2, 'com.ruoyi.qs.controller.QsDeviceController.edit()', 'PUT', 1, 'admin', NULL, '/device', '192.168.81.1', '', '{\"createBy\":\"1\",\"createTime\":\"2026-04-29 19:10:51\",\"deviceCode\":\"device_2049446307239571456\",\"deviceName\":\"测试-onvif-大华\",\"deviceStatus\":\"OFFLINE\",\"enableAudio\":\"0\",\"enableDisableNoneReader\":\"0\",\"enableMp4\":\"0\",\"gbBusinessGroupId\":\"12010201032157000001\",\"gbCivilCode\":\"12010122\",\"gbCode\":\"11010101001327000001\",\"gbParentId\":\"11010101002167000002\",\"id\":20,\"ipAddress\":\"192.168.1.221\",\"latitude\":\"39.90035\",\"liveAddress\":\"rtsp://admin:hx147258@192.168.1.221:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif\",\"longitude\":\"116.33881\",\"onvifAuth\":\"1\",\"onvifHostName\":\"http://192.168.1.221\",\"params\":{},\"playbackStreamStatus\":\"0\",\"protocol\":\"TCP\",\"snap\":\"http://127.0.0.1:9300/statics/snap/onvif-device_2049446307239571456.jpg\",\"status\":\"ENABLE\",\"streamMode\":\"TCP-PASSIVE\",\"streamStatus\":\"0\",\"streamType\":\"1\",\"type\":\"5\",\"updateBy\":\"1\",\"updateTime\":\"2026-05-13 14:21:19\",\"userName\":\"admin\"} ', NULL, 1, '国标编码已存在，请重新输入', '2026-05-13 14:21:19', 38);
+INSERT INTO `sys_oper_log` VALUES (1318, '菜单管理', 2, 'com.ruoyi.system.controller.SysMenuController.edit()', 'PUT', 1, 'admin', NULL, '/menu', '192.168.81.1', '', '{\"children\":[],\"createTime\":\"2026-03-27 13:52:39\",\"icon\":\"tool\",\"isCache\":\"0\",\"isFrame\":\"1\",\"menuId\":3,\"menuName\":\"系统工具\",\"menuType\":\"M\",\"orderNum\":13,\"params\":{},\"parentId\":0,\"path\":\"tool\",\"perms\":\"\",\"query\":\"\",\"routeName\":\"\",\"status\":\"0\",\"updateBy\":\"admin\",\"visible\":\"0\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-13 17:58:54', 727);
+INSERT INTO `sys_oper_log` VALUES (1319, '菜单管理', 2, 'com.ruoyi.system.controller.SysMenuController.edit()', 'PUT', 1, 'admin', NULL, '/menu', '192.168.81.1', '', '{\"children\":[],\"createTime\":\"2026-03-27 13:52:39\",\"icon\":\"monitor\",\"isCache\":\"0\",\"isFrame\":\"1\",\"menuId\":2,\"menuName\":\"系统监控\",\"menuType\":\"M\",\"orderNum\":12,\"params\":{},\"parentId\":0,\"path\":\"monitor\",\"perms\":\"\",\"query\":\"\",\"routeName\":\"\",\"status\":\"0\",\"updateBy\":\"admin\",\"visible\":\"0\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-13 17:58:57', 148);
+INSERT INTO `sys_oper_log` VALUES (1320, '菜单管理', 2, 'com.ruoyi.system.controller.SysMenuController.edit()', 'PUT', 1, 'admin', NULL, '/menu', '192.168.81.1', '', '{\"children\":[],\"createTime\":\"2026-03-27 13:52:39\",\"icon\":\"system\",\"isCache\":\"0\",\"isFrame\":\"1\",\"menuId\":1,\"menuName\":\"系统管理\",\"menuType\":\"M\",\"orderNum\":11,\"params\":{},\"parentId\":0,\"path\":\"system\",\"perms\":\"\",\"query\":\"\",\"routeName\":\"\",\"status\":\"0\",\"updateBy\":\"admin\",\"visible\":\"0\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-13 17:59:00', 159);
+INSERT INTO `sys_oper_log` VALUES (1321, '菜单管理', 1, 'com.ruoyi.system.controller.SysMenuController.add()', 'POST', 1, 'admin', NULL, '/menu', '192.168.81.1', '', '{\"children\":[],\"component\":\"qs/platform/index\",\"createBy\":\"admin\",\"icon\":\"input\",\"isCache\":\"0\",\"isFrame\":\"1\",\"menuName\":\"国标级联\",\"menuType\":\"C\",\"orderNum\":10,\"params\":{},\"parentId\":0,\"path\":\"platform\",\"routeName\":\"platform\",\"status\":\"0\",\"visible\":\"0\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-13 17:59:34', 175);
+INSERT INTO `sys_oper_log` VALUES (1322, '国标GB28181平台配置', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformController.add()', 'POST', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"asMessageChannel\":0,\"autoPushChannel\":1,\"catalogWithGroup\":0,\"catalogWithPlatform\":1,\"catalogWithRegion\":0,\"characterSet\":\"GB2312\",\"createTime\":\"2026-05-13 18:30:20\",\"deviceGbId\":\"34020000001320000001\",\"deviceIp\":\"192.168.1.200\",\"devicePort\":\"8116\",\"enable\":1,\"expires\":\"3600\",\"id\":4,\"keepTimeout\":\"60\",\"name\":\"测试国标级联\",\"params\":{},\"ptz\":1,\"rtcp\":1,\"serverGbDomain\":\"4101050000\",\"serverGbId\":\"41010500002000000001\",\"serverIp\":\"139.9.214.221\",\"serverPort\":8116,\"status\":0,\"transport\":\"UDP\",\"username\":\"34020000001320000001\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-13 18:30:21', 516);
+INSERT INTO `sys_oper_log` VALUES (1323, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[2],\"platformId\":4} ', NULL, 1, '\r\n### Error updating database.  Cause: java.sql.SQLSyntaxErrorException: Unknown column \'create_time\' in \'field list\'\r\n### The error may exist in file [E:\\ruoyi-qs-nvr\\ruoyi-modules\\ruoyi-qs\\target\\classes\\mapper\\qs\\QsGb28181PlatformChannelMapper.xml]\r\n### The error may involve com.ruoyi.qs.mapper.QsGb28181PlatformChannelMapper.batchInsertQsGb28181PlatformChannel-Inline\r\n### The error occurred while setting parameters\r\n### SQL: INSERT INTO qs_gb28181_platform_channel (platform_id, device_id, create_time, update_time)         VALUES                        (?, ?, ?, ?)\r\n### Cause: java.sql.SQLSyntaxErrorException: Unknown column \'create_time\' in \'field list\'\n; bad SQL grammar []', '2026-05-14 03:43:36', 1624);
+INSERT INTO `sys_oper_log` VALUES (1324, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[2],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:45:26', 90);
+INSERT INTO `sys_oper_log` VALUES (1325, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[19],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:45:59', 64);
+INSERT INTO `sys_oper_log` VALUES (1326, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[20],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:46:15', 132);
+INSERT INTO `sys_oper_log` VALUES (1327, '平台通道关联', 3, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.unlink()', 'POST', 1, 'admin', NULL, '/platformChannel/unlink', '192.168.81.1', '', '{\"deviceIds\":[2,19,20],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:54:20', 200);
+INSERT INTO `sys_oper_log` VALUES (1328, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[2,19],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:54:24', 64);
+INSERT INTO `sys_oper_log` VALUES (1329, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[20,21,22,23,24,29,30,31,32],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:54:32', 70);
+INSERT INTO `sys_oper_log` VALUES (1330, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[32],\"platformId\":4} ', '{\"msg\":\"操作失败\",\"code\":500}', 0, NULL, '2026-05-14 03:54:35', 23);
+INSERT INTO `sys_oper_log` VALUES (1331, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[32],\"platformId\":4} ', '{\"msg\":\"操作失败\",\"code\":500}', 0, NULL, '2026-05-14 03:54:40', 26);
+INSERT INTO `sys_oper_log` VALUES (1332, '平台通道关联', 3, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.unlink()', 'POST', 1, 'admin', NULL, '/platformChannel/unlink', '192.168.81.1', '', '{\"deviceIds\":[2,19,20,21,22,23,24,29,30,31],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:54:46', 167);
+INSERT INTO `sys_oper_log` VALUES (1333, '平台通道关联', 3, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.unlink()', 'POST', 1, 'admin', NULL, '/platformChannel/unlink', '192.168.81.1', '', '{\"deviceIds\":[32],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:54:57', 154);
+INSERT INTO `sys_oper_log` VALUES (1334, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[2,19,20,21,22,23,24,29,30,31,32],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 03:55:06', 190);
+INSERT INTO `sys_oper_log` VALUES (1335, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[32],\"platformId\":4} ', '{\"msg\":\"操作失败\",\"code\":500}', 0, NULL, '2026-05-14 03:55:08', 13);
+INSERT INTO `sys_oper_log` VALUES (1336, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[32],\"platformId\":4} ', '{\"msg\":\"操作失败\",\"code\":500}', 0, NULL, '2026-05-14 03:56:56', 14);
+INSERT INTO `sys_oper_log` VALUES (1337, '平台通道关联', 3, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.unlink()', 'POST', 1, 'admin', NULL, '/platformChannel/unlink', '192.168.81.1', '', '{\"allLink\":false,\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 12:24:45', 337);
+INSERT INTO `sys_oper_log` VALUES (1338, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"allLink\":true,\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 12:24:49', 219);
+INSERT INTO `sys_oper_log` VALUES (1339, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"allLink\":true,\"platformId\":4} ', '{\"msg\":\"操作失败\",\"code\":500}', 0, NULL, '2026-05-14 12:24:51', 20);
+INSERT INTO `sys_oper_log` VALUES (1340, '平台通道关联', 3, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.unlink()', 'POST', 1, 'admin', NULL, '/platformChannel/unlink', '192.168.81.1', '', '{\"allLink\":false,\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 12:24:56', 50);
+INSERT INTO `sys_oper_log` VALUES (1341, '通知公告', 1, 'com.ruoyi.system.controller.SysNoticeController.add()', 'POST', 1, 'admin', NULL, '/notice', '192.168.81.1', '', '{\"createBy\":\"admin\",\"isRead\":false,\"noticeContent\":\"<p>基于ruoyi-cloud开发的nvr系统，支持rtsp，rtmp，onvif，海康sdk，海康isup，大华sdk，gb28181，jt808，jt1078等协议接入，更有效管理监控视频。</p>\",\"noticeTitle\":\"ruoyi-qs-nvr 系统\",\"noticeType\":\"2\",\"params\":{},\"status\":\"0\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 12:58:05', 215);
+INSERT INTO `sys_oper_log` VALUES (1342, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":100,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 13:46:14', 343);
+INSERT INTO `sys_oper_log` VALUES (1343, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[2],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 15:14:46', 245);
+INSERT INTO `sys_oper_log` VALUES (1344, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[23,22],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 16:17:56', 100);
+INSERT INTO `sys_oper_log` VALUES (1345, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 17:41:40', 2384);
+INSERT INTO `sys_oper_log` VALUES (1346, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 17:41:45', 36);
+INSERT INTO `sys_oper_log` VALUES (1347, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 17:41:56', 123);
+INSERT INTO `sys_oper_log` VALUES (1348, '视频监控设备', 1, 'com.ruoyi.qs.controller.QsDeviceController.add()', 'POST', 1, 'admin', NULL, '/device', '192.168.81.1', '', '{\"createBy\":\"1\",\"createTime\":\"2026-05-14 21:59:33\",\"deviceCode\":\"device_2054924581021421568\",\"deviceName\":\"测试-rtsp\",\"deviceStatus\":\"ON\",\"enableAudio\":\"0\",\"enableDisableNoneReader\":\"0\",\"enableMp4\":\"0\",\"id\":33,\"liveAddress\":\"rtsp://admin:hx147258@192.168.1.164:554/Streaming/Channels/1\",\"onvifAuth\":\"1\",\"params\":{},\"protocol\":\"TCP\",\"status\":\"ENABLE\",\"streamMode\":\"TCP-PASSIVE\",\"streamType\":\"1\",\"type\":\"1\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 21:59:33', 446);
+INSERT INTO `sys_oper_log` VALUES (1349, '视频监控设备', 2, 'com.ruoyi.qs.controller.QsDeviceController.edit()', 'PUT', 1, 'admin', NULL, '/device', '192.168.81.1', '', '{\"createBy\":\"1\",\"createTime\":\"2026-05-14 21:59:33\",\"deviceCode\":\"device_2054924581021421568\",\"deviceName\":\"测试-rtsp\",\"deviceStatus\":\"ON\",\"enableAudio\":\"0\",\"enableDisableNoneReader\":\"0\",\"enableMp4\":\"0\",\"gbCode\":\"11010101001327000004\",\"id\":33,\"liveAddress\":\"rtsp://admin:hx147258@192.168.1.164:554/Streaming/Channels/1\",\"onvifAuth\":\"1\",\"params\":{},\"playbackStreamStatus\":\"0\",\"protocol\":\"TCP\",\"status\":\"ENABLE\",\"streamMode\":\"TCP-PASSIVE\",\"streamStatus\":\"0\",\"streamType\":\"1\",\"type\":\"1\",\"updateBy\":\"1\",\"updateTime\":\"2026-05-14 21:59:53\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 21:59:53', 147);
+INSERT INTO `sys_oper_log` VALUES (1350, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[33],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 22:00:22', 202);
+INSERT INTO `sys_oper_log` VALUES (1351, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 22:00:32', 1078);
+INSERT INTO `sys_oper_log` VALUES (1352, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 22:00:42', 182);
+INSERT INTO `sys_oper_log` VALUES (1353, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 22:02:01', 246);
+INSERT INTO `sys_oper_log` VALUES (1354, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 22:02:04', 218);
+INSERT INTO `sys_oper_log` VALUES (1355, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":102,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:29:03', 208);
+INSERT INTO `sys_oper_log` VALUES (1356, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":102,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:29:30', 50);
+INSERT INTO `sys_oper_log` VALUES (1357, '推送目录到上级平台', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.pushCatalog()', 'POST', 1, 'admin', NULL, '/platform/cascade/pushCatalog/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:30:00', 961);
+INSERT INTO `sys_oper_log` VALUES (1358, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:30:14', 279);
+INSERT INTO `sys_oper_log` VALUES (1359, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:30:19', 134);
+INSERT INTO `sys_oper_log` VALUES (1360, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/23', '192.168.81.1', '', '{\"channelId\":\"0\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[{\"index\":1,\"name\":\"111\"}]}', 0, NULL, '2026-05-14 23:31:24', 1728);
+INSERT INTO `sys_oper_log` VALUES (1361, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/23', '192.168.81.1', '', '{\"channelId\":\"0\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[{\"index\":1,\"name\":\"111\"}]}', 0, NULL, '2026-05-14 23:33:01', 186);
+INSERT INTO `sys_oper_log` VALUES (1362, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"deviceIds\":[32],\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:33:31', 377);
+INSERT INTO `sys_oper_log` VALUES (1363, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:34:03', 233);
+INSERT INTO `sys_oper_log` VALUES (1364, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:34:05', 175);
+INSERT INTO `sys_oper_log` VALUES (1365, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:34:20', 246);
+INSERT INTO `sys_oper_log` VALUES (1366, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:34:35', 166);
+INSERT INTO `sys_oper_log` VALUES (1367, '推送目录到上级平台', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.pushCatalog()', 'POST', 1, 'admin', NULL, '/platform/cascade/pushCatalog/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:35:01', 140);
+INSERT INTO `sys_oper_log` VALUES (1368, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:35:10', 248);
+INSERT INTO `sys_oper_log` VALUES (1369, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:35:21', 169);
+INSERT INTO `sys_oper_log` VALUES (1370, '视频监控设备', 2, 'com.ruoyi.qs.controller.QsDeviceController.edit()', 'PUT', 1, 'admin', NULL, '/device', '192.168.81.1', '', '{\"channel\":1,\"createBy\":\"1\",\"createTime\":\"2026-05-09 17:49:11\",\"deviceCode\":\"device_2053049634913263616\",\"deviceName\":\"测试-大华sdk-80\",\"deviceStatus\":\"ON\",\"enableAudio\":\"0\",\"enableDisableNoneReader\":\"0\",\"enableMp4\":\"0\",\"gbBusinessGroupId\":\"12010201032157000001\",\"gbCode\":\"11010101001327000005\",\"gbParentId\":\"11010101002167000002\",\"id\":32,\"ipAddress\":\"192.168.1.80\",\"onlineType\":\"1\",\"onvifAuth\":\"1\",\"params\":{},\"playbackStreamStatus\":\"0\",\"port\":37777,\"protocol\":\"TCP\",\"snap\":\"http://127.0.0.1:9300/statics/snap/dahua-playback_device_2049446307239571456.jpg\",\"status\":\"ENABLE\",\"streamMode\":\"TCP-PASSIVE\",\"streamStatus\":\"0\",\"streamType\":\"1\",\"type\":\"9\",\"updateBy\":\"1\",\"updateTime\":\"2026-05-14 23:35:53\",\"userName\":\"admin\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:35:53', 272);
+INSERT INTO `sys_oper_log` VALUES (1371, '推送目录到上级平台', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.pushCatalog()', 'POST', 1, 'admin', NULL, '/platform/cascade/pushCatalog/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:35:59', 127);
+INSERT INTO `sys_oper_log` VALUES (1372, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:36:09', 218);
+INSERT INTO `sys_oper_log` VALUES (1373, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-14 23:36:16', 198);
+INSERT INTO `sys_oper_log` VALUES (1374, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-14 23:37:29', 3368);
+INSERT INTO `sys_oper_log` VALUES (1375, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-14 23:39:01', 3167);
+INSERT INTO `sys_oper_log` VALUES (1376, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-14 23:41:55', 3182);
+INSERT INTO `sys_oper_log` VALUES (1377, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-14 23:58:07', 3450);
+INSERT INTO `sys_oper_log` VALUES (1378, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-14 23:58:50', 3761);
+INSERT INTO `sys_oper_log` VALUES (1379, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:00:37', 3205);
+INSERT INTO `sys_oper_log` VALUES (1380, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:01:29', 3218);
+INSERT INTO `sys_oper_log` VALUES (1381, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:01:58', 3190);
+INSERT INTO `sys_oper_log` VALUES (1382, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:02:16', 3180);
+INSERT INTO `sys_oper_log` VALUES (1383, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:04:14', 3193);
+INSERT INTO `sys_oper_log` VALUES (1384, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:04:55', 3167);
+INSERT INTO `sys_oper_log` VALUES (1385, '预置点控制', 0, 'com.ruoyi.qs.controller.QsDeviceController.getPresetList()', 'GET', 1, 'admin', NULL, '/device/preset/list/32', '192.168.81.1', '', '{\"channelId\":\"1\"}', '{\"msg\":\"操作成功\",\"code\":200,\"data\":[]}', 0, NULL, '2026-05-15 00:07:00', 3497);
+INSERT INTO `sys_oper_log` VALUES (1386, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":100,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:03', 317);
+INSERT INTO `sys_oper_log` VALUES (1387, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":101,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:04', 18);
+INSERT INTO `sys_oper_log` VALUES (1388, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":102,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:06', 17);
+INSERT INTO `sys_oper_log` VALUES (1389, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":103,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:11', 14);
+INSERT INTO `sys_oper_log` VALUES (1390, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":104,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:14', 23);
+INSERT INTO `sys_oper_log` VALUES (1391, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":107,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:19', 20);
+INSERT INTO `sys_oper_log` VALUES (1392, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":108,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:22:21', 23);
+INSERT INTO `sys_oper_log` VALUES (1393, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":102,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:23:01', 18);
+INSERT INTO `sys_oper_log` VALUES (1394, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":108,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:23:48', 15);
+INSERT INTO `sys_oper_log` VALUES (1395, '平台通道关联', 1, 'com.ruoyi.qs.controller.QsGb28181PlatformChannelController.link()', 'POST', 1, 'admin', NULL, '/platformChannel/link', '192.168.81.1', '', '{\"allLink\":true,\"platformId\":4} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:24:32', 584);
+INSERT INTO `sys_oper_log` VALUES (1396, '推送目录到上级平台', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.pushCatalog()', 'POST', 1, 'admin', NULL, '/platform/cascade/pushCatalog/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:24:37', 303);
+INSERT INTO `sys_oper_log` VALUES (1397, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:25:00', 267);
+INSERT INTO `sys_oper_log` VALUES (1398, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 09:25:06', 91);
+INSERT INTO `sys_oper_log` VALUES (1399, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"enable\":0,\"id\":4,\"params\":{},\"updateTime\":\"2026-05-15 11:32:11\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 11:32:12', 384);
+INSERT INTO `sys_oper_log` VALUES (1400, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"enable\":1,\"id\":4,\"params\":{},\"updateTime\":\"2026-05-15 11:32:16\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 11:32:16', 145);
+INSERT INTO `sys_oper_log` VALUES (1401, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 11:35:44', 643);
+INSERT INTO `sys_oper_log` VALUES (1402, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"enable\":0,\"id\":4,\"params\":{},\"updateTime\":\"2026-05-15 11:35:46\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 11:35:46', 90);
+INSERT INTO `sys_oper_log` VALUES (1403, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"enable\":1,\"id\":4,\"params\":{},\"updateTime\":\"2026-05-15 11:58:34\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 11:58:36', 1141);
+INSERT INTO `sys_oper_log` VALUES (1404, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"asMessageChannel\":1,\"autoPushChannel\":1,\"catalogWithGroup\":0,\"catalogWithPlatform\":1,\"catalogWithRegion\":0,\"characterSet\":\"GB2312\",\"createTime\":\"2026-05-13 18:30:20\",\"deviceCount\":12,\"deviceGbId\":\"34020000001320000001\",\"deviceIp\":\"192.168.1.200\",\"devicePort\":\"8116\",\"enable\":1,\"expires\":\"3600\",\"id\":4,\"keepTimeout\":\"60\",\"name\":\"测试国标级联\",\"params\":{},\"ptz\":1,\"rtcp\":1,\"serverGbDomain\":\"4101050000\",\"serverGbId\":\"41010500002000000001\",\"serverIp\":\"139.9.214.221\",\"serverPort\":8116,\"status\":1,\"transport\":\"UDP\",\"updateTime\":\"2026-05-15 12:06:26\",\"username\":\"34020000001320000001\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 12:06:28', 1588);
+INSERT INTO `sys_oper_log` VALUES (1405, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"asMessageChannel\":1,\"autoPushChannel\":1,\"catalogWithGroup\":1,\"catalogWithPlatform\":1,\"catalogWithRegion\":0,\"characterSet\":\"GB2312\",\"createTime\":\"2026-05-13 18:30:20\",\"deviceCount\":12,\"deviceGbId\":\"34020000001320000001\",\"deviceIp\":\"192.168.1.200\",\"devicePort\":\"8116\",\"enable\":1,\"expires\":\"3600\",\"id\":4,\"keepTimeout\":\"60\",\"name\":\"测试国标级联\",\"params\":{},\"ptz\":1,\"rtcp\":1,\"serverGbDomain\":\"4101050000\",\"serverGbId\":\"41010500002000000001\",\"serverIp\":\"139.9.214.221\",\"serverPort\":8116,\"status\":0,\"transport\":\"UDP\",\"updateTime\":\"2026-05-15 12:30:48\",\"username\":\"34020000001320000001\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 12:30:50', 566);
+INSERT INTO `sys_oper_log` VALUES (1406, '区域管理', 3, 'com.ruoyi.qs.controller.QsRegionController.delete()', 'DELETE', 1, 'admin', NULL, '/region/delete/12', '192.168.81.1', '', '12 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 13:05:07', 410);
+INSERT INTO `sys_oper_log` VALUES (1407, '区域管理', 1, 'com.ruoyi.qs.controller.QsRegionController.add()', 'POST', 1, 'admin', NULL, '/region/add', '192.168.81.1', '', '{\"createTime\":\"2026-05-15 13:05:39\",\"deviceId\":\"11010502\",\"id\":13,\"name\":\"超时-2\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 13:05:39', 277);
+INSERT INTO `sys_oper_log` VALUES (1408, '国标GB28181平台配置', 2, 'com.ruoyi.qs.controller.QsGb28181PlatformController.edit()', 'PUT', 1, 'admin', NULL, '/platform', '192.168.81.1', '', '{\"asMessageChannel\":1,\"autoPushChannel\":1,\"catalogWithGroup\":1,\"catalogWithPlatform\":1,\"catalogWithRegion\":1,\"characterSet\":\"GB2312\",\"createTime\":\"2026-05-13 18:30:20\",\"deviceCount\":12,\"deviceGbId\":\"34020000001320000001\",\"deviceIp\":\"192.168.1.200\",\"devicePort\":\"8116\",\"enable\":1,\"expires\":\"3600\",\"id\":4,\"keepTimeout\":\"60\",\"name\":\"测试国标级联\",\"params\":{},\"ptz\":1,\"rtcp\":1,\"serverGbDomain\":\"4101050000\",\"serverGbId\":\"41010500002000000001\",\"serverIp\":\"139.9.214.221\",\"serverPort\":8116,\"status\":1,\"transport\":\"UDP\",\"updateTime\":\"2026-05-15 15:04:50\",\"username\":\"34020000001320000001\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 15:04:52', 1236);
+INSERT INTO `sys_oper_log` VALUES (1409, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":104,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 17:56:43', 57);
+INSERT INTO `sys_oper_log` VALUES (1410, '视频监控设备', 2, 'com.ruoyi.qs.controller.QsDeviceController.edit()', 'PUT', 1, 'admin', NULL, '/device', '192.168.81.1', '', '{\"address\":\"1\",\"createBy\":\"1\",\"createTime\":\"2026-03-27 17:05:24\",\"deviceCode\":\"rtmp_2037455934688763904\",\"deviceName\":\"测试-rtmp\",\"deviceStatus\":\"ON\",\"enableAudio\":\"0\",\"enableDisableNoneReader\":\"0\",\"enableMp4\":\"1\",\"gbBusinessGroupId\":\"12010201032157000001\",\"gbCivilCode\":\"12010112\",\"gbCode\":\"11010101001327000001\",\"gbParentId\":\"12010201032157000001\",\"id\":2,\"latitude\":\"31.04736\",\"liveAddress\":\"rtmp://liteavapp.qcloud.com/live/liteavdemoplayerstreamid\",\"longitude\":\"102.74414\",\"manufacturer\":\"大华\",\"params\":{},\"playbackStreamStatus\":\"0\",\"protocol\":\"TCP\",\"ptzType\":1,\"snap\":\"http://127.0.0.1:9300/statics/snap/rtmp-rtmp_2037455934688763904.jpg\",\"status\":\"ENABLE\",\"streamStatus\":\"0\",\"type\":\"2\",\"updateBy\":\"1\",\"updateTime\":\"2026-05-15 21:01:26\"} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 21:01:27', 192);
+INSERT INTO `sys_oper_log` VALUES (1411, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":100,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 22:17:36', 402);
+INSERT INTO `sys_oper_log` VALUES (1412, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":101,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 22:17:40', 54);
+INSERT INTO `sys_oper_log` VALUES (1413, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":107,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 22:18:04', 39);
+INSERT INTO `sys_oper_log` VALUES (1414, '定时任务', 2, 'com.ruoyi.job.controller.SysJobController.run()', 'PUT', 1, 'admin', NULL, '/job/run', '192.168.81.1', '', '{\"jobGroup\":\"SYSTEM\",\"jobId\":102,\"misfirePolicy\":\"0\",\"params\":{}} ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 22:18:16', 16);
+INSERT INTO `sys_oper_log` VALUES (1415, '停止平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.stopCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/stop/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 22:18:35', 1294);
+INSERT INTO `sys_oper_log` VALUES (1416, '启动平台级联', 0, 'com.ruoyi.qs.controller.QsGb28181PlatformController.startCascade()', 'POST', 1, 'admin', NULL, '/platform/cascade/start/4', '192.168.81.1', '', '4 ', '{\"msg\":\"操作成功\",\"code\":200}', 0, NULL, '2026-05-15 22:18:47', 42);
 
 -- ----------------------------
 -- Table structure for sys_post
@@ -2318,7 +2563,7 @@ CREATE TABLE `sys_user`  (
 -- ----------------------------
 -- Records of sys_user
 -- ----------------------------
-INSERT INTO `sys_user` VALUES (1, 103, 'admin', '若依', '00', 'ry@163.com', '15888888888', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '192.168.81.1', '2026-05-12 10:12:14', '2026-03-27 13:52:39', 'admin', '2026-03-27 13:52:39', '', NULL, '管理员');
+INSERT INTO `sys_user` VALUES (1, 103, 'admin', '若依', '00', 'ry@163.com', '15888888888', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '192.168.81.1', '2026-05-15 23:36:03', '2026-03-27 13:52:39', 'admin', '2026-03-27 13:52:39', '', NULL, '管理员');
 INSERT INTO `sys_user` VALUES (2, 105, 'ry', '若依', '00', 'ry@qq.com', '15666666666', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', '2026-03-27 13:52:39', '2026-03-27 13:52:39', 'admin', '2026-03-27 13:52:39', '', NULL, '测试员');
 
 -- ----------------------------
@@ -2376,7 +2621,7 @@ CREATE TABLE `zlm_cloud_record`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `id`(`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 691 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '云端录像表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 693 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '云端录像表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of zlm_cloud_record
@@ -2386,6 +2631,8 @@ INSERT INTO `zlm_cloud_record` VALUES (687, 'rtmp', 'rtmp_2037455934688763904', 
 INSERT INTO `zlm_cloud_record` VALUES (688, 'rtmp', 'rtmp_2037455934688763904', NULL, 1777294892000, 1777294920132, 'hxkj_zlm', '000000', '2026-04-27-04-01-32-0.mp4', 'C:/Users/29290/Desktop/zlm/zlm-pro/www/record/rtmp/rtmp_2037455934688763904/', 'C:/Users/29290/Desktop/zlm/zlm-pro/www/record/rtmp/rtmp_2037455934688763904/2026-04-27/2026-04-27-04-01-32-0.mp4', 0, 9179042, 28132.999420166016, '2026-04-27 21:01:53', '2026-04-27 21:01:53');
 INSERT INTO `zlm_cloud_record` VALUES (689, 'rtmp', 'rtmp_2037455934688763904', NULL, 1777299515000, 1777299538232, 'hxkj_zlm', '000000', '2026-04-27-05-18-35-0.mp4', 'C:/Users/29290/Desktop/zlm/zlm-pro/www/record/rtmp/rtmp_2037455934688763904/', 'C:/Users/29290/Desktop/zlm/zlm-pro/www/record/rtmp/rtmp_2037455934688763904/2026-04-27/2026-04-27-05-18-35-0.mp4', 0, 7813312, 23232.999801635742, '2026-04-27 22:18:49', '2026-04-27 22:18:49');
 INSERT INTO `zlm_cloud_record` VALUES (690, 'rtmp', 'rtmp_2037455934688763904', NULL, 1777299832000, 1777299843100, 'hxkj_zlm', '000000', '2026-04-27-05-23-52-0.mp4', 'C:/Users/29290/Desktop/zlm/zlm-pro/www/record/rtmp/rtmp_2037455934688763904/', 'C:/Users/29290/Desktop/zlm/zlm-pro/www/record/rtmp/rtmp_2037455934688763904/2026-04-27/2026-04-27-05-23-52-0.mp4', 0, 2338469, 11100.000381469727, '2026-04-27 22:23:57', '2026-04-27 22:23:57');
+INSERT INTO `zlm_cloud_record` VALUES (691, 'rtmp', 'rtmp_2037455934688763904', NULL, 1778850090000, 1778850127132, 'hxkj_zlm', '000000', '2026-05-15-21-01-30-0.mp4', 'C:/Users/29290/Desktop/zlm/windows/Release/www/record/rtmp/rtmp_2037455934688763904/', 'C:/Users/29290/Desktop/zlm/windows/Release/www/record/rtmp/rtmp_2037455934688763904/2026-05-15/2026-05-15-21-01-30-0.mp4', 0, 11040421, 37132.999420166016, '2026-05-15 21:01:59', '2026-05-15 21:01:59');
+INSERT INTO `zlm_cloud_record` VALUES (692, 'rtmp', 'rtmp_2037455934688763904', NULL, 1778854093000, 1778854311533, 'hxkj_zlm', '000000', '2026-05-15-22-08-13-0.mp4', 'C:/Users/29290/Desktop/zlm/windows/Release/www/record/rtmp/rtmp_2037455934688763904/', 'C:/Users/29290/Desktop/zlm/windows/Release/www/record/rtmp/rtmp_2037455934688763904/2026-05-15/2026-05-15-22-08-13-0.mp4', 0, 62118086, 218533.99658203125, '2026-05-15 22:11:43', '2026-05-15 22:11:43');
 
 -- ----------------------------
 -- Table structure for zlm_media_server
@@ -2434,7 +2681,7 @@ CREATE TABLE `zlm_media_server`  (
 -- ----------------------------
 -- Records of zlm_media_server
 -- ----------------------------
-INSERT INTO `zlm_media_server` VALUES ('hxkj_zlm', '192.168.1.200', '192.168.1.200', '192.168.1.200', '192.168.1.200', 8092, 443, 1935, 0, 10000, 554, 0, 0, 443, 0, NULL, 0, 443, 0, 1, 'hxkj_zlm', 'zlm', 1, '30500,40500', '30000,30500', 0, 1, 10, '', 3, '', '000000', 'ON', '2026-05-12 14:29:32.237', '2026-05-12 14:29:32.237');
+INSERT INTO `zlm_media_server` VALUES ('hxkj_zlm', '192.168.1.200', '192.168.1.200', '192.168.1.200', '192.168.1.200', 8092, 443, 1935, 0, 10000, 554, 0, 0, 443, 0, NULL, 0, 443, 0, 1, 'hxkj_zlm', 'zlm', 1, '30500,40500', '30000,30500', 0, 1, 10, '', 3, NULL, '000000', 'ON', '2026-05-15 23:34:51.679', '2026-05-15 23:34:51.679');
 
 -- ----------------------------
 -- Table structure for zlm_record_plan

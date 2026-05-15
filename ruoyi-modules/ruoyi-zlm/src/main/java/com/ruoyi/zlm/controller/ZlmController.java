@@ -946,6 +946,138 @@ public class ZlmController {
     }
 
     /**
+     * jt1078 回放
+     *
+     * @param request
+     * @param id 设备id
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return
+     */
+    @GetMapping("/startJt1078Playback/{id}")
+    public DeferredResult<R<StreamContent>> startJt1078Playback(
+            HttpServletRequest request,
+            @PathVariable Long id,
+            @RequestParam String startTime,
+            @RequestParam String endTime
+    ) {
+        log.info("[jt1078 开始回放] id={}, startTime={}, endTime={}", id, startTime, endTime);
+        Assert.notNull(id, "设备id");
+        Assert.notNull(startTime, "开始时间");
+        Assert.notNull(endTime, "结束时间");
+
+        R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (qsDevicer.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+
+        QsDevice qsDevice = qsDevicer.getData();
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            throw new RuntimeException("设备不在线 id:" + id);
+        }
+
+        // 通过手机号获取 JT1078 设备信息
+        R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(qsDevice.getJtMobileNo(), SecurityConstants.INNER);
+        if (deviceR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("jt1078 获取设备信息失败 mobileNo:" + qsDevice.getJtMobileNo());
+        }
+        Assert.notNull(deviceR.getData(), "jt1078 设备不存在 mobileNo:" + qsDevice.getJtMobileNo());
+
+        if (!deviceR.getData().getOnline()) {
+            throw new RuntimeException("jt1078 设备不在线 mobileNo:" + qsDevice.getJtMobileNo());
+        }
+
+        DeferredResult<R<StreamContent>> result = new DeferredResult<>(userSetting.getPlayTimeout().longValue());
+
+        result.onTimeout(() -> {
+            log.info("[jt1078 回放等待超时] deviceId：{}", id);
+            // 释放rtpserver
+            R<StreamContent> wvpResult = R.fail();
+            wvpResult.setMsg("回放超时");
+            result.setResult(wvpResult);
+
+            inviteStreamService.removeInviteInfoByDeviceAndChannel(InviteSessionType.PLAYBACK, qsDevice.getId());
+            mediaServerService.stopJt1078Play(InviteSessionType.PLAYBACK, qsDevice, deviceR.getData(), qsDevice.getJtMobileNo() + "_playback");
+        });
+
+        ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
+            if (code == InviteErrorCode.SUCCESS.getCode()) {
+                R<StreamContent> r = R.ok();
+                if (streamInfo != null) {
+                    if (userSetting.getUseSourceIpAsStreamIp()) {
+                        streamInfo = streamInfo.clone(); // 深拷贝
+                        String host;
+                        try {
+                            URL url = new URL(request.getRequestURL().toString());
+                            host = url.getHost();
+                        } catch (MalformedURLException e) {
+                            host = request.getLocalAddr();
+                        }
+                        streamInfo.changeStreamIp(host);
+                    }
+                    if (!ObjectUtils.isEmpty(streamInfo.getMediaServer().getTranscodeSuffix()) && !"null".equalsIgnoreCase(streamInfo.getMediaServer().getTranscodeSuffix())) {
+                        streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
+                    }
+                    r.setData(new StreamContent(streamInfo));
+                } else {
+                    r.setCode(code);
+                    r.setMsg(msg);
+                }
+
+                result.setResult(r);
+            } else {
+                result.setResult(R.fail(code, msg));
+            }
+        };
+
+        mediaServerService.startJt1078Playback(qsDevice, deviceR.getData(), startTime, endTime, callback);
+        return result;
+    }
+
+    /**
+     * jt1078 停止回放
+     *
+     * @param id 设备id
+     * @return
+     */
+    @GetMapping("/stopJt1078Playback/{id}")
+    public AjaxResult stopJt1078Playback(@PathVariable Long id) {
+        log.info("[jt1078 停止回放] id={}", id);
+        Assert.notNull(id, "设备id");
+
+        R<QsDevice> qsDevicer = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (qsDevicer.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("获取设备信息失败 id:" + id);
+        }
+        Assert.notNull(qsDevicer.getData(), "设备不存在 id:" + id);
+
+        QsDevice qsDevice = qsDevicer.getData();
+
+        if ("OFFLINE".equals(qsDevice.getDeviceStatus())) {
+            throw new RuntimeException("设备不在线 id:" + id);
+        }
+
+        // 通过手机号获取 JT1078 设备信息
+        R<Jt1078Device> deviceR = remoteJt1078Service.getDeviceByMobileNo(qsDevice.getJtMobileNo(), SecurityConstants.INNER);
+        if (deviceR.getCode() != Constants.SUCCESS) {
+            throw new RuntimeException("jt1078 获取设备信息失败 mobileNo:" + qsDevice.getJtMobileNo());
+        }
+        Assert.notNull(deviceR.getData(), "jt1078 设备不存在 mobileNo:" + qsDevice.getJtMobileNo());
+
+        if (!deviceR.getData().getOnline()) {
+            throw new RuntimeException("jt1078 设备不在线 mobileNo:" + qsDevice.getJtMobileNo());
+        }
+
+        mediaServerService.stopJt1078Play(InviteSessionType.PLAYBACK, qsDevice, deviceR.getData(), qsDevice.getDeviceCode() + "_playback");
+        JSONObject json = new JSONObject();
+        json.put("deviceId", id);
+        json.put("jtMobileNo", qsDevice.getJtMobileNo());
+        return AjaxResult.success(json);
+    }
+
+    /**
      * jt1078 播放
      *
      * @param request

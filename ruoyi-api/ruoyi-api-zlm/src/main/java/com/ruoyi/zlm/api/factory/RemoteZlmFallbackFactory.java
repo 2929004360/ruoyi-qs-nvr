@@ -4,6 +4,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import com.ruoyi.zlm.api.domain.Gb28181PlatformPlay;
+import com.ruoyi.zlm.api.domain.Gb28181PlatformPlayback;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +69,16 @@ public class RemoteZlmFallbackFactory implements FallbackFactory<RemoteZlmServic
             @Override
             public R<Void> gb28181PlatformPlay(Gb28181PlatformPlay platformPlay, String inner) {
                 return R.fail("zlm接口服务调用失败，gb28181PlatformPlay: " + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> gb28181PlatformPlayback(Gb28181PlatformPlayback platformPlayback, String inner) {
+                return R.fail("zlm接口服务调用失败，gb28181PlatformPlayback: " + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> stopPlayback(Long deviceId, String deviceType, String stream, String inner) {
+                return R.fail("zlm接口服务调用失败，stopPlayback: " + throwable.getMessage());
             }
         };
     }

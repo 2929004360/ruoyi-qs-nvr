@@ -6,6 +6,7 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.domain.Gb28181PlatformPlay;
+import com.ruoyi.zlm.api.domain.Gb28181PlatformPlayback;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import com.ruoyi.zlm.api.factory.RemoteZlmFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -100,4 +101,26 @@ public interface RemoteZlmService {
      */
     @PostMapping("/api/zlm/gb28181PlatformPlay")
     R<Void> gb28181PlatformPlay(@RequestBody Gb28181PlatformPlay platformPlay, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 处理上级平台回放
+     *
+     * @param platformPlayback
+     * @param inner
+     * @return
+     */
+    @PostMapping("/api/zlm/gb28181PlatformPlayback")
+    R<Void> gb28181PlatformPlayback(@RequestBody Gb28181PlatformPlayback platformPlayback, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 停止上级平台回放
+     *
+     * @param deviceId 设备ID
+     * @param deviceType 设备类型
+     * @param stream 流名称
+     * @param inner
+     * @return
+     */
+    @GetMapping("/api/zlm/stopPlayback")
+    R<Void> stopPlayback(@RequestParam Long deviceId, @RequestParam String deviceType, @RequestParam String stream, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

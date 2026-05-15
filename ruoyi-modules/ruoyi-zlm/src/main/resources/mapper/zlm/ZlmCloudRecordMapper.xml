@@ -53,6 +53,7 @@
             <if test="endTime != null ">and end_time &lt;= #{endTime}</if>
             <if test="mediaServerId != null  and mediaServerId != ''">and media_server_id = #{mediaServerId}</if>
         </where>
+        order by start_time desc
     </select>
 
     <select id="selectZlmCloudRecordById" parameterType="Long" resultMap="ZlmCloudRecordResult">

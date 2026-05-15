@@ -81,13 +81,23 @@ public class MessageRequestProcessor extends SIPRequestProcessorParent implement
         try {
             // 先查询是否是设备
             Device device = redisCatchStorage.getDevice(targetId);
-            if (device != null) {
-                String hostAddress = request.getRemoteAddress().getHostAddress();
-                int remotePort = request.getRemotePort();
-                if (!device.getHostAddress().equals(hostAddress + ":" + remotePort)) {
-                    device = null;
+            // 如果通过To头找不到设备，尝试通过From头查找（设备响应消息时，To头是平台ID）
+            if (device == null) {
+                String fromDeviceId = SipUtils.getUserIdFromFromHeader(evt.getRequest());
+                log.debug("[Message请求] 通过To头没找到设备，尝试通过From头查找: {}", fromDeviceId);
+                device = redisCatchStorage.getDevice(fromDeviceId);
+                if (device != null) {
+                    targetId = fromDeviceId;
                 }
             }
+            // 注释掉严格的hostAddress验证，因为在NAT环境或多端口设备上可能不匹配
+            // if (device != null) {
+            //     String hostAddress = request.getRemoteAddress().getHostAddress();
+            //     int remotePort = request.getRemotePort();
+            //     if (!device.getHostAddress().equals(hostAddress + ":" + remotePort)) {
+            //         device = null;
+            //     }
+            // }
 
             // 如果不是设备，查询是否是级联平台
             Gb28181Platform platform = null;

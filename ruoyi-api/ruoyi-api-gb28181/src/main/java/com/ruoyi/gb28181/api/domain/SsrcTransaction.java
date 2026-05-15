@@ -60,6 +60,16 @@ public class SsrcTransaction implements Serializable {
      */
     private InviteSessionType type;
 
+    /**
+     * QS设备ID（Long类型）
+     */
+    private Long qsDeviceId;
+
+    /**
+     * 设备接入类型
+     */
+    private String qsDeviceType;
+
     public static SsrcTransaction buildForDevice(String deviceId, String channelId, String callId, String app, String stream,
                                                  String ssrc, String mediaServerId, SIPResponse response, InviteSessionType type) {
         SsrcTransaction ssrcTransaction = new SsrcTransaction();
@@ -86,6 +96,24 @@ public class SsrcTransaction implements Serializable {
         ssrcTransaction.setSsrc(ssrc);
         ssrcTransaction.setSipTransactionInfo(new SipTransactionInfo(response));
         ssrcTransaction.setType(type);
+        return ssrcTransaction;
+    }
+
+    public static SsrcTransaction buildForPlatformWithQsDevice(String platformId, String channelId, String callId, String app, String stream,
+                                                               String ssrc, String mediaServerId, SIPResponse response, InviteSessionType type,
+                                                               Long qsDeviceId, String qsDeviceType) {
+        SsrcTransaction ssrcTransaction = new SsrcTransaction();
+        ssrcTransaction.setPlatformId(platformId);
+        ssrcTransaction.setChannelId(channelId);
+        ssrcTransaction.setCallId(callId);
+        ssrcTransaction.setStream(stream);
+        ssrcTransaction.setApp(app);
+        ssrcTransaction.setMediaServerId(mediaServerId);
+        ssrcTransaction.setSsrc(ssrc);
+        ssrcTransaction.setSipTransactionInfo(new SipTransactionInfo(response));
+        ssrcTransaction.setType(type);
+        ssrcTransaction.setQsDeviceId(qsDeviceId);
+        ssrcTransaction.setQsDeviceType(qsDeviceType);
         return ssrcTransaction;
     }
 

@@ -206,6 +206,30 @@ public interface IMediaServerService {
     void loadRecord(Long id, ErrorCallback<StreamInfo> callback);
 
     /**
+     * 加载文件形成播放地址
+     *
+     * @param id         设备id
+     * @param isPlayback 是否是回放
+     * @param callback   回调
+     * @return
+     */
+    void loadRecord(Long id, boolean isPlayback, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * 加载云端录像文件形成播放地址
+     *
+     * @param mediaServer  媒体服务器
+     * @param app         应用名
+     * @param stream      流id
+     * @param deviceId    设备id
+     * @param videoPath   视频文件路径
+     * @param isPlayback  是否是回放
+     * @param callback    回调
+     * @return
+     */
+    void loadCloudRecord(ZlmMediaServer mediaServer, String app, String stream, Long deviceId, String videoPath, boolean isPlayback, ErrorCallback<StreamInfo> callback);
+
+    /**
      * 关闭流文件形成播放地址
      *
      * @param id 设备id
@@ -383,6 +407,17 @@ public interface IMediaServerService {
      * @param callback
      */
     void startJt1078Play(QsDevice qsDevice, Jt1078Device jt1078Device, ErrorCallback<StreamInfo> callback);
+
+    /**
+     * jt1078 回放
+     *
+     * @param qsDevice
+     * @param jt1078Device
+     * @param startTime
+     * @param endTime
+     * @param callback
+     */
+    void startJt1078Playback(QsDevice qsDevice, Jt1078Device jt1078Device, String startTime, String endTime, ErrorCallback<StreamInfo> callback);
 
     /**
      * jt1078 停止点播

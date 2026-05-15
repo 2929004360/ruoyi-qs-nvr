@@ -1,5 +1,6 @@
 package com.ruoyi.gb28181.service;
 
+import com.ruoyi.gb28181.api.bean.RecordInfo;
 import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import com.ruoyi.qs.api.domain.SimpleDeviceInfo;
 
@@ -60,4 +61,9 @@ public interface IPlatformSIPCommander {
      * 处理REGISTER响应
      */
     void handleRegisterResponse(Response response, String localIp);
+
+    /**
+     * 发送录像信息
+     */
+    void sendRecordInfo(Gb28181Platform platform, RecordInfo recordInfo, int sn) throws SipException, InvalidArgumentException, ParseException;
 }

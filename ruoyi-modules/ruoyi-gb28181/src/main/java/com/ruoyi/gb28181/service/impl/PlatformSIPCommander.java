@@ -1,6 +1,9 @@
 package com.ruoyi.gb28181.service.impl;
 
+import com.ruoyi.gb28181.api.bean.RecordInfo;
+import com.ruoyi.gb28181.api.bean.RecordItem;
 import com.ruoyi.gb28181.api.domain.Gb28181Platform;
+import com.ruoyi.gb28181.api.utils.DateUtil;
 import com.ruoyi.gb28181.api.utils.SipUtils;
 import com.ruoyi.gb28181.auth.DigestClientAuthenticationHelper;
 import com.ruoyi.gb28181.config.SipConfig;
@@ -853,6 +856,67 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
 
         sendMessage(platform, content.toString());
         log.info("[平台级联] 发送设备状态到平台: {}, SN: {}", platform.getName(), sn);
+    }
+
+    @Override
+    public void sendRecordInfo(Gb28181Platform platform, RecordInfo recordInfo, int sn) throws SipException, InvalidArgumentException, ParseException {
+        String charset = ObjectUtils.isEmpty(platform.getCharacterSet()) ? "GB2312" : platform.getCharacterSet();
+        StringBuffer content = new StringBuffer();
+
+        content.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        content.append("<Response>\r\n");
+        content.append("<CmdType>RecordInfo</CmdType>\r\n");
+        content.append("<SN>" + sn + "</SN>\r\n");
+        content.append("<DeviceID>" + (recordInfo.getChannelId() != null ? recordInfo.getChannelId() : platform.getDeviceGbId()) + "</DeviceID>\r\n");
+        
+        if (recordInfo.getName() != null) {
+            content.append("<Name>" + recordInfo.getName() + "</Name>\r\n");
+        }
+        
+        int sumNum = recordInfo.getRecordList() != null ? recordInfo.getRecordList().size() : 0;
+        content.append("<SumNum>" + sumNum + "</SumNum>\r\n");
+        
+        if (recordInfo.getRecordList() != null && !recordInfo.getRecordList().isEmpty()) {
+            content.append("<RecordList>\r\n");
+            for (RecordItem item : recordInfo.getRecordList()) {
+                content.append("<Item>\r\n");
+                if (item.getDeviceId() != null) {
+                    content.append("<DeviceID>" + item.getDeviceId() + "</DeviceID>\r\n");
+                }
+                if (item.getName() != null) {
+                    content.append("<Name>" + item.getName() + "</Name>\r\n");
+                }
+                if (item.getFilePath() != null) {
+                    content.append("<FilePath>" + item.getFilePath() + "</FilePath>\r\n");
+                }
+                if (item.getFileSize() != null) {
+                    content.append("<FileSize>" + item.getFileSize() + "</FileSize>\r\n");
+                }
+                if (item.getAddress() != null) {
+                    content.append("<Address>" + item.getAddress() + "</Address>\r\n");
+                }
+                if (item.getStartTime() != null) {
+                    content.append("<StartTime>" + DateUtil.yyyy_MM_dd_HH_mm_ssToISO8601(item.getStartTime()) + "</StartTime>\r\n");
+                }
+                if (item.getEndTime() != null) {
+                    content.append("<EndTime>" + DateUtil.yyyy_MM_dd_HH_mm_ssToISO8601(item.getEndTime()) + "</EndTime>\r\n");
+                }
+                content.append("<Secrecy>" + item.getSecrecy() + "</Secrecy>\r\n");
+                if (item.getType() != null) {
+                    content.append("<Type>" + item.getType() + "</Type>\r\n");
+                }
+                if (item.getRecorderId() != null) {
+                    content.append("<RecorderID>" + item.getRecorderId() + "</RecorderID>\r\n");
+                }
+                content.append("</Item>\r\n");
+            }
+            content.append("</RecordList>\r\n");
+        }
+
+        content.append("</Response>\r\n");
+
+        sendMessage(platform, content.toString());
+        log.info("[平台级联] 发送录像信息到平台: {}, SN: {}, 录像数: {}", platform.getName(), sn, sumNum);
     }
 
     /**

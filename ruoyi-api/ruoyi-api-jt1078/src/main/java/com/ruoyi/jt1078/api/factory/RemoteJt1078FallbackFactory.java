@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -71,6 +73,21 @@ public class RemoteJt1078FallbackFactory implements FallbackFactory<RemoteJt1078
             @Override
             public R<Void> ptzZoom(String mobileNo, int channelNo, int direction, int speed, String inner) {
                 return R.fail("jt1078云台变倍控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<ArrayList<HashMap<String, Object>>> queryRecord(String mobileNo, int channelNo, String startTime, String endTime, String inner) {
+                return R.fail("jt1078查询录像文件列表失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> playback(RtpServerParam rtpServer, String startTime, String endTime, int playbackMode, int playbackSpeed, String inner) {
+                return R.fail("jt1078远程录像回放失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Void> playbackControl(String mobileNo, int channelNo, int playbackMode, int playbackSpeed, String playbackTime, String inner) {
+                return R.fail("jt1078录像回放控制失败:" + throwable.getMessage());
             }
         };
     }

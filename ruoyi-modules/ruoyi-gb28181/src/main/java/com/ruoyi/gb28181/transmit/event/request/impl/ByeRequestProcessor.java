@@ -1,14 +1,26 @@
 package com.ruoyi.gb28181.transmit.event.request.impl;
 
+import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.common.core.enums.LiveStreamType;
+import com.ruoyi.dahua.api.RemoteDaHuaService;
+import com.ruoyi.gb28181.api.common.InviteSessionType;
 import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.gb28181.session.SipInviteSessionManager;
 import com.ruoyi.gb28181.transmit.ISIPProcessorObserver;
 import com.ruoyi.gb28181.transmit.SIPSender;
 import com.ruoyi.gb28181.transmit.event.request.ISIPRequestProcessor;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
+import com.ruoyi.haikang.api.RemoteHaiKangService;
+import com.ruoyi.haikang.isup.api.RemoteHaiKangIsupService;
+import com.ruoyi.onvif.api.RemoteOnvifService;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.zlm.api.RemoteZlmCloudRecordService;
 import com.ruoyi.zlm.api.RemoteZlmService;
+import com.ruoyi.zlm.api.domain.ZlmCloudRecord;
 import gov.nist.javax.sip.message.SIPRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
@@ -19,6 +31,7 @@ import javax.sip.RequestEvent;
 import javax.sip.header.CallIdHeader;
 import javax.sip.message.Response;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -38,6 +51,24 @@ public class ByeRequestProcessor extends SIPRequestProcessorParent implements In
 
     @Autowired
     private RemoteZlmService remoteZlmService;
+
+    @Autowired
+    private RemoteHaiKangService remoteHaiKangService;
+
+    @Autowired
+    private RemoteHaiKangIsupService remoteHaiKangIsupService;
+
+    @Autowired
+    private RemoteDaHuaService remoteDaHuaService;
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
+
+    @Autowired
+    private RemoteZlmCloudRecordService remoteZlmCloudRecordService;
+
+    @Autowired
+    private RemoteOnvifService remoteOnvifService;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -62,14 +93,23 @@ public class ByeRequestProcessor extends SIPRequestProcessorParent implements In
                 String sessionType = (ssrcTransaction.getPlatformId() != null) ? "平台级联" : "设备点播";
                 String deviceId = (ssrcTransaction.getPlatformId() != null) ? ssrcTransaction.getPlatformId() : ssrcTransaction.getDeviceId();
                 
-                log.info("[BYE 清理资源] 类型: {}, 设备ID: {}, 通道ID: {}, app: {}, stream: {}, ssrc: {}, 媒体服务器: {}", 
+                log.info("[BYE清理资源] 类型: {}, 设备ID: {}, 通道ID: {}, app: {}, stream: {}, ssrc: {}, 媒体服务器: {}, 会话类型: {}, 设备类型: {}", 
                         sessionType,
                         deviceId, 
                         ssrcTransaction.getChannelId(), 
                         ssrcTransaction.getApp(), 
                         ssrcTransaction.getStream(), 
                         ssrcTransaction.getSsrc(),
-                        ssrcTransaction.getMediaServerId());
+                        ssrcTransaction.getMediaServerId(),
+                        ssrcTransaction.getType(),
+                        ssrcTransaction.getQsDeviceType());
+
+                // 如果是回放并且有qsDevice信息，先停止设备回放
+                if (ssrcTransaction.getQsDeviceId() != null && 
+                    ssrcTransaction.getType() == InviteSessionType.PLAYBACK &&
+                    ssrcTransaction.getQsDeviceType() != null) {
+                    stopDevicePlayback(ssrcTransaction);
+                }
 
                 // 对于平台级联会话，先调用stopSendRtp停止发送RTP流
                 if (ssrcTransaction.getPlatformId() != null) {
@@ -122,6 +162,33 @@ public class ByeRequestProcessor extends SIPRequestProcessorParent implements In
             }
         } catch (Exception e) {
             log.error("[BYE 处理异常] callId: {}, error: ", callId, e);
+        }
+    }
+
+    /**
+     * 停止设备回放
+     */
+    private void stopDevicePlayback(SsrcTransaction ssrcTransaction) {
+        try {
+            String deviceType = ssrcTransaction.getQsDeviceType();
+            Long deviceId = ssrcTransaction.getQsDeviceId();
+            String stream = ssrcTransaction.getStream();
+            
+            log.info("[停止设备回放] 设备ID: {}, 设备类型: {}, 流名称: {}", deviceId, deviceType, stream);
+            
+            if (deviceType == null || deviceId == null || stream == null) {
+                log.warn("[停止设备回放] 设备类型、设备ID或流名称为空，跳过");
+                return;
+            }
+
+            R<Void> result = remoteZlmService.stopPlayback(deviceId, deviceType, stream, SecurityConstants.INNER);
+            if (result.getCode() == Constants.SUCCESS) {
+                log.info("[停止设备回放成功] deviceId: {}, deviceType: {}", deviceId, deviceType);
+            } else {
+                log.warn("[停止设备回放失败] deviceId: {}, deviceType: {}, code: {}, msg: {}", deviceId, deviceType, result.getCode(), result.getMsg());
+            }
+        } catch (Exception e) {
+            log.error("[停止设备回放异常] error: ", e);
         }
     }
 }

@@ -22,6 +22,7 @@ import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.zlm.api.RemoteZlmService;
 import com.ruoyi.zlm.api.domain.Gb28181PlatformPlay;
+import com.ruoyi.zlm.api.domain.Gb28181PlatformPlayback;
 import com.ruoyi.zlm.api.domain.ZlmMediaServer;
 import gov.nist.javax.sip.message.SIPRequest;
 import gov.nist.javax.sip.message.SIPResponse;
@@ -177,7 +178,18 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
             }
 
             if (platform != null) {
-                log.info("[来自上级平台的点播] platform: {}, channelId: {}, toDeviceId: {}", platform.getName(), channelId, toDeviceId);
+                log.info("[来自上级平台的点播/回放] platform: {}, channelId: {}, toDeviceId: {}", platform.getName(), channelId, toDeviceId);
+
+                // 解析 SDP，判断是播放还是回放，并提取时间范围
+                String sdpStr = new String(request.getRawContent());
+                boolean isPlayback = isPlaybackRequest(sdpStr);
+                Long playbackStartTime = null;
+                Long playbackEndTime = null;
+                if (isPlayback) {
+                    playbackStartTime = extractPlaybackStartTime(sdpStr);
+                    playbackEndTime = extractPlaybackEndTime(sdpStr);
+                    log.info("[来自上级平台的回放请求] startTime: {}, endTime: {}", playbackStartTime, playbackEndTime);
+                }
 
                 QsDevice qsDevice = null;
 
@@ -236,7 +248,11 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
 
                 // 使用 channelId 作为最终的设备 ID（如果是通道的话）
                 String finalDeviceId = channelId;
-                handlePlatformInvite(request, platform, qsDevice, finalDeviceId);
+                if (isPlayback) {
+                    handlePlatformPlayback(request, platform, qsDevice, finalDeviceId, playbackStartTime, playbackEndTime);
+                } else {
+                    handlePlatformInvite(request, platform, qsDevice, finalDeviceId);
+                }
                 return;
             }
 
@@ -296,7 +312,7 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
 
             // 创建会话记录
             String callId = request.getCallIdHeader().getCallId();
-            SsrcTransaction ssrcTransaction = SsrcTransaction.buildForPlatform(
+            SsrcTransaction ssrcTransaction = SsrcTransaction.buildForPlatformWithQsDevice(
                     platform.getDeviceGbId(),
                     toDeviceId,
                     callId,
@@ -305,7 +321,9 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
                     ssrc,
                     zlmMediaServer.getId(),
                     (SIPResponse) okResponse,
-                    InviteSessionType.PLAY);
+                    InviteSessionType.PLAY,
+                    qsDevice.getId(),
+                    qsDevice.getType());
             sessionManager.put(ssrcTransaction);
 
             log.info("[会话记录已创建] callId: {}, streamId: {}, ssrc: {}, 媒体服务器: {}", 
@@ -341,13 +359,235 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
         }
     }
 
+    /**
+     * 处理上级平台回放请求
+     */
+    private void handlePlatformPlayback(SIPRequest request, Gb28181Platform platform, QsDevice qsDevice, String toDeviceId, Long startTime, Long endTime) {
+        try {
+            log.info("[开始处理上级平台回放] 平台: {}, 设备: {}, 通道ID: {}, startTime: {}, endTime: {}", 
+                    platform.getName(), qsDevice.getDeviceName(), toDeviceId, startTime, endTime);
+
+            RemoteAddressInfo remoteAddressInfo = SipUtils.getRemoteAddressFromRequest(request,
+                    userSetting.getSipUseSourceIpAsRemoteAddress());
+            String dstUrl = remoteAddressInfo.getIp();
+
+            // 从 SDP 中提取 m=video 端口号和传输协议
+            String sdpStr = new String(request.getRawContent());
+            SdpVideoInfo videoInfo = extractVideoInfoFromSdp(sdpStr);
+            int dstPort = videoInfo.getPort();
+            int isUdp = videoInfo.getIsUdp();
+
+            log.info("[上级平台接收地址] IP: {}, 端口: {}, isUdp: {}", dstUrl, dstPort, isUdp);
+
+            Gb28181Sdp gb28181Sdp = SipUtils.parseSDP(sdpStr);
+            String ssrc = gb28181Sdp.getSsrc();
+
+            log.info("[SDP解析] ssrc: {}", ssrc);
+
+            // 获取默认媒体服务器
+            R<ZlmMediaServer> zlmMediaServerResult = remoteZlmService.getDefaultMediaServer(SecurityConstants.INNER);
+            if (zlmMediaServerResult.getCode() != Constants.SUCCESS || zlmMediaServerResult.getData() == null) {
+                log.error("[媒体服务器获取失败] 无法获取默认媒体服务器");
+                Response serverErrorResponse = getMessageFactory().createResponse(Response.SERVER_INTERNAL_ERROR, request);
+                sipSender.transmitRequest(request.getLocalAddress().getHostAddress(), serverErrorResponse);
+                return;
+            }
+
+            ZlmMediaServer zlmMediaServer = zlmMediaServerResult.getData();
+            log.info("[媒体服务器已获取] ID: {}, IP: {}, HTTP端口: {}, RTSP端口: {}, RTMP端口: {}", 
+                    zlmMediaServer.getId(), zlmMediaServer.getIp(), 
+                    zlmMediaServer.getHttpPort(), zlmMediaServer.getRtspPort(), zlmMediaServer.getRtmpPort());
+
+            String streamId = "gb-cascade-playback-" + streamIdCounter.incrementAndGet();
+            Response okResponse = getMessageFactory().createResponse(Response.OK, request);
+
+            String replySdp = buildReplySdp(zlmMediaServer, streamId, ssrc, startTime, endTime);
+            okResponse.setContent(replySdp, getHeaderFactory().createContentTypeHeader("application", "sdp"));
+
+            log.info("[回复200 OK] streamId: {}, ssrc: {}, sdp: {}", streamId, ssrc, replySdp);
+            sipSender.transmitRequest(request.getLocalAddress().getHostAddress(), okResponse);
+
+            // 创建会话记录
+            String callId = request.getCallIdHeader().getCallId();
+            SsrcTransaction ssrcTransaction = SsrcTransaction.buildForPlatformWithQsDevice(
+                    platform.getDeviceGbId(),
+                    toDeviceId,
+                    callId,
+                    "playback",
+                    streamId,
+                    ssrc,
+                    zlmMediaServer.getId(),
+                    (SIPResponse) okResponse,
+                    InviteSessionType.PLAYBACK,
+                    qsDevice.getId(),
+                    qsDevice.getType());
+            sessionManager.put(ssrcTransaction);
+
+            log.info("[会话记录已创建] callId: {}, streamId: {}, ssrc: {}, 媒体服务器: {}", 
+                    callId, streamId, ssrc, zlmMediaServer.getId());
+
+            // 解析通道ID获取通道号
+            Integer channel = null;
+            // 如果通道ID是20位的国标ID，尝试从后8位提取通道号
+            if (toDeviceId != null && toDeviceId.length() == 20) {
+                try {
+                    // 尝试从最后8位提取通道号
+                    String channelPart = toDeviceId.substring(12);
+                    channel = Integer.parseInt(channelPart);
+                    log.info("[通道号解析] 从国标ID中提取通道号: {}", channel);
+                } catch (Exception e) {
+                    log.warn("[通道号解析失败] 使用设备默认通道: {}", qsDevice.getChannel());
+                }
+            }
+            // 如果没提取到通道号，使用设备的默认通道
+            if (channel == null) {
+                channel = qsDevice.getChannel();
+                log.info("[通道号] 使用设备默认通道: {}", channel);
+            }
+
+            // 构建上级平台回放请求
+            Gb28181PlatformPlayback platformPlayback = new Gb28181PlatformPlayback();
+            platformPlayback.setQsDevice(qsDevice);
+            platformPlayback.setPlatformDeviceGbId(platform.getDeviceGbId());
+            platformPlayback.setDstUrl(dstUrl);
+            platformPlayback.setDstPort(dstPort);
+            platformPlayback.setSsrc(ssrc);
+            platformPlayback.setStreamId(streamId);
+            platformPlayback.setIsUdp(isUdp);
+            platformPlayback.setRtcp(platform.getRtcp());
+            platformPlayback.setStartTime(startTime);
+            platformPlayback.setEndTime(endTime);
+
+            // 调用zlm模块处理上级平台回放
+            log.info("[请求ZLM开始回放推流] 平台ID: {}, 设备: {}, 流ID: {}, ssrc: {}, 目标: {}:{}, 通道: {}", 
+                    platform.getDeviceGbId(), qsDevice.getDeviceName(), streamId, ssrc, dstUrl, dstPort, channel);
+            
+            R<Void> playbackResult = remoteZlmService.gb28181PlatformPlayback(platformPlayback, SecurityConstants.INNER);
+
+            if (playbackResult.getCode() == Constants.SUCCESS) {
+                log.info("[ZLM回放推流请求成功] streamId: {}", streamId);
+            } else {
+                log.error("[ZLM回放推流请求失败] streamId: {}, code: {}, msg: {}", 
+                        streamId, playbackResult.getCode(), playbackResult.getMsg());
+            }
+
+        } catch (Exception e) {
+            log.error("[处理平台回放请求异常] 平台: {}, 设备: {}, error: ", 
+                    platform.getName(), qsDevice.getDeviceName(), e);
+        }
+    }
+
+    /**
+     * 判断是回放请求还是播放请求
+     * @param sdpStr SDP字符串
+     * @return true表示回放，false表示播放
+     */
+    private boolean isPlaybackRequest(String sdpStr) {
+        try {
+            String[] lines = sdpStr.split("\r\n|\n|\r");
+            for (String line : lines) {
+                if (line.startsWith("t=")) {
+                    // 格式：t=1777266297 1777266322 或 t=0 0
+                    // GB28181标准中t=字段通常是秒级时间戳
+                    String[] parts = line.substring(2).split(" ");
+                    if (parts.length >= 2) {
+                        long startTime = parseTimestamp(parts[0]);
+                        long endTime = parseTimestamp(parts[1]);
+                        if (startTime != 0 || endTime != 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[判断回放请求失败] error: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * 从 SDP 中提取回放开始时间（毫秒）
+     * @param sdpStr SDP字符串
+     * @return 开始时间（毫秒）
+     */
+    private Long extractPlaybackStartTime(String sdpStr) {
+        try {
+            String[] lines = sdpStr.split("\r\n|\n|\r");
+            for (String line : lines) {
+                if (line.startsWith("t=")) {
+                    String[] parts = line.substring(2).split(" ");
+                    if (parts.length >= 1) {
+                        return parseTimestamp(parts[0]);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[提取回放开始时间失败] error: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * 从 SDP 中提取回放结束时间（毫秒）
+     * @param sdpStr SDP字符串
+     * @return 结束时间（毫秒）
+     */
+    private Long extractPlaybackEndTime(String sdpStr) {
+        try {
+            String[] lines = sdpStr.split("\r\n|\n|\r");
+            for (String line : lines) {
+                if (line.startsWith("t=")) {
+                    String[] parts = line.substring(2).split(" ");
+                    if (parts.length >= 2) {
+                        return parseTimestamp(parts[1]);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[提取回放结束时间失败] error: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * 解析时间戳，自动判断是秒还是毫秒
+     * @param timestampStr 时间戳字符串
+     * @return 毫秒级时间戳
+     */
+    private long parseTimestamp(String timestampStr) {
+        long timestamp = Long.parseLong(timestampStr);
+        // 判断是否是秒级时间戳（小于当前时间的秒级表示）
+        // 当前时间的秒级时间戳大概在1.7e9左右，毫秒级在1.7e12左右
+        if (timestamp < 2000000000L) {
+            // 秒级时间戳，转换为毫秒
+            return timestamp * 1000L;
+        }
+        // 已经是毫秒级时间戳
+        return timestamp;
+    }
+
     private String buildReplySdp(ZlmMediaServer mediaServer, String streamId, String ssrc) {
+        return buildReplySdp(mediaServer, streamId, ssrc, null, null);
+    }
+    
+    private String buildReplySdp(ZlmMediaServer mediaServer, String streamId, String ssrc, Long startTime, Long endTime) {
         StringBuilder sdp = new StringBuilder();
         sdp.append("v=0\r\n");
         sdp.append("o=- 0 0 IN IP4 ").append(mediaServer.getIp()).append("\r\n");
-        sdp.append("s=Play\r\n");
+        if (startTime != null && endTime != null) {
+            sdp.append("s=Playback\r\n");
+        } else {
+            sdp.append("s=Play\r\n");
+        }
         sdp.append("c=IN IP4 ").append(mediaServer.getIp()).append("\r\n");
-        sdp.append("t=0 0\r\n");
+        if (startTime != null && endTime != null) {
+            // 回复时使用秒级时间戳（GB28181标准）
+            long replyStartTime = startTime / 1000L;
+            long replyEndTime = endTime / 1000L;
+            sdp.append("t=").append(replyStartTime).append(" ").append(replyEndTime).append("\r\n");
+        } else {
+            sdp.append("t=0 0\r\n");
+        }
         sdp.append("m=video 0 RTP/AVP 96\r\n");
         sdp.append("a=sendonly\r\n");
         sdp.append("y=").append(ssrc).append("\r\n");

@@ -64,4 +64,23 @@ public class OnvifController {
                                    @RequestParam String endTime) {
         return R.ok(onvifService.queryRecord(deviceIp, username, password, startTime, endTime));
     }
+
+    /**
+     * 获取回放地址
+     *
+     * @param deviceIp  设备IP
+     * @param username  用户名
+     * @param password  密码
+     * @param recordingToken 录制令牌
+     * @param trackToken 轨道令牌
+     * @return 回放地址
+     */
+    @GetMapping("/getReplayUri")
+    public R<String> getReplayUri(@RequestParam String deviceIp,
+                                    @RequestParam String username,
+                                    @RequestParam String password,
+                                    @RequestParam String recordingToken,
+                                    @RequestParam(required = false) String trackToken) {
+        return R.ok(onvifService.getReplayUri(deviceIp, username, password, recordingToken, trackToken));
+    }
 }
