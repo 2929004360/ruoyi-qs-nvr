@@ -2,7 +2,7 @@ package com.ruoyi.qs.service.impl;
 
 import com.ruoyi.common.core.utils.DateUtils;
 import com.ruoyi.qs.api.domain.QsRegion;
-import com.ruoyi.qs.domain.QsRegionTree;
+import com.ruoyi.qs.api.domain.QsRegionTree;
 import com.ruoyi.qs.mapper.QsRegionMapper;
 import com.ruoyi.qs.service.IQsDeviceService;
 import com.ruoyi.qs.service.IQsRegionService;
@@ -182,5 +182,16 @@ public class QsRegionServiceImpl implements IQsRegionService {
             }
         }
         return regions;
+    }
+
+    /**
+     * 查询所有区域
+     *
+     * @param query 查询条件
+     * @return
+     */
+    @Override
+    public List<QsRegionTree> queryAllRegions(String query) {
+        return qsRegionMapper.queryAllRegions(query);
     }
 }

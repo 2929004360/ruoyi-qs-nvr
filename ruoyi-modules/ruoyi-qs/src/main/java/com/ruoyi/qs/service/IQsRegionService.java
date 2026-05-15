@@ -1,7 +1,7 @@
 package com.ruoyi.qs.service;
 
 import com.ruoyi.qs.api.domain.QsRegion;
-import com.ruoyi.qs.domain.QsRegionTree;
+import com.ruoyi.qs.api.domain.QsRegionTree;
 
 import java.util.List;
 
@@ -66,4 +66,12 @@ public interface IQsRegionService {
      * @return
      */
     List<QsRegion> getAllChild(String parent);
+
+    /**
+     * 查询所有区域
+     *
+     * @param query 查询条件
+     * @return
+     */
+    List<QsRegionTree> queryAllRegions(String query);
 }

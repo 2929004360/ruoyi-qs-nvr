@@ -1,2 +1,3 @@
 com.ruoyi.qs.api.factory.RemoteQsDeviceFallbackFactory
 com.ruoyi.qs.api.factory.RemoteQsGroupFallbackFactory
+com.ruoyi.qs.api.factory.RemoteQsRegionFallbackFactory

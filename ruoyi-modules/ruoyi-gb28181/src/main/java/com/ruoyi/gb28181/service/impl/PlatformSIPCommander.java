@@ -28,8 +28,14 @@ import javax.sip.message.Request;
 import javax.sip.message.Response;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -310,6 +316,7 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
 
     @Override
     public void sendCatalog(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, int sn) throws SipException, InvalidArgumentException, ParseException {
+        log.info("[平台级联] sendCatalog 被调用，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
         String charset = ObjectUtils.isEmpty(platform.getCharacterSet()) ? "GB2312" : platform.getCharacterSet();
         StringBuffer content = new StringBuffer();
 
@@ -319,13 +326,23 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         content.append("<SN>" + sn + "</SN>\r\n");
         content.append("<DeviceID>" + platform.getDeviceGbId() + "</DeviceID>\r\n");
 
-        // 根据 catalogWithGroup 开关决定是否推送分组目录
-        if (platform.getCatalogWithGroup() != null && platform.getCatalogWithGroup() == 1) {
-            // 启用分组目录推送
+        boolean withRegion = platform.getCatalogWithRegion() != null && platform.getCatalogWithRegion() == 1;
+        boolean withGroup = platform.getCatalogWithGroup() != null && platform.getCatalogWithGroup() == 1;
+
+        if (withRegion && withGroup) {
+            // 同时启用区域和分组目录推送
+            log.info("[平台级联] 平台 {} 同时启用区域和分组目录推送", platform.getName());
+            sendCatalogWithRegionAndGroup(platform, deviceList, content);
+        } else if (withRegion) {
+            // 仅启用区域目录推送
+            log.info("[平台级联] 平台 {} 启用区域目录推送", platform.getName());
+            sendCatalogWithRegion(platform, deviceList, content);
+        } else if (withGroup) {
+            // 仅启用分组目录推送
             log.info("[平台级联] 平台 {} 启用分组目录推送", platform.getName());
             sendCatalogWithGroup(platform, deviceList, content);
         } else {
-            // 不启用分组目录推送，只推送设备
+            // 不启用分组/区域目录推送，只推送设备
             sendCatalogOnlyDevices(platform, deviceList, content);
         }
 
@@ -406,7 +423,9 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         // 添加分组项（所有分组）
         if (groupList != null) {
             log.info("[平台级联] 开始推分组，分组数量: {}, 平台DeviceGbId={}", groupList.size(), platform.getDeviceGbId());
-            for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+            // 按层级排序分组，确保父分组在子分组之前推送
+            List<com.ruoyi.qs.api.domain.QsGroupTree> sortedGroupList = sortGroupsByHierarchy(groupList);
+            for (com.ruoyi.qs.api.domain.QsGroupTree group : sortedGroupList) {
                 if (group.getDeviceId() != null) {
                     // 如果 parentDeviceId 为空，但 parentId 不为空，根据 parentId 查找对应的 deviceId
                     if (ObjectUtils.isEmpty(group.getParentDeviceId()) && group.getParentId() != null) {
@@ -426,6 +445,7 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         }
 
         // 添加设备项
+        log.info("[平台级联] 开始处理设备(分组模式)，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
         if (deviceList != null) {
             // 先收集所有被推送的分组 DeviceID，用于校验设备的 ParentID
             java.util.Set<String> pushedGroupIds = new java.util.HashSet<>();
@@ -436,13 +456,14 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
                     }
                 }
             }
+            log.info("[平台级联] 已推送的分组ID列表={}", pushedGroupIds);
             
             for (SimpleDeviceInfo device : deviceList) {
                 String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
                 if (!ObjectUtils.isEmpty(deviceId)) {
                     String parentId = ObjectUtils.isEmpty(device.getGbParentId()) ? platform.getDeviceGbId() : device.getGbParentId();
-                    // 检查 parentId 是否有效：如果是数据库 ID（纯数字且长度<10）或者指向未被推送的分组，则使用平台 deviceGbId
-                    if (parentId != null && (parentId.matches("^\\d+$") && parentId.length() < 10 || !pushedGroupIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId()))) {
+                    // 检查 parentId 是否有效：如果 parentId 不在 pushedGroupIds 中，且不是平台 deviceId，才使用默认
+                    if (parentId != null && !pushedGroupIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId())) {
                         log.warn("[平台级联] 设备 {} 的 ParentID {} 无效，使用默认 ParentID {}", deviceId, parentId, platform.getDeviceGbId());
                         parentId = platform.getDeviceGbId();
                     }
@@ -480,17 +501,324 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
     }
 
     /**
+     * 推送包含区域的目录
+     */
+    private void sendCatalogWithRegion(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, StringBuffer content) {
+        log.info("[平台级联] sendCatalogWithRegion 被调用，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
+        // 获取所有区域
+        List<com.ruoyi.qs.api.domain.QsRegionTree> regionList = null;
+        try {
+            regionList = platformCascadeTaskManager.getRegionTreeList();
+        } catch (Exception e) {
+            log.error("[平台级联] 获取区域树失败", e);
+        }
+        log.info("[平台级联] 获取到的 regionList={}", regionList);
+
+        // 构建 id 到 deviceId 的映射表
+        java.util.Map<Integer, String> idToDeviceIdMap = new java.util.HashMap<>();
+        if (regionList != null) {
+            for (com.ruoyi.qs.api.domain.QsRegionTree region : regionList) {
+                if (region.getDeviceId() != null) {
+                    idToDeviceIdMap.put(region.getId(), region.getDeviceId());
+                }
+            }
+        }
+        log.info("[平台级联] idToDeviceIdMap={}", idToDeviceIdMap);
+
+        // 统计总数
+        int regionCount = regionList != null ? regionList.size() : 0;
+        int deviceCount = 0;
+        if (deviceList != null) {
+            for (SimpleDeviceInfo device : deviceList) {
+                String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+                if (!ObjectUtils.isEmpty(deviceId)) {
+                    deviceCount++;
+                }
+            }
+        }
+        int totalCount = regionCount + deviceCount;
+
+        content.append("<SumNum>" + totalCount + "</SumNum>\r\n");
+        content.append("<DeviceList Num=\"" + totalCount + "\">\r\n");
+
+        // 添加区域项（所有区域）
+        if (regionList != null) {
+            log.info("[平台级联] 开始推区域，区域数量: {}, 平台DeviceGbId={}", regionList.size(), platform.getDeviceGbId());
+            // 按层级排序区域，确保父区域在子区域之前推送
+            List<com.ruoyi.qs.api.domain.QsRegionTree> sortedRegionList = sortRegionsByHierarchy(regionList);
+            for (com.ruoyi.qs.api.domain.QsRegionTree region : sortedRegionList) {
+                if (region.getDeviceId() != null) {
+                    // 确保父区域的 deviceId 存在
+                    ensureParentRegionDeviceId(region, idToDeviceIdMap);
+                    log.info("[平台级联] 推区域: DeviceId={}, Name={}, ParentDeviceId={}",
+                        region.getDeviceId(), region.getName(), region.getParentDeviceId());
+                    appendRegionItem(content, region, platform.getDeviceGbId());
+                }
+            }
+        }
+
+        // 添加设备项
+        if (deviceList != null) {
+            // 先收集所有被推送的区域 DeviceID，用于校验设备的 ParentID
+            java.util.Set<String> pushedRegionIds = new java.util.HashSet<>();
+            if (regionList != null) {
+                for (com.ruoyi.qs.api.domain.QsRegionTree region : regionList) {
+                    if (region.getDeviceId() != null) {
+                        pushedRegionIds.add(region.getDeviceId());
+                    }
+                }
+            }
+            
+            for (SimpleDeviceInfo device : deviceList) {
+                String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+                if (!ObjectUtils.isEmpty(deviceId)) {
+                    // 设备的 gbCivilCode 是区域的 deviceId
+                    String parentId = ObjectUtils.isEmpty(device.getGbCivilCode()) ? platform.getDeviceGbId() : device.getGbCivilCode();
+                    
+                    log.info("[平台级联] 设备 {} (区域模式): gbCivilCode={}, 最终使用 parentId={}, 已推送的区域ID列表={}",
+                        deviceId, device.getGbCivilCode(), parentId, pushedRegionIds);
+                    
+                    // 检查 parentId 是否有效：如果 parentId 不在 pushedRegionIds 中，且不是平台 deviceId，才使用默认
+                    if (parentId != null && !pushedRegionIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId())) {
+                        log.warn("[平台级联] 设备 {} 的 ParentID {} 无效，使用默认 ParentID {}", deviceId, parentId, platform.getDeviceGbId());
+                        parentId = platform.getDeviceGbId();
+                    }
+                    appendDeviceItem(content, device, parentId);
+                }
+            }
+        }
+
+        content.append("</DeviceList>\r\n");
+        log.info("[平台级联] 发送目录到平台: {}, 区域数: {}, 设备数: {}", platform.getName(), regionCount, deviceCount);
+    }
+
+    /**
+     * 同时推送包含区域和分组的目录
+     */
+    private void sendCatalogWithRegionAndGroup(Gb28181Platform platform, List<SimpleDeviceInfo> deviceList, StringBuffer content) {
+        // 获取所有区域
+        List<com.ruoyi.qs.api.domain.QsRegionTree> regionList = null;
+        try {
+            regionList = platformCascadeTaskManager.getRegionTreeList();
+        } catch (Exception e) {
+            log.error("[平台级联] 获取区域树失败", e);
+        }
+
+        // 获取所有分组
+        List<com.ruoyi.qs.api.domain.QsGroupTree> groupList = null;
+        try {
+            groupList = platformCascadeTaskManager.getGroupTreeList();
+        } catch (Exception e) {
+            log.error("[平台级联] 获取分组树失败", e);
+        }
+
+        // 构建 id 到 deviceId 的映射表
+        java.util.Map<Integer, String> regionIdToDeviceIdMap = new java.util.HashMap<>();
+        java.util.Map<Integer, String> groupIdToDeviceIdMap = new java.util.HashMap<>();
+        if (regionList != null) {
+            for (com.ruoyi.qs.api.domain.QsRegionTree region : regionList) {
+                if (region.getDeviceId() != null) {
+                    regionIdToDeviceIdMap.put(region.getId(), region.getDeviceId());
+                }
+            }
+        }
+        if (groupList != null) {
+            for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+                if (group.getDeviceId() != null) {
+                    groupIdToDeviceIdMap.put(group.getId(), group.getDeviceId());
+                }
+            }
+        }
+
+        // 统计总数
+        int regionCount = regionList != null ? regionList.size() : 0;
+        int groupCount = groupList != null ? groupList.size() : 0;
+        int deviceCount = 0;
+        if (deviceList != null) {
+            for (SimpleDeviceInfo device : deviceList) {
+                String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+                if (!ObjectUtils.isEmpty(deviceId)) {
+                    deviceCount++;
+                }
+            }
+        }
+        int totalCount = regionCount + groupCount + deviceCount;
+
+        content.append("<SumNum>" + totalCount + "</SumNum>\r\n");
+        content.append("<DeviceList Num=\"" + totalCount + "\">\r\n");
+
+        // 添加区域项（所有区域）
+        if (regionList != null) {
+            log.info("[平台级联] 开始推区域，区域数量: {}, 平台DeviceGbId={}", regionList.size(), platform.getDeviceGbId());
+            // 按层级排序区域，确保父区域在子区域之前推送
+            List<com.ruoyi.qs.api.domain.QsRegionTree> sortedRegionList = sortRegionsByHierarchy(regionList);
+            for (com.ruoyi.qs.api.domain.QsRegionTree region : sortedRegionList) {
+                if (region.getDeviceId() != null) {
+                    // 确保父区域的 deviceId 存在
+                    ensureParentRegionDeviceId(region, regionIdToDeviceIdMap);
+                    log.info("[平台级联] 推区域: DeviceId={}, Name={}, ParentDeviceId={}",
+                        region.getDeviceId(), region.getName(), region.getParentDeviceId());
+                    appendRegionItem(content, region, platform.getDeviceGbId());
+                }
+            }
+        }
+
+        // 添加分组项（所有分组）
+        if (groupList != null) {
+            log.info("[平台级联] 开始推分组，分组数量: {}, 平台DeviceGbId={}", groupList.size(), platform.getDeviceGbId());
+            List<com.ruoyi.qs.api.domain.QsGroupTree> sortedGroupList = sortGroupsByHierarchy(groupList);
+            for (com.ruoyi.qs.api.domain.QsGroupTree group : sortedGroupList) {
+                if (group.getDeviceId() != null) {
+                    // 如果 parentDeviceId 为空，但 parentId 不为空，根据 parentId 查找对应的 deviceId
+                    if (ObjectUtils.isEmpty(group.getParentDeviceId()) && group.getParentId() != null) {
+                        String parentDeviceId = groupIdToDeviceIdMap.get(group.getParentId());
+                        if (!ObjectUtils.isEmpty(parentDeviceId)) {
+                            log.info("[平台级联] 分组 {} 的 parentDeviceId 为空，根据 parentId={} 查找得到 parentDeviceId={}",
+                                group.getDeviceId(), group.getParentId(), parentDeviceId);
+                            group.setParentDeviceId(parentDeviceId);
+                        }
+                    }
+                    log.info("[平台级联] 推分组: DeviceId={}, Name={}, ParentDeviceId={}, BusinessGroup={}",
+                        group.getDeviceId(), group.getName(), group.getParentDeviceId(), group.getBusinessGroup());
+                    appendGroupItem(content, group, platform.getDeviceGbId());
+                }
+            }
+        }
+
+        // 添加设备项
+        log.info("[平台级联] 开始处理设备，deviceList={}, size={}", deviceList, deviceList != null ? deviceList.size() : 0);
+        if (deviceList != null) {
+            // 先收集所有被推送的区域和分组 DeviceID，用于校验设备的 ParentID
+            java.util.Set<String> pushedIds = new java.util.HashSet<>();
+            if (regionList != null) {
+                for (com.ruoyi.qs.api.domain.QsRegionTree region : regionList) {
+                    if (region.getDeviceId() != null) {
+                        pushedIds.add(region.getDeviceId());
+                    }
+                }
+            }
+            if (groupList != null) {
+                for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+                    if (group.getDeviceId() != null) {
+                        pushedIds.add(group.getDeviceId());
+                    }
+                }
+            }
+            log.info("[平台级联] 已推送的ID列表={}", pushedIds);
+            
+            for (SimpleDeviceInfo device : deviceList) {
+                String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
+                if (!ObjectUtils.isEmpty(deviceId)) {
+                    // 同时启用区域和分组时，先检查该 parentId 是否在已推送的列表中
+                    String parentId = platform.getDeviceGbId();
+                    if (!ObjectUtils.isEmpty(device.getGbParentId()) && pushedIds.contains(device.getGbParentId())) {
+                        parentId = device.getGbParentId();
+                    } else if (!ObjectUtils.isEmpty(device.getGbCivilCode()) && pushedIds.contains(device.getGbCivilCode())) {
+                        parentId = device.getGbCivilCode();
+                    }
+                    
+                    log.info("[平台级联] 设备 {}: gbCivilCode={}, gbParentId={}, 最终使用 parentId={}, 已推送的ID列表={}",
+                        deviceId, device.getGbCivilCode(), device.getGbParentId(), parentId, pushedIds);
+                    
+                    // 检查 parentId 是否有效：如果 parentId 不在 pushedIds 中，且不是平台 deviceId，才使用默认
+                    if (parentId != null && !pushedIds.contains(parentId) && !parentId.equals(platform.getDeviceGbId())) {
+                        log.warn("[平台级联] 设备 {} 的 ParentID {} 无效，使用默认 ParentID {}", deviceId, parentId, platform.getDeviceGbId());
+                        parentId = platform.getDeviceGbId();
+                    }
+                    appendDeviceItem(content, device, parentId);
+                }
+            }
+        }
+
+        content.append("</DeviceList>\r\n");
+        log.info("[平台级联] 发送目录到平台: {}, 区域数: {}, 分组数: {}, 设备数: {}", platform.getName(), regionCount, groupCount, deviceCount);
+    }
+
+    /**
+     * 按层级排序区域
+     */
+    private List<com.ruoyi.qs.api.domain.QsRegionTree> sortRegionsByHierarchy(List<com.ruoyi.qs.api.domain.QsRegionTree> regionList) {
+        Map<Integer, List<com.ruoyi.qs.api.domain.QsRegionTree>> regionByParentId = new HashMap<>();
+        List<com.ruoyi.qs.api.domain.QsRegionTree> rootRegions = new ArrayList<>();
+        for (com.ruoyi.qs.api.domain.QsRegionTree region : regionList) {
+            if (region.getParentId() == null) rootRegions.add(region);
+            else regionByParentId.computeIfAbsent(region.getParentId(), k -> new ArrayList<>()).add(region);
+        }
+        List<com.ruoyi.qs.api.domain.QsRegionTree> sortedList = new ArrayList<>();
+        Queue<com.ruoyi.qs.api.domain.QsRegionTree> queue = new LinkedList<>(rootRegions);
+        while (!queue.isEmpty()) {
+            com.ruoyi.qs.api.domain.QsRegionTree current = queue.poll();
+            sortedList.add(current);
+            List<com.ruoyi.qs.api.domain.QsRegionTree> children = regionByParentId.get(current.getId());
+            if (children != null) queue.addAll(children);
+        }
+        return sortedList;
+    }
+
+    /**
+     * 按层级排序分组
+     */
+    private List<com.ruoyi.qs.api.domain.QsGroupTree> sortGroupsByHierarchy(List<com.ruoyi.qs.api.domain.QsGroupTree> groupList) {
+        Map<Integer, List<com.ruoyi.qs.api.domain.QsGroupTree>> groupByParentId = new HashMap<>();
+        List<com.ruoyi.qs.api.domain.QsGroupTree> rootGroups = new ArrayList<>();
+        for (com.ruoyi.qs.api.domain.QsGroupTree group : groupList) {
+            if (group.getParentId() == null) rootGroups.add(group);
+            else groupByParentId.computeIfAbsent(group.getParentId(), k -> new ArrayList<>()).add(group);
+        }
+        List<com.ruoyi.qs.api.domain.QsGroupTree> sortedList = new ArrayList<>();
+        Queue<com.ruoyi.qs.api.domain.QsGroupTree> queue = new LinkedList<>(rootGroups);
+        while (!queue.isEmpty()) {
+            com.ruoyi.qs.api.domain.QsGroupTree current = queue.poll();
+            sortedList.add(current);
+            List<com.ruoyi.qs.api.domain.QsGroupTree> children = groupByParentId.get(current.getId());
+            if (children != null) queue.addAll(children);
+        }
+        return sortedList;
+    }
+
+    /**
+     * 确保父区域的 deviceId 存在
+     */
+    private void ensureParentRegionDeviceId(com.ruoyi.qs.api.domain.QsRegionTree region, java.util.Map<Integer, String> idToDeviceIdMap) {
+        if (ObjectUtils.isEmpty(region.getParentDeviceId()) && region.getParentId() != null) {
+            String parentDeviceId = idToDeviceIdMap.get(region.getParentId());
+            if (!ObjectUtils.isEmpty(parentDeviceId)) {
+                log.info("[平台级联] 区域 {} 的 parentDeviceId 为空，根据 parentId={} 查找得到 parentDeviceId={}", 
+                    region.getDeviceId(), region.getParentId(), parentDeviceId);
+                region.setParentDeviceId(parentDeviceId);
+            }
+        }
+    }
+
+    /**
+     * 添加区域项
+     */
+    private void appendRegionItem(StringBuffer content, com.ruoyi.qs.api.domain.QsRegionTree region, String rootDeviceId) {
+        String parentId = ObjectUtils.isEmpty(region.getParentDeviceId()) ? rootDeviceId : region.getParentDeviceId();
+        content.append("<Item>\r\n");
+        content.append("<DeviceID>" + region.getDeviceId() + "</DeviceID>\r\n");
+        content.append("<Name>" + (ObjectUtils.isEmpty(region.getName()) ? "" : region.getName()) + "</Name>\r\n");
+        content.append("<Manufacturer>泉视</Manufacturer>\r\n");
+        if (!ObjectUtils.isEmpty(region.getDeviceId())) {
+            content.append("<CivilCode>" + region.getDeviceId() + "</CivilCode>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(region.getParentDeviceId())) {
+            content.append("<ParentID>" + parentId + "</ParentID>\r\n");
+        } else {
+            content.append("<ParentID>" + rootDeviceId + "</ParentID>\r\n");
+        }
+        content.append("<Status>ON</Status>\r\n");
+        content.append("<Parental>1</Parental>\r\n");
+        content.append("<Longitude>0</Longitude>\r\n");
+        content.append("<Latitude>0</Latitude>\r\n");
+        content.append("</Item>\r\n");
+    }
+
+    /**
      * 添加设备项
      */
-    private void appendDeviceItem(StringBuffer content, SimpleDeviceInfo device, String defaultParentId) {
+    private void appendDeviceItem(StringBuffer content, SimpleDeviceInfo device, String parentId) {
         String deviceId = ObjectUtils.isEmpty(device.getGbCode()) ? device.getGbDeviceId() : device.getGbCode();
-        String parentId = ObjectUtils.isEmpty(device.getGbParentId()) ? defaultParentId : device.getGbParentId();
-        
-        // 检查 parentId 是否有效，如果看起来像是数据库 ID（纯数字且长度小于10），则使用 defaultParentId
-        if (parentId != null && parentId.matches("^\\d+$") && parentId.length() < 10) {
-            log.warn("[平台级联] 设备 {} 的 ParentID {} 可能是数据库 ID，使用默认 ParentID {}", deviceId, parentId, defaultParentId);
-            parentId = defaultParentId;
-        }
         
         content.append("<Item>\r\n");
         content.append("<DeviceID>" + deviceId + "</DeviceID>\r\n");
@@ -498,6 +826,9 @@ public class PlatformSIPCommander implements IPlatformSIPCommander {
         content.append("<Manufacturer>" + (ObjectUtils.isEmpty(device.getManufacturer()) ? "泉视" : device.getManufacturer()) + "</Manufacturer>\r\n");
         if (!ObjectUtils.isEmpty(device.getAddress())) {
             content.append("<Address>" + device.getAddress() + "</Address>\r\n");
+        }
+        if (!ObjectUtils.isEmpty(device.getGbCivilCode())) {
+            content.append("<CivilCode>" + device.getGbCivilCode() + "</CivilCode>\r\n");
         }
         content.append("<Status>" + ("ON".equals(device.getDeviceStatus()) ? "ON" : "OFF") + "</Status>\r\n");
         content.append("<Parental>0</Parental>\r\n");

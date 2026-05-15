@@ -8,6 +8,7 @@ import com.ruoyi.gb28181.util.PlatformConvertUtil;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
 import com.ruoyi.qs.api.RemoteQsGb28181PlatformService;
 import com.ruoyi.qs.api.RemoteQsGroupService;
+import com.ruoyi.qs.api.RemoteQsRegionService;
 import com.ruoyi.qs.api.domain.QsDevice;
 import com.ruoyi.qs.api.domain.QsGb28181Platform;
 import com.ruoyi.qs.api.domain.QsGb28181PlatformChannel;
@@ -48,6 +49,9 @@ public class PlatformCascadeTaskManager {
 
     @Autowired
     private RemoteQsGroupService remoteQsGroupService;
+
+    @Autowired
+    private RemoteQsRegionService remoteQsRegionService;
 
     private final Map<Long, PlatformCascadeTaskInfo> taskMap = new ConcurrentHashMap<>();
 
@@ -406,6 +410,7 @@ public class PlatformCascadeTaskManager {
         simpleDeviceInfo.setLongitude(device.getLongitude());
         simpleDeviceInfo.setLatitude(device.getLatitude());
         simpleDeviceInfo.setGbParentId(device.getGbParentId());
+        simpleDeviceInfo.setGbCivilCode(device.getGbCivilCode());
         return simpleDeviceInfo;
     }
 
@@ -421,6 +426,22 @@ public class PlatformCascadeTaskManager {
             }
         } catch (Exception e) {
             log.error("[平台级联] 获取分组树失败", e);
+        }
+        return new ArrayList<>();
+    }
+
+    /**
+     * 获取区域树列表
+     */
+    public List<com.ruoyi.qs.api.domain.QsRegionTree> getRegionTreeList() {
+        try {
+            com.ruoyi.common.core.domain.R<List<com.ruoyi.qs.api.domain.QsRegionTree>> result = 
+                remoteQsRegionService.queryAllRegions(null, SecurityConstants.INNER);
+            if (result != null && result.getData() != null) {
+                return result.getData();
+            }
+        } catch (Exception e) {
+            log.error("[平台级联] 获取区域树失败", e);
         }
         return new ArrayList<>();
     }

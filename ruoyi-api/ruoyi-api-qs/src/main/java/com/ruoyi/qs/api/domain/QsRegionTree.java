@@ -1,8 +1,8 @@
-package com.ruoyi.qs.domain;
+package com.ruoyi.qs.api.domain;
 
-import com.ruoyi.qs.api.domain.QsRegion;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import java.util.List;
 
 /**
  * 区域树
@@ -63,4 +63,9 @@ public class QsRegionTree extends QsRegion {
      * ip地址
      */
     private String ipAddress;
+
+    /**
+     * 子节点列表
+     */
+    private List<QsRegionTree> children;
 }

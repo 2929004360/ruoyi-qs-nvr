@@ -144,4 +144,20 @@
         </where>
         ORDER BY id
     </select>
+
+    <select id="queryAllRegions" resultMap="QsRegionTreeResult">
+        SELECT
+        *,
+        concat('region', id) as tree_id,
+        0 as type,
+        false as is_leaf,
+        'ON' as status
+        FROM qs_common_region
+        <where>
+            <if test="query != null">
+                AND (device_id LIKE concat('%', #{query}, '%') OR name LIKE concat('%', #{query}, '%'))
+            </if>
+        </where>
+        ORDER BY id
+    </select>
 </mapper>

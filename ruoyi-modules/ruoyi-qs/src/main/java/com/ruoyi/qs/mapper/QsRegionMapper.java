@@ -1,7 +1,7 @@
 package com.ruoyi.qs.mapper;
 
 import com.ruoyi.qs.api.domain.QsRegion;
-import com.ruoyi.qs.domain.QsRegionTree;
+import com.ruoyi.qs.api.domain.QsRegionTree;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -90,4 +90,12 @@ public interface QsRegionMapper {
      * @return
      */
     List<QsRegion> query(@Param("query") String query, @Param("parentId") String parentId);
+
+    /**
+     * 查询所有区域
+     *
+     * @param query 查询条件
+     * @return
+     */
+    List<QsRegionTree> queryAllRegions(@Param("query") String query);
 }

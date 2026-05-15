@@ -14,6 +14,7 @@ public class SimpleDeviceInfo {
     private String longitude;
     private String latitude;
     private String gbParentId;
+    private String gbCivilCode;
 
     public String getGbCode() {
         return gbCode;
@@ -117,5 +118,13 @@ public class SimpleDeviceInfo {
 
     public void setGbParentId(String gbParentId) {
         this.gbParentId = gbParentId;
+    }
+
+    public String getGbCivilCode() {
+        return gbCivilCode;
+    }
+
+    public void setGbCivilCode(String gbCivilCode) {
+        this.gbCivilCode = gbCivilCode;
     }
 }
