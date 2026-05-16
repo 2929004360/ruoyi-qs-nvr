@@ -110,6 +110,7 @@ com.ruoyi
 24. Cloud Recording: Supports all protocol recordings, can play and download recordings.
 25. Media Nodes: Supports multiple ZLM, restart ZLM, etc.
 26. Recording Playback: Supports cloud recordings obtained by administrative region and business group, and view playback.
+27. Support all operations such as national standard cascading, on-demand playback, pan-tilt-zoom, and playback
 
 ## Future Plans
 
@@ -118,7 +119,6 @@ com.ruoyi
 
 * Not Implemented
   * Support more protocols, such as Uniview SDK, Tiandy SDK, EZVIZ, LeChange, etc.
-  * Support full GB28181 cascade, VOD, PTZ and other operations.
 
 ## License
 
