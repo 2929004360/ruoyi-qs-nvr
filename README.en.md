@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="logo" src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/logo.png" width="100" height="100">
+  <img alt="logo" src="images/logo.png" width="100" height="100">
 </p>
 
 <div align="center">
@@ -147,30 +147,36 @@ please bear legal risks yourself. When using this project code, you should also 
 
 <table>
     <tr>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/1.png"/></td>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/2.png"/></td>
+        <td><img src="images/1.png"/></td>
+        <td><img src="images/2.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/3.png"/></td>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/4.png"/></td>
+        <td><img src="images/3.png"/></td>
+        <td><img src="images/4.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/5.png"/></td>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/6.png"/></td>
+        <td><img src="images/5.png"/></td>
+        <td><img src="images/6.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/7.png"/></td>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/8.png"/></td>
+        <td><img src="images/7.png"/></td>
+        <td><img src="images/8.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/9.png"/></td>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/10.png"/></td>
+        <td><img src="images/9.png"/></td>
+        <td><img src="images/10.png"/></td>
     </tr>
     <tr>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/11.png"/></td>
-        <td><img src="https://raw.giteeusercontent.com/tangwenzhaoaini/ruoyi-qs-nvr/raw/master/images/12.png"/></td>
+        <td><img src="images/11.png"/></td>
+        <td><img src="images/12.png"/></td>
     </tr>
 </table>
+
+## paid community
+
+You can also voluntarily join the Knowledge Planet consultation with compensation：
+
+<img src="images/xingqui.jpg" width="50%" height="50%">
 
 ## Acknowledgments
 
