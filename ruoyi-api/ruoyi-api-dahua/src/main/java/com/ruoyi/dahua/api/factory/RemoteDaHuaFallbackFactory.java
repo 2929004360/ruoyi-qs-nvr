@@ -155,6 +155,11 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             public R<Void> stopPlayback(Long id, String source) {
                 return R.fail("大华sdk停止录像回放失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Long> captureAndSave(Long id, int channelId, String snapshotType, String source) {
+                return R.fail("大华sdk抓图并保存失败:" + throwable.getMessage());
+            }
         };
     }
 }

@@ -303,4 +303,16 @@ public interface RemoteDaHuaService {
      */
     @GetMapping(value = "/api/dahua/stopPlayback/{id}")
     R<Void> stopPlayback(@PathVariable Long id, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 大华设备抓图并保存
+     *
+     * @param id           设备id
+     * @param channelId    通道id
+     * @param snapshotType 抓图类型
+     * @param source       请求来源
+     * @return 抓图记录id
+     */
+    @PostMapping(value = "/api/dahua/captureAndSave/{id}/{channelId}")
+    R<Long> captureAndSave(@PathVariable Long id, @PathVariable int channelId, @RequestParam String snapshotType, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }

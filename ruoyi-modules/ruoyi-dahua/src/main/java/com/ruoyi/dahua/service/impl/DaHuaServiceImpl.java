@@ -20,19 +20,28 @@ import com.ruoyi.dahua.runner.DahuaCommandLineRunnerImpl;
 import com.ruoyi.dahua.service.IDaHuaService;
 import com.ruoyi.dahua.service.IDahuaMediaStreamService;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.RemoteQsDeviceSnapshotService;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.api.domain.QsDeviceSnapshot;
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 大华sdk 服务
@@ -52,7 +61,31 @@ public class DaHuaServiceImpl implements IDaHuaService {
     @Autowired
     private RemoteQsDeviceService remoteQsDeviceService;
 
+    @Autowired
+    private RemoteQsDeviceSnapshotService remoteQsDeviceSnapshotService;
+
+    @Value("${file.domain}")
+    private String fileDomain;
+
+    @Value("${file.path}")
+    private String filePath;
+
+    @Value("${file.prefix}")
+    private String filePrefix;
+
     public static final NetSDKLib netsdk = NetSDKLib.NETSDK_INSTANCE;
+
+    // 存储抓图回调信息
+    private final Map<Integer, CaptureContext> captureContextMap = new ConcurrentHashMap<>();
+    private int captureCmdSerial = 1;
+
+    // 抓图回调单例
+    private static final SnapReceiveCallback snapReceiveCallback = new SnapReceiveCallback();
+
+    static {
+        // 设置抓图回调
+        netsdk.CLIENT_SetSnapRevCallBack(snapReceiveCallback, null);
+    }
 
     public static final Map<String, NetSDKLib.LLong> loginHandleHandleMap = new ConcurrentHashMap<>();
 
@@ -263,7 +296,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void startPlay(RtpServerParam rtpServerParam) {
         log.info("开始播放大华设备流, deviceId:{}", rtpServerParam.getId());
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", rtpServerParam.getId(), r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -292,7 +325,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void stopPlay(Long id) {
         log.info("开始停止播放大华设备流, deviceId:{}", id);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -324,7 +357,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public boolean ptzControlStart(String direction, Long id, Integer speed, int channelId) {
         log.info("开始大华设备云台控制(开始), deviceId:{}, direction:{}, speed:{}, channelId:{}", id, direction, speed, channelId);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -386,7 +419,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public boolean ptzControlUpEnd(String direction, Long id, int channelId) {
         log.info("开始大华设备云台控制(停止), deviceId:{}, direction:{}, channelId:{}", id, direction, channelId);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -446,7 +479,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public ArrayList<HashMap<String, Object>> getPresetList(Long id, int channelId) {
         log.info("开始获取大华设备预置点列表, deviceId:{}, channelId:{}", id, channelId);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -511,7 +544,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void setPreset(Long id, int channelId, int presetIndex) {
         log.info("开始设置大华设备预置点, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -538,7 +571,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void delPreset(Long id, int channelId, int presetIndex) {
         log.info("开始删除大华设备预置点, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -565,7 +598,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void invokePreset(Long id, int channelId, int presetIndex) {
         log.info("开始调用大华设备预置点, deviceId:{}, channelId:{}, presetIndex:{}", id, channelId, presetIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -601,7 +634,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void controlLight(Long id, int channelId, int action) {
         log.info("开始控制大华设备灯光, deviceId:{}, channelId:{}, action:{}", id, channelId, action);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -628,7 +661,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void controlWiper(Long id, int channelId, int action) {
         log.info("开始控制大华设备雨刷, deviceId:{}, channelId:{}, action:{}", id, channelId, action);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -655,7 +688,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void startTour(Long id, int channelId, int tourIndex) {
         log.info("开始大华设备巡航, deviceId:{}, channelId:{}, tourIndex:{}", id, channelId, tourIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -682,7 +715,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void stopTour(Long id, int channelId) {
         log.info("开始停止大华设备巡航, deviceId:{}, channelId:{}", id, channelId);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -709,7 +742,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void addPresetToTour(Long id, int channelId, int tourIndex, int presetIndex) {
         log.info("开始添加预置点到巡航线路, deviceId:{}, channelId:{}, tourIndex:{}, presetIndex:{}", id, channelId, tourIndex, presetIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -736,7 +769,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void removePresetFromTour(Long id, int channelId, int tourIndex, int presetIndex) {
         log.info("开始从巡航线路删除预置点, deviceId:{}, channelId:{}, tourIndex:{}, presetIndex:{}", id, channelId, tourIndex, presetIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -763,7 +796,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void clearTour(Long id, int channelId, int tourIndex) {
         log.info("开始清除巡航线路, deviceId:{}, channelId:{}, tourIndex:{}", id, channelId, tourIndex);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -791,7 +824,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始设置大华设备时间, deviceId:{}, date:{}, type:{}", id, date, type);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -846,7 +879,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始重启大华设备, deviceId:{}", id);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -883,7 +916,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始查询大华设备录像, deviceId:{}, channelId:{}, startTime:{}, endTime:{}", id, channelId, startTime, endTime);
         
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1019,7 +1052,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void startPlayback(RtpServerParam rtpServerParam) {
         log.info("开始回放大华设备录像, deviceId:{}", rtpServerParam.getId());
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(rtpServerParam.getId(), SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", rtpServerParam.getId(), r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1048,7 +1081,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
     public void stopPlayback(Long id) {
         log.info("开始停止回放大华设备录像, deviceId:{}", id);
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1078,7 +1111,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始获取大华设备详细信息, deviceId:{}", id);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1125,7 +1158,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始获取大华设备系统参数, deviceId:{}", id);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1166,7 +1199,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始获取大华设备视频参数, deviceId:{}, channelId:{}, streamType:{}", id, channelId, streamType);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1224,7 +1257,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始获取大华设备视频输入参数, deviceId:{}, channelId:{}", id, channelId);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1272,7 +1305,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始设置大华设备视频参数, deviceId:{}, channelId:{}", id, channelId);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1361,7 +1394,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
         log.info("开始设置大华设备视频输入参数, deviceId:{}, channelId:{}", id, channelId);
 
         R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
-        if (r.getCode() != Constants.SUCCESS) {
+        if (R.isError(r)) {
             log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
             throw new SecurityException(r.getMsg());
         }
@@ -1439,6 +1472,211 @@ public class DaHuaServiceImpl implements IDaHuaService {
         @Override
         public void invoke(NetSDKLib.LLong lPlayHandle, int dwTotalSize, int dwDownLoadSize, Pointer dwUser) {
 //            System.out.println("PlayBackPosCallBack dwTotalSize： " + dwTotalSize + "dwDownLoadSize+ " + dwDownLoadSize);
+        }
+    }
+
+    // 抓图上下文
+    private static class CaptureContext {
+        Long deviceId;
+        String deviceCode;
+        String deviceName;
+        int channelId;
+        String snapshotType;
+        CountDownLatch latch;
+        Long snapshotId;
+        String errorMsg;
+
+        CaptureContext(Long deviceId, String deviceCode, String deviceName, int channelId, String snapshotType) {
+            this.deviceId = deviceId;
+            this.deviceCode = deviceCode;
+            this.deviceName = deviceName;
+            this.channelId = channelId;
+            this.snapshotType = snapshotType;
+            this.latch = new CountDownLatch(1);
+        }
+    }
+
+    // 抓图回调
+    private static class SnapReceiveCallback implements NetSDKLib.fSnapRev {
+        @Override
+        public void invoke(NetSDKLib.LLong lLoginID, Pointer pBuf, int RevLen, int EncodeType, int CmdSerial, Pointer dwUser) {
+            log.info("收到抓图回调, CmdSerial:{}, RevLen:{}", CmdSerial, RevLen);
+
+            // 获取DaHuaServiceImpl实例
+            DaHuaServiceImpl service = null;
+            try {
+                // 通过Spring上下文获取bean
+                service = com.ruoyi.common.core.utils.SpringUtils.getBean(DaHuaServiceImpl.class);
+            } catch (Exception e) {
+                log.error("获取DaHuaServiceImpl失败", e);
+                return;
+            }
+
+            if (service == null) {
+                log.error("DaHuaServiceImpl实例为空");
+                return;
+            }
+
+            CaptureContext context = service.captureContextMap.remove(CmdSerial);
+            if (context == null) {
+                log.warn("未找到抓图上下文, CmdSerial:{}", CmdSerial);
+                return;
+            }
+
+            try {
+                if (pBuf != null && RevLen > 0) {
+                    // 保存图片
+                    String fileName = service.generateFileName(context.deviceId, context.channelId);
+                    String localFilePath = service.filePath + "/dahua_snapshot/" + fileName;
+                    String fileUrl = service.fileDomain + service.filePrefix + "/dahua_snapshot/" + fileName;
+
+                    // 创建目录
+                    File dir = new File(service.filePath + "/dahua_snapshot/");
+                    if (!dir.exists()) {
+                        dir.mkdirs();
+                    }
+
+                    // 保存图片文件
+                    byte[] imageData = pBuf.getByteArray(0, RevLen);
+                    try (FileOutputStream fos = new FileOutputStream(localFilePath)) {
+                        fos.write(imageData);
+                    }
+
+                    log.info("图片保存成功, deviceId:{}, channelId:{}, filePath:{}, fileUrl:{}",
+                            context.deviceId, context.channelId, localFilePath, fileUrl);
+
+                    // 构造抓图记录
+                    QsDeviceSnapshot snapshot = new QsDeviceSnapshot();
+                    snapshot.setDeviceId(context.deviceId);
+                    snapshot.setDeviceCode(context.deviceCode);
+                    snapshot.setDeviceName(context.deviceName);
+                    snapshot.setFileUrl(fileUrl);
+                    snapshot.setFilePath(localFilePath);
+                    snapshot.setFileSize((long) RevLen);
+                    snapshot.setFileName(fileName);
+                    snapshot.setFileType("jpg");
+                    snapshot.setSnapshotType(context.snapshotType);
+                    snapshot.setSdkType("dahua");
+                    snapshot.setChannel(context.channelId);
+                    snapshot.setCaptureTime(new Date());
+
+                    // 保存到数据库
+                    com.ruoyi.common.core.domain.R<Long> result = service.remoteQsDeviceSnapshotService.add(
+                            snapshot, com.ruoyi.common.core.constant.SecurityConstants.INNER);
+
+                    if (com.ruoyi.common.core.domain.R.isSuccess(result)) {
+                        context.snapshotId = result.getData();
+                        log.info("抓图记录保存成功, snapshotId:{}", context.snapshotId);
+                    } else {
+                        context.errorMsg = "保存抓图记录失败: " + result.getMsg();
+                        log.error(context.errorMsg);
+                    }
+                } else {
+                    context.errorMsg = "抓图数据为空";
+                    log.error(context.errorMsg);
+                }
+            } catch (Exception e) {
+                context.errorMsg = "抓图处理异常: " + e.getMessage();
+                log.error(context.errorMsg, e);
+            } finally {
+                context.latch.countDown();
+            }
+        }
+    }
+
+    // 生成文件名
+    private String generateFileName(Long deviceId, int channelId) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+        return deviceId + "_" + channelId + "_" + sdf.format(new Date()) + ".jpg";
+    }
+
+    /**
+     * 大华设备抓图并保存
+     *
+     * @param id           设备id
+     * @param channelId    通道id
+     * @param snapshotType 抓图类型
+     * @return 抓图记录id
+     */
+    @Override
+    public Long captureAndSave(Long id, int channelId, String snapshotType) {
+        log.info("开始大华设备抓图, deviceId:{}, channelId:{}, snapshotType:{}", id, channelId, snapshotType);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (R.isError(r)) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        // 创建抓图上下文
+        int cmdSerial = captureCmdSerial++;
+        CaptureContext context = new CaptureContext(
+                device.getId(),
+                device.getDeviceCode(),
+                device.getDeviceName(),
+                channelId,
+                snapshotType
+        );
+        captureContextMap.put(cmdSerial, context);
+
+        try {
+            // 设置抓图参数
+            NetSDKLib.SNAP_PARAMS snapParams = new NetSDKLib.SNAP_PARAMS();
+            snapParams.Channel = channelId;
+            snapParams.mode = 0; // 0: 远程抓图
+            snapParams.Quality = 1; // 图片质量 1-6, 3为中等
+            snapParams.InterSnap = 0;
+            snapParams.CmdSerial = cmdSerial;
+
+            IntByReference reserved = new IntByReference(0);
+
+            log.info("发送抓图命令, deviceId:{}, channelId:{}, cmdSerial:{}", id, channelId, cmdSerial);
+            boolean success = netsdk.CLIENT_SnapPictureEx(m_hLoginHandle, snapParams, reserved);
+
+            if (!success) {
+                String errorMsg = "发送抓图命令失败: " + getErrorCodePrint();
+                log.error(errorMsg);
+                captureContextMap.remove(cmdSerial);
+                throw new RuntimeException(errorMsg);
+            }
+
+            // 等待抓图回调
+            log.info("等待抓图回调, deviceId:{}, channelId:{}, cmdSerial:{}", id, channelId, cmdSerial);
+            boolean awaitSuccess = context.latch.await(30, TimeUnit.SECONDS);
+
+            if (!awaitSuccess) {
+                String errorMsg = "等待抓图回调超时";
+                log.error(errorMsg);
+                captureContextMap.remove(cmdSerial);
+                throw new RuntimeException(errorMsg);
+            }
+
+            if (context.errorMsg != null) {
+                log.error(context.errorMsg);
+                throw new RuntimeException(context.errorMsg);
+            }
+
+            log.info("大华设备抓图完成, deviceId:{}, channelId:{}, snapshotId:{}", id, channelId, context.snapshotId);
+            return context.snapshotId;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            String errorMsg = "等待抓图回调被中断";
+            log.error(errorMsg, e);
+            captureContextMap.remove(cmdSerial);
+            throw new RuntimeException(errorMsg, e);
+        } catch (Exception e) {
+            log.error("大华设备抓图异常", e);
+            captureContextMap.remove(cmdSerial);
+            throw e;
         }
     }
 }

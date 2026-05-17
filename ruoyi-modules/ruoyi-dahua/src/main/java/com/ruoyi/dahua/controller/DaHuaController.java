@@ -138,5 +138,16 @@ public class DaHuaController extends BaseController {
     public R<Boolean> setDeviceVideoParam(@PathVariable Long id, @PathVariable int channelId, @RequestBody DahuaDeviceVideoParam param) {
         return R.ok(daHuaService.setDeviceVideoParam(id, channelId, param));
     }
+
+    /**
+     * 大华设备抓图并保存
+     */
+    @PostMapping("/captureAndSave/{id}/{channelId}")
+    public R<Long> captureAndSave(@PathVariable Long id, @PathVariable int channelId, String snapshotType) {
+        if (snapshotType == null || snapshotType.isEmpty()) {
+            snapshotType = "manual";
+        }
+        return R.ok(daHuaService.captureAndSave(id, channelId, snapshotType));
+    }
 }
 

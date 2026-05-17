@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsDeviceSnapshotMapper">
+
+    <resultMap type="QsDeviceSnapshot" id="QsDeviceSnapshotResult">
+        <result property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="deviceCode" column="device_code"/>
+        <result property="deviceName" column="device_name"/>
+        <result property="fileUrl" column="file_url"/>
+        <result property="filePath" column="file_path"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="fileName" column="file_name"/>
+        <result property="fileType" column="file_type"/>
+        <result property="snapshotType" column="snapshot_type"/>
+        <result property="sdkType" column="sdk_type"/>
+        <result property="channel" column="channel"/>
+        <result property="captureTime" column="capture_time"/>
+        <result property="width" column="width"/>
+        <result property="height" column="height"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectQsDeviceSnapshotVo">
+        select id,
+               device_id,
+               device_code,
+               device_name,
+               file_url,
+               file_path,
+               file_size,
+               file_name,
+               file_type,
+               snapshot_type,
+               sdk_type,
+               channel,
+               capture_time,
+               width,
+               height,
+               latitude,
+               longitude,
+               create_by,
+               create_time,
+               update_by,
+               update_time,
+               remark
+        from qs_device_snapshot
+    </sql>
+
+    <select id="selectQsDeviceSnapshotList" parameterType="QsDeviceSnapshot" resultMap="QsDeviceSnapshotResult">
+        <include refid="selectQsDeviceSnapshotVo"/>
+        <where>
+            <if test="deviceId != null">and device_id = #{deviceId}</if>
+            <if test="deviceCode != null  and deviceCode != ''">and device_code = #{deviceCode}</if>
+            <if test="deviceName != null  and deviceName != ''">and device_name like concat('%', #{deviceName}, '%')</if>
+            <if test="snapshotType != null  and snapshotType != ''">and snapshot_type = #{snapshotType}</if>
+            <if test="sdkType != null  and sdkType != ''">and sdk_type = #{sdkType}</if>
+            <if test="channel != null">and channel = #{channel}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                <![CDATA[ and capture_time >= #{params.beginTime} ]]>
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                <![CDATA[ and capture_time <= #{params.endTime} ]]>
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectQsDeviceSnapshotById" parameterType="Long" resultMap="QsDeviceSnapshotResult">
+        <include refid="selectQsDeviceSnapshotVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertQsDeviceSnapshot" parameterType="QsDeviceSnapshot" useGeneratedKeys="true" keyProperty="id">
+        insert into qs_device_snapshot
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="deviceId != null">device_id,</if>
+            <if test="deviceCode != null">device_code,</if>
+            <if test="deviceName != null">device_name,</if>
+            <if test="fileUrl != null">file_url,</if>
+            <if test="filePath != null">file_path,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="fileName != null">file_name,</if>
+            <if test="fileType != null">file_type,</if>
+            <if test="snapshotType != null">snapshot_type,</if>
+            <if test="sdkType != null">sdk_type,</if>
+            <if test="channel != null">channel,</if>
+            <if test="captureTime != null">capture_time,</if>
+            <if test="width != null">width,</if>
+            <if test="height != null">height,</if>
+            <if test="latitude != null">latitude,</if>
+            <if test="longitude != null">longitude,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="deviceId != null">#{deviceId},</if>
+            <if test="deviceCode != null">#{deviceCode},</if>
+            <if test="deviceName != null">#{deviceName},</if>
+            <if test="fileUrl != null">#{fileUrl},</if>
+            <if test="filePath != null">#{filePath},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="fileName != null">#{fileName},</if>
+            <if test="fileType != null">#{fileType},</if>
+            <if test="snapshotType != null">#{snapshotType},</if>
+            <if test="sdkType != null">#{sdkType},</if>
+            <if test="channel != null">#{channel},</if>
+            <if test="captureTime != null">#{captureTime},</if>
+            <if test="width != null">#{width},</if>
+            <if test="height != null">#{height},</if>
+            <if test="latitude != null">#{latitude},</if>
+            <if test="longitude != null">#{longitude},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateQsDeviceSnapshot" parameterType="QsDeviceSnapshot">
+        update qs_device_snapshot
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="deviceId != null">device_id = #{deviceId},</if>
+            <if test="deviceCode != null">device_code = #{deviceCode},</if>
+            <if test="deviceName != null">device_name = #{deviceName},</if>
+            <if test="fileUrl != null">file_url = #{fileUrl},</if>
+            <if test="filePath != null">file_path = #{filePath},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="fileName != null">file_name = #{fileName},</if>
+            <if test="fileType != null">file_type = #{fileType},</if>
+            <if test="snapshotType != null">snapshot_type = #{snapshotType},</if>
+            <if test="sdkType != null">sdk_type = #{sdkType},</if>
+            <if test="channel != null">channel = #{channel},</if>
+            <if test="captureTime != null">capture_time = #{captureTime},</if>
+            <if test="width != null">width = #{width},</if>
+            <if test="height != null">height = #{height},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteQsDeviceSnapshotById" parameterType="Long">
+        delete from qs_device_snapshot where id = #{id}
+    </delete>
+
+    <delete id="deleteQsDeviceSnapshotByIds" parameterType="Long">
+        delete from qs_device_snapshot where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

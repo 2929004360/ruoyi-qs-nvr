@@ -305,4 +305,14 @@ public interface IDaHuaService {
      * @return 是否成功
      */
     boolean setDeviceVideoParam(Long id, int channelId, DahuaDeviceVideoParam param);
+
+    /**
+     * 大华设备抓图并保存到数据库
+     *
+     * @param id           设备ID
+     * @param channelId    通道ID
+     * @param snapshotType 抓图类型
+     * @return 抓图记录ID
+     */
+    Long captureAndSave(Long id, int channelId, String snapshotType);
 }
