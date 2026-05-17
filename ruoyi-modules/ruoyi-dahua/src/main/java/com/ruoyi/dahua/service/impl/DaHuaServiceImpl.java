@@ -5,7 +5,12 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
+import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
+import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
+import com.ruoyi.dahua.api.domain.DahuaSystemParam;
+import com.ruoyi.dahua.api.domain.DahuaVideoParam;
+import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
 import com.ruoyi.dahua.common.ErrorCode;
 import com.ruoyi.dahua.common.Res;
 import com.ruoyi.dahua.lib.NetSDKLib;
@@ -1061,6 +1066,361 @@ public class DaHuaServiceImpl implements IDaHuaService {
         mediaStreamService.stopPlayback(lLong, device.getId(), device.getChannel(), playbackKey);
         log.info("停止回放大华设备录像调用完成, deviceId:{}, channel:{}", device.getId(), device.getChannel());
     }
+
+    /**
+     * 获取大华设备详细信息
+     *
+     * @param id 设备ID
+     * @return 设备详细信息
+     */
+    @Override
+    public DahuaDeviceInfo getDeviceInfo(Long id) {
+        log.info("开始获取大华设备详细信息, deviceId:{}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        return getDeviceInfoByIp(device.getIpAddress());
+    }
+
+    /**
+     * 获取大华设备详细信息(通过IP)
+     *
+     * @param ip 设备IP
+     * @return 设备详细信息
+     */
+    @Override
+    public DahuaDeviceInfo getDeviceInfoByIp(String ip) {
+        log.info("开始获取大华设备详细信息, IP:{}", ip);
+
+        NetSDKLib.NET_DEVICEINFO_Ex deviceInfo = deviceInfoMap.get("device:info:" + ip);
+        if (deviceInfo == null) {
+            log.error("设备信息不存在, IP:{}", ip);
+            throw new RuntimeException("设备信息不存在，IP:" + ip);
+        }
+
+        DahuaDeviceInfo info = new DahuaDeviceInfo();
+        info.setSerialNumber(new String(deviceInfo.sSerialNumber, Charset.forName("GBK")).trim());
+        info.setAlarmInPortNum(deviceInfo.byAlarmInPortNum);
+        info.setAlarmOutPortNum(deviceInfo.byAlarmOutPortNum);
+        info.setDiskNum(deviceInfo.byDiskNum);
+        info.setDvrType(deviceInfo.byDVRType);
+        info.setChannelNum(deviceInfo.byChanNum);
+        info.setLimitLoginTime((int) deviceInfo.byLimitLoginTime);
+        info.setLeftLogTimes((int) deviceInfo.byLeftLogTimes);
+        info.setLockLeftTime(deviceInfo.byLockLeftTime);
+
+        log.info("获取大华设备详细信息成功, IP:{}, 序列号:{}, 通道数:{}",
+                ip, info.getSerialNumber(), info.getChannelNum());
+        return info;
+    }
+
+    @Override
+    public DahuaSystemParam getSystemParam(Long id) {
+        log.info("开始获取大华设备系统参数, deviceId:{}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        DahuaSystemParam param = new DahuaSystemParam();
+        try {
+            com.ruoyi.dahua.lib.structure.NET_CFG_VIDEOSTANDARD_INFO videoStandardInfo =
+                    new com.ruoyi.dahua.lib.structure.NET_CFG_VIDEOSTANDARD_INFO();
+            videoStandardInfo.write();
+            boolean success = netsdk.CLIENT_GetConfig(m_hLoginHandle,
+                    com.ruoyi.dahua.lib.enumeration.NET_EM_CFG_OPERATE_TYPE.NET_EM_CFG_VIDEOSTANDARD,
+                    -1, videoStandardInfo.getPointer(), videoStandardInfo.size(), 5000, null);
+            if (success) {
+                videoStandardInfo.read();
+                param.setVideoStandard(videoStandardInfo.emVideoStandard);
+                param.setCountry(new String(videoStandardInfo.szCountry).trim());
+            } else {
+                log.warn("获取视频制式失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+            }
+        } catch (Exception e) {
+            log.error("获取系统参数异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+        }
+
+        log.info("获取大华设备系统参数成功, deviceId:{}, videoStandard:{}", id, param.getVideoStandard());
+        return param;
+    }
+
+    @Override
+    public DahuaVideoParam getVideoParam(Long id, int channelId, int streamType) {
+        log.info("开始获取大华设备视频参数, deviceId:{}, channelId:{}, streamType:{}", id, channelId, streamType);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        DahuaVideoParam param = new DahuaVideoParam();
+        try {
+            com.ruoyi.dahua.lib.structure.NET_ENCODE_VIDEO_INFO videoInfo =
+                    new com.ruoyi.dahua.lib.structure.NET_ENCODE_VIDEO_INFO();
+            // 映射streamType到NET_EM_FORMAT_TYPE枚举值
+            int emFormatType = 1; // 默认主码流
+            if (streamType == 1) {
+                emFormatType = 4; // 辅码流1
+            } else if (streamType == 2) {
+                emFormatType = 5; // 辅码流2
+            }
+            videoInfo.emFormatType = emFormatType;
+            videoInfo.write();
+            boolean success = netsdk.CLIENT_GetConfig(m_hLoginHandle,
+                    com.ruoyi.dahua.lib.enumeration.NET_EM_CFG_OPERATE_TYPE.NET_EM_CFG_ENCODE_VIDEO,
+                    channelId, videoInfo.getPointer(), videoInfo.size(), 5000, null);
+            if (success) {
+                videoInfo.read();
+                param.setFormatType(videoInfo.emFormatType);
+                param.setVideoEnable(videoInfo.bVideoEnable);
+                param.setCompression(videoInfo.emCompression);
+                param.setWidth(videoInfo.nWidth);
+                param.setHeight(videoInfo.nHeight);
+                param.setBitRateControl(videoInfo.emBitRateControl);
+                param.setBitRate(videoInfo.nBitRate);
+                param.setFrameRate(videoInfo.nFrameRate);
+                param.setIframeInterval(videoInfo.nIFrameInterval);
+                param.setImageQuality(videoInfo.emImageQuality);
+            } else {
+                log.warn("获取视频参数失败, deviceId:{}, channelId:{}, error:{}", id, channelId, getErrorCodePrint());
+            }
+        } catch (Exception e) {
+            log.error("获取视频参数异常, deviceId:{}, channelId:{}, error:{}", id, channelId, e.getMessage(), e);
+        }
+
+        log.info("获取大华设备视频参数成功, deviceId:{}, channelId:{}, streamType:{}, width:{}, height:{}",
+                id, channelId, streamType, param.getWidth(), param.getHeight());
+        return param;
+    }
+
+    @Override
+    public DahuaDeviceVideoParam getDeviceVideoParam(Long id, int channelId) {
+        log.info("开始获取大华设备视频输入参数, deviceId:{}, channelId:{}", id, channelId);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        DahuaDeviceVideoParam param = new DahuaDeviceVideoParam();
+        try {
+            com.ruoyi.dahua.lib.structure.NET_VIDEOIN_IMAGE_INFO imageInfo =
+                    new com.ruoyi.dahua.lib.structure.NET_VIDEOIN_IMAGE_INFO();
+            imageInfo.write();
+            boolean success = netsdk.CLIENT_GetConfig(m_hLoginHandle,
+                    com.ruoyi.dahua.lib.enumeration.NET_EM_CFG_OPERATE_TYPE.NET_EM_CFG_VIDEOIN_IMAGE_OPT,
+                    channelId, imageInfo.getPointer(), imageInfo.size(), 5000, null);
+            if (success) {
+                imageInfo.read();
+                param.setBrightness(imageInfo.nBrightness);
+                param.setContrast(imageInfo.nContrast);
+                param.setSaturation(imageInfo.nSaturation);
+                param.setChroma(imageInfo.nChroma);
+                param.setSharpness(imageInfo.nSharpness);
+                param.setHue(imageInfo.nHue);
+                param.setGain(imageInfo.nGain);
+                param.setBlackWhiteMode(imageInfo.nBlackWhiteMode);
+            } else {
+                log.warn("获取视频输入参数失败, deviceId:{}, channelId:{}, error:{}", id, channelId, getErrorCodePrint());
+            }
+        } catch (Exception e) {
+            log.error("获取视频输入参数异常, deviceId:{}, channelId:{}, error:{}", id, channelId, e.getMessage(), e);
+        }
+
+        log.info("获取大华设备视频输入参数成功, deviceId:{}, channelId:{}, brightness:{}, contrast:{}",
+                id, channelId, param.getBrightness(), param.getContrast());
+        return param;
+    }
+
+    @Override
+    public boolean setVideoParam(Long id, int channelId, int streamType, DahuaVideoParam param) {
+        log.info("开始设置大华设备视频参数, deviceId:{}, channelId:{}", id, channelId);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        boolean success = false;
+        try {
+            com.ruoyi.dahua.lib.structure.NET_ENCODE_VIDEO_INFO videoInfo =
+                    new com.ruoyi.dahua.lib.structure.NET_ENCODE_VIDEO_INFO();
+            // 先获取当前配置，然后再修改
+            int emFormatType = 1; // 默认主码流
+            if (param.getFormatType() != null) {
+                emFormatType = param.getFormatType();
+            } else if (streamType == 1) {
+                emFormatType = 4; // 辅码流1
+            } else if (streamType == 2) {
+                emFormatType = 5; // 辅码流2
+            }
+            videoInfo.emFormatType = emFormatType;
+            videoInfo.write();
+            
+            // 先获取当前配置
+            boolean getSuccess = netsdk.CLIENT_GetConfig(m_hLoginHandle,
+                    com.ruoyi.dahua.lib.enumeration.NET_EM_CFG_OPERATE_TYPE.NET_EM_CFG_ENCODE_VIDEO,
+                    channelId, videoInfo.getPointer(), videoInfo.size(), 5000, null);
+            if (getSuccess) {
+                videoInfo.read();
+            }
+            
+            // 然后修改配置
+            if (param.getVideoEnable() != null) {
+                videoInfo.bVideoEnable = param.getVideoEnable();
+            }
+            if (param.getCompression() != null) {
+                videoInfo.emCompression = param.getCompression();
+            }
+            if (param.getWidth() != null) {
+                videoInfo.nWidth = param.getWidth();
+            }
+            if (param.getHeight() != null) {
+                videoInfo.nHeight = param.getHeight();
+            }
+            if (param.getBitRateControl() != null) {
+                videoInfo.emBitRateControl = param.getBitRateControl();
+            }
+            if (param.getBitRate() != null) {
+                videoInfo.nBitRate = param.getBitRate();
+            }
+            if (param.getFrameRate() != null) {
+                videoInfo.nFrameRate = param.getFrameRate();
+            }
+            if (param.getIframeInterval() != null) {
+                videoInfo.nIFrameInterval = param.getIframeInterval();
+            }
+            if (param.getImageQuality() != null) {
+                videoInfo.emImageQuality = param.getImageQuality();
+            }
+            videoInfo.write();
+
+            IntByReference errorCode = new IntByReference(0);
+            success = netsdk.CLIENT_SetConfig(m_hLoginHandle,
+                    com.ruoyi.dahua.lib.enumeration.NET_EM_CFG_OPERATE_TYPE.NET_EM_CFG_ENCODE_VIDEO,
+                    channelId, videoInfo.getPointer(), videoInfo.size(), 5000, errorCode, null);
+            if (success) {
+                log.info("设置大华设备视频参数成功, deviceId:{}, channelId:{}", id, channelId);
+            } else {
+                log.error("设置大华设备视频参数失败, deviceId:{}, channelId:{}, error:{}, errorCode:{}",
+                        id, channelId, getErrorCodePrint(), errorCode.getValue());
+            }
+        } catch (Exception e) {
+            log.error("设置视频参数异常, deviceId:{}, channelId:{}, error:{}", id, channelId, e.getMessage(), e);
+        }
+
+        return success;
+    }
+
+    @Override
+    public boolean setDeviceVideoParam(Long id, int channelId, DahuaDeviceVideoParam param) {
+        log.info("开始设置大华设备视频输入参数, deviceId:{}, channelId:{}", id, channelId);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        boolean success = false;
+        try {
+            com.ruoyi.dahua.lib.structure.NET_VIDEOIN_IMAGE_INFO imageInfo =
+                    new com.ruoyi.dahua.lib.structure.NET_VIDEOIN_IMAGE_INFO();
+            if (param.getBrightness() != null) {
+                imageInfo.nBrightness = param.getBrightness();
+            }
+            if (param.getContrast() != null) {
+                imageInfo.nContrast = param.getContrast();
+            }
+            if (param.getSaturation() != null) {
+                imageInfo.nSaturation = param.getSaturation();
+            }
+            if (param.getChroma() != null) {
+                imageInfo.nChroma = param.getChroma();
+            }
+            if (param.getSharpness() != null) {
+                imageInfo.nSharpness = param.getSharpness();
+            }
+            if (param.getHue() != null) {
+                imageInfo.nHue = param.getHue();
+            }
+            if (param.getGain() != null) {
+                imageInfo.nGain = param.getGain();
+            }
+            if (param.getBlackWhiteMode() != null) {
+                imageInfo.nBlackWhiteMode = param.getBlackWhiteMode();
+            }
+            imageInfo.write();
+
+            IntByReference errorCode = new IntByReference(0);
+            success = netsdk.CLIENT_SetConfig(m_hLoginHandle,
+                    com.ruoyi.dahua.lib.enumeration.NET_EM_CFG_OPERATE_TYPE.NET_EM_CFG_VIDEOIN_IMAGE_OPT,
+                    channelId, imageInfo.getPointer(), imageInfo.size(), 5000, errorCode, null);
+            if (success) {
+                log.info("设置大华设备视频输入参数成功, deviceId:{}, channelId:{}", id, channelId);
+            } else {
+                log.error("设置大华设备视频输入参数失败, deviceId:{}, channelId:{}, error:{}, errorCode:{}",
+                        id, channelId, getErrorCodePrint(), errorCode.getValue());
+            }
+        } catch (Exception e) {
+            log.error("设置视频输入参数异常, deviceId:{}, channelId:{}, error:{}", id, channelId, e.getMessage(), e);
+        }
+
+        return success;
+    }
+
 
     // 回调建议写成单例模式, 回调里处理数据，需要另开线程
     // 回放进度回调

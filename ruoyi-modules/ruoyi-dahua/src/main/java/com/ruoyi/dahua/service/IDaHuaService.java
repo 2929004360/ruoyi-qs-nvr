@@ -2,6 +2,10 @@ package com.ruoyi.dahua.service;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
+import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
+import com.ruoyi.dahua.api.domain.DahuaSystemParam;
+import com.ruoyi.dahua.api.domain.DahuaVideoParam;
+import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
 import com.ruoyi.dahua.lib.NetSDKLib;
 
 import java.util.ArrayList;
@@ -237,4 +241,68 @@ public interface IDaHuaService {
      * @param id 设备id
      */
     void stopPlayback(Long id);
+
+    /**
+     * 获取大华设备详细信息
+     *
+     * @param id 设备ID
+     * @return 设备详细信息
+     */
+    DahuaDeviceInfo getDeviceInfo(Long id);
+
+    /**
+     * 获取大华设备详细信息(通过IP)
+     *
+     * @param ip 设备IP
+     * @return 设备详细信息
+     */
+    DahuaDeviceInfo getDeviceInfoByIp(String ip);
+
+    /**
+     * 获取大华设备系统参数
+     *
+     * @param id 设备ID
+     * @return 系统参数
+     */
+    DahuaSystemParam getSystemParam(Long id);
+
+    /**
+     * 获取大华设备视频参数
+     *
+     * @param id        设备ID
+     * @param channelId 通道ID
+     * @param streamType 码流类型(0-主码流, 1-辅码流1, 2-辅码流2)
+     * @return 视频参数
+     */
+    DahuaVideoParam getVideoParam(Long id, int channelId, int streamType);
+
+    /**
+     * 获取大华设备视频输入参数
+     *
+     * @param id        设备ID
+     * @param channelId 通道ID
+     * @return 视频输入参数
+     */
+    DahuaDeviceVideoParam getDeviceVideoParam(Long id, int channelId);
+
+    /**
+     * 设置大华设备视频参数
+     *
+     * @param id        设备ID
+     * @param channelId 通道ID
+     * @param streamType 码流类型 0-主码流 1-辅码流1 2-辅码流2
+     * @param param     视频参数
+     * @return 是否成功
+     */
+    boolean setVideoParam(Long id, int channelId, int streamType, DahuaVideoParam param);
+
+    /**
+     * 设置大华设备视频输入参数
+     *
+     * @param id        设备ID
+     * @param channelId 通道ID
+     * @param param     视频输入参数
+     * @return 是否成功
+     */
+    boolean setDeviceVideoParam(Long id, int channelId, DahuaDeviceVideoParam param);
 }

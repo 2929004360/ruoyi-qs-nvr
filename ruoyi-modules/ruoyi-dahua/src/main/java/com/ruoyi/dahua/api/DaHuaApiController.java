@@ -5,6 +5,10 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.security.annotation.InnerAuth;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
+import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
+import com.ruoyi.dahua.api.domain.DahuaSystemParam;
+import com.ruoyi.dahua.api.domain.DahuaVideoParam;
+import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
 import com.ruoyi.dahua.api.domain.LoginDevice;
 import com.ruoyi.dahua.service.IDaHuaService;
 import jakarta.validation.constraints.NotBlank;
@@ -340,5 +344,68 @@ public class DaHuaApiController {
     public R<Void> stopPlayback(@PathVariable Long id) {
         daHuaService.stopPlayback(id);
         return R.ok();
+    }
+
+    /**
+     * 获取大华设备详细信息
+     */
+    @InnerAuth
+    @GetMapping("/deviceInfo/{id}")
+    public R<DahuaDeviceInfo> getDeviceInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getDeviceInfo(id));
+    }
+
+    /**
+     * 获取大华设备详细信息(通过IP)
+     */
+    @InnerAuth
+    @GetMapping("/deviceInfoByIp/{ip}")
+    public R<DahuaDeviceInfo> getDeviceInfoByIp(@PathVariable String ip) {
+        return R.ok(daHuaService.getDeviceInfoByIp(ip));
+    }
+
+    /**
+     * 获取大华设备系统参数
+     */
+    @InnerAuth
+    @GetMapping("/systemParam/{id}")
+    public R<DahuaSystemParam> getSystemParam(@PathVariable Long id) {
+        return R.ok(daHuaService.getSystemParam(id));
+    }
+
+    /**
+     * 获取大华设备视频参数
+     */
+    @InnerAuth
+    @GetMapping("/videoParam/{id}/{channelId}")
+    public R<DahuaVideoParam> getVideoParam(@PathVariable Long id, @PathVariable int channelId, int streamType) {
+        return R.ok(daHuaService.getVideoParam(id, channelId, streamType));
+    }
+
+    /**
+     * 设置大华设备视频参数
+     */
+    @InnerAuth
+    @PutMapping("/videoParam/{id}/{channelId}")
+    public R<Boolean> setVideoParam(@PathVariable Long id, @PathVariable int channelId, int streamType, @RequestBody DahuaVideoParam param) {
+        return R.ok(daHuaService.setVideoParam(id, channelId, streamType, param));
+    }
+
+    /**
+     * 获取大华设备视频输入参数
+     */
+    @InnerAuth
+    @GetMapping("/deviceVideoParam/{id}/{channelId}")
+    public R<DahuaDeviceVideoParam> getDeviceVideoParam(@PathVariable Long id, @PathVariable int channelId) {
+        return R.ok(daHuaService.getDeviceVideoParam(id, channelId));
+    }
+
+    /**
+     * 设置大华设备视频输入参数
+     */
+    @InnerAuth
+    @PutMapping("/deviceVideoParam/{id}/{channelId}")
+    public R<Boolean> setDeviceVideoParam(@PathVariable Long id, @PathVariable int channelId, @RequestBody DahuaDeviceVideoParam param) {
+        return R.ok(daHuaService.setDeviceVideoParam(id, channelId, param));
     }
 }
