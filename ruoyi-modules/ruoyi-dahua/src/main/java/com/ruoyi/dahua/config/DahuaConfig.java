@@ -28,4 +28,9 @@ public class DahuaConfig {
      * 是否公网部署
      */
     private boolean isPublicNetwork;
+
+    /**
+     * 是否监听报警
+     */
+    private boolean enableAlarmListen = false;
 }

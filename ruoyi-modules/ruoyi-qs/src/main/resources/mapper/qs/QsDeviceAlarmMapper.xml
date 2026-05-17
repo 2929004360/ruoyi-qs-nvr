@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.qs.mapper.QsDeviceAlarmMapper">
+
+    <resultMap type="QsDeviceAlarm" id="QsDeviceAlarmResult">
+        <result property="id" column="id"/>
+        <result property="deviceId" column="device_id"/>
+        <result property="deviceCode" column="device_code"/>
+        <result property="deviceName" column="device_name"/>
+        <result property="alarmType" column="alarm_type"/>
+        <result property="alarmLevel" column="alarm_level"/>
+        <result property="sdkType" column="sdk_type"/>
+        <result property="channel" column="channel"/>
+        <result property="alarmTime" column="alarm_time"/>
+        <result property="alarmContent" column="alarm_content"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="handled" column="handled"/>
+        <result property="handler" column="handler"/>
+        <result property="handleTime" column="handle_time"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectQsDeviceAlarmVo">
+        select id,
+               device_id,
+               device_code,
+               device_name,
+               alarm_type,
+               alarm_level,
+               sdk_type,
+               channel,
+               alarm_time,
+               alarm_content,
+               image_url,
+               handled,
+               handler,
+               handle_time,
+               create_by,
+               create_time,
+               update_by,
+               update_time,
+               remark
+        from qs_device_alarm
+    </sql>
+
+    <select id="selectQsDeviceAlarmList" parameterType="QsDeviceAlarm" resultMap="QsDeviceAlarmResult">
+        <include refid="selectQsDeviceAlarmVo"/>
+        <where>
+            <if test="deviceId != null">and device_id = #{deviceId}</if>
+            <if test="deviceCode != null  and deviceCode != ''">and device_code = #{deviceCode}</if>
+            <if test="deviceName != null  and deviceName != ''">and device_name like concat('%', #{deviceName}, '%')</if>
+            <if test="alarmType != null  and alarmType != ''">and alarm_type = #{alarmType}</if>
+            <if test="alarmLevel != null  and alarmLevel != ''">and alarm_level = #{alarmLevel}</if>
+            <if test="sdkType != null  and sdkType != ''">and sdk_type = #{sdkType}</if>
+            <if test="channel != null">and channel = #{channel}</if>
+            <if test="handled != null">and handled = #{handled}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                <![CDATA[ and alarm_time >= #{params.beginTime} ]]>
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                <![CDATA[ and alarm_time <= #{params.endTime} ]]>
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectQsDeviceAlarmById" parameterType="Long" resultMap="QsDeviceAlarmResult">
+        <include refid="selectQsDeviceAlarmVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertQsDeviceAlarm" parameterType="QsDeviceAlarm" useGeneratedKeys="true" keyProperty="id">
+        insert into qs_device_alarm
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="deviceId != null">device_id,</if>
+            <if test="deviceCode != null">device_code,</if>
+            <if test="deviceName != null">device_name,</if>
+            <if test="alarmType != null">alarm_type,</if>
+            <if test="alarmLevel != null">alarm_level,</if>
+            <if test="sdkType != null">sdk_type,</if>
+            <if test="channel != null">channel,</if>
+            <if test="alarmTime != null">alarm_time,</if>
+            <if test="alarmContent != null">alarm_content,</if>
+            <if test="imageUrl != null">image_url,</if>
+            <if test="handled != null">handled,</if>
+            <if test="handler != null">handler,</if>
+            <if test="handleTime != null">handle_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="deviceId != null">#{deviceId},</if>
+            <if test="deviceCode != null">#{deviceCode},</if>
+            <if test="deviceName != null">#{deviceName},</if>
+            <if test="alarmType != null">#{alarmType},</if>
+            <if test="alarmLevel != null">#{alarmLevel},</if>
+            <if test="sdkType != null">#{sdkType},</if>
+            <if test="channel != null">#{channel},</if>
+            <if test="alarmTime != null">#{alarmTime},</if>
+            <if test="alarmContent != null">#{alarmContent},</if>
+            <if test="imageUrl != null">#{imageUrl},</if>
+            <if test="handled != null">#{handled},</if>
+            <if test="handler != null">#{handler},</if>
+            <if test="handleTime != null">#{handleTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateQsDeviceAlarm" parameterType="QsDeviceAlarm">
+        update qs_device_alarm
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="deviceId != null">device_id = #{deviceId},</if>
+            <if test="deviceCode != null">device_code = #{deviceCode},</if>
+            <if test="deviceName != null">device_name = #{deviceName},</if>
+            <if test="alarmType != null">alarm_type = #{alarmType},</if>
+            <if test="alarmLevel != null">alarm_level = #{alarmLevel},</if>
+            <if test="sdkType != null">sdk_type = #{sdkType},</if>
+            <if test="channel != null">channel = #{channel},</if>
+            <if test="alarmTime != null">alarm_time = #{alarmTime},</if>
+            <if test="alarmContent != null">alarm_content = #{alarmContent},</if>
+            <if test="imageUrl != null">image_url = #{imageUrl},</if>
+            <if test="handled != null">handled = #{handled},</if>
+            <if test="handler != null">handler = #{handler},</if>
+            <if test="handleTime != null">handle_time = #{handleTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteQsDeviceAlarmById" parameterType="Long">
+        delete from qs_device_alarm where id = #{id}
+    </delete>
+
+    <delete id="deleteQsDeviceAlarmByIds" parameterType="Long">
+        delete from qs_device_alarm where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
