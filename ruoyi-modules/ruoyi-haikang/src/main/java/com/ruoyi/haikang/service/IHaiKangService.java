@@ -233,4 +233,20 @@ public interface IHaiKangService {
      * @return
      */
     ArrayList<HashMap<String, Object>> queryRecord(Long deviceId, int channelId, String startTime, String endTime);
+
+    /**
+     * 海康设备录像下载（保存到后端）
+     *
+     * @param request 下载请求
+     * @return 下载结果
+     */
+    com.ruoyi.haikang.api.domain.HaikangRecordDownloadResponse downloadRecord(com.ruoyi.haikang.api.domain.HaikangRecordDownloadRequest request);
+
+    /**
+     * 海康设备录像下载（保存到临时文件，直接返回给前端）
+     *
+     * @param request 下载请求
+     * @return 临时文件
+     */
+    java.io.File downloadRecordFile(com.ruoyi.haikang.api.domain.HaikangRecordDownloadRequest request) throws Exception;
 }

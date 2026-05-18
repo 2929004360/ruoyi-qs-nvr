@@ -30,10 +30,15 @@ import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * @FileName HaiKangServiceImpl
@@ -47,6 +52,9 @@ public class HaiKangServiceImpl implements IHaiKangService {
 
     @Autowired
     private Client client;
+
+    @Value("${file.path}")
+    private String filePath;
 
     /**
      * 设备信息
@@ -1272,6 +1280,53 @@ public class HaiKangServiceImpl implements IHaiKangService {
     }
 
     /**
+     * 将海康SDK错误码转换为可读字符串
+     *
+     * @param errorCode 海康SDK错误码
+     * @return 可读的错误信息
+     */
+    private String getErrorMessage(int errorCode) {
+        switch (errorCode) {
+            case 0:
+                return "没有错误";
+            case 1:
+                return "用户名密码错误";
+            case 3:
+                return "SDK未初始化";
+            case 5:
+                return "连接到设备的用户个数超过最大";
+            case 7:
+                return "连接设备失败，设备不在线或网络原因引起的连接超时等";
+            case 8:
+                return "向设备发送失败";
+            case 9:
+                return "从设备接收数据失败";
+            case 10:
+                return "从设备接收数据超时";
+            case 14:
+                return "设备命令执行超时";
+            case 17:
+                return "参数错误，SDK接口中给入的输入或输出参数为空";
+            case 34:
+                return "创建文件出错，本地录像、保存图片、获取配置文件和远程下载录像时创建文件失败";
+            case 41:
+                return "SDK资源分配错误";
+            case 43:
+                return "缓冲区太小，接收设备数据的缓冲区或存放图片缓冲区不足";
+            case 44:
+                return "创建SOCKET出错";
+            case 47:
+                return "用户不存在，注册的用户ID已注销或不可用";
+            case 72:
+                return "绑定套接字失败";
+            case 73:
+                return "socket连接中断，此错误通常是由于连接中断或目的地不可达";
+            default:
+                return "未知错误(" + errorCode + ")";
+        }
+    }
+
+    /**
      * 将海康设备的录像类型转换为可读字符串
      *
      * @param fileType 海康设备返回的文件类型
@@ -1373,4 +1428,269 @@ public class HaiKangServiceImpl implements IHaiKangService {
                 return "未知类型(" + fileType + ")";
         }
     }
+
+    /**
+     * 海康设备录像下载（保存到后端）
+     *
+     * @param request 下载请求
+     * @return 下载结果
+     */
+    @Override
+    public com.ruoyi.haikang.api.domain.HaikangRecordDownloadResponse downloadRecord(com.ruoyi.haikang.api.domain.HaikangRecordDownloadRequest request) {
+        log.info("开始下载海康设备录像, deviceId:{}, channelId:{}, 开始时间:{}, 结束时间:{}", 
+            request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+        
+        com.ruoyi.haikang.api.domain.HaikangRecordDownloadResponse response = new com.ruoyi.haikang.api.domain.HaikangRecordDownloadResponse();
+        
+        try {
+            // 下载文件
+            File file = downloadRecordFile(request);
+            
+            response.setSuccess(true);
+            response.setFilePath(file.getAbsolutePath());
+            response.setFileSize(file.length());
+            response.setProgress(100);
+            
+            log.info("海康设备录像下载成功, deviceId:{}, 路径:{}, 大小:{}字节", request.getId(), file.getAbsolutePath(), file.length());
+        } catch (Exception e) {
+            log.error("海康设备录像下载失败, deviceId:{}, error:{}", request.getId(), e.getMessage(), e);
+            response.setSuccess(false);
+            response.setErrorMessage(e.getMessage());
+        }
+        
+        return response;
+    }
+
+    /**
+     * 海康设备录像下载（保存到临时文件）
+     *
+     * @param request 下载请求
+     * @return 临时文件
+     */
+    @Override
+    public File downloadRecordFile(com.ruoyi.haikang.api.domain.HaikangRecordDownloadRequest request) throws Exception {
+        log.info("开始下载海康设备录像(直接返回文件), deviceId:{}, channelId:{}, 开始时间:{}, 结束时间:{}",
+                request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(request.getId(), SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", request.getId(), r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", request.getId(), device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+
+        // 解析时间
+        LocalDateTime startTimeDt = LocalDateTime.parse(request.getStartTime().trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        LocalDateTime endTimeDt = LocalDateTime.parse(request.getEndTime().trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        // 定义尝试策略
+        class DownloadStrategy {
+            boolean useV40;
+            int streamType; // 0-主码流, 1-子码流
+            String description;
+
+            DownloadStrategy(boolean useV40, int streamType, String description) {
+                this.useV40 = useV40;
+                this.streamType = streamType;
+                this.description = description;
+            }
+        }
+
+        DownloadStrategy[] strategies = {
+                new DownloadStrategy(true, 0, "V40+主码流"),
+                new DownloadStrategy(true, 1, "V40+子码流"),
+                new DownloadStrategy(false, 0, "旧版API+主码流"),
+                new DownloadStrategy(false, 1, "旧版API+子码流")
+        };
+
+        for (DownloadStrategy strategy : strategies) {
+            log.info("尝试下载策略: {}", strategy.description);
+
+            // 创建保存目录
+            String saveDir = filePath + "/haikang/record/" + request.getId() + "/" + System.currentTimeMillis();
+            File dir = new File(saveDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            // 文件名
+            String fileName = "device_" + request.getId() + "_channel_" + request.getChannelId() +
+                    "_" + request.getStartTime().replace(":", "-").replace(" ", "_") + ".mp4";
+            String savePath = saveDir + "/" + fileName;
+
+            int downloadHandle = -1;
+            Timer downloadTimer = null;
+            try {
+                if (strategy.useV40) {
+                    // 准备下载条件
+                    HCNetSDK.NET_DVR_PLAYCOND playCond = new HCNetSDK.NET_DVR_PLAYCOND();
+                    playCond.read();
+                    playCond.dwChannel = request.getChannelId();
+                    playCond.byStreamType = (byte) strategy.streamType;
+                    
+                    //开始时间
+                    playCond.struStartTime.dwYear = startTimeDt.getYear();
+                    playCond.struStartTime.dwMonth = startTimeDt.getMonthValue();
+                    playCond.struStartTime.dwDay = startTimeDt.getDayOfMonth();
+                    playCond.struStartTime.dwHour = startTimeDt.getHour();
+                    playCond.struStartTime.dwMinute = startTimeDt.getMinute();
+                    playCond.struStartTime.dwSecond = startTimeDt.getSecond();
+
+                    //停止时间
+                    playCond.struStopTime.dwYear = endTimeDt.getYear();
+                    playCond.struStopTime.dwMonth = endTimeDt.getMonthValue();
+                    playCond.struStopTime.dwDay = endTimeDt.getDayOfMonth();
+                    playCond.struStopTime.dwHour = endTimeDt.getHour();
+                    playCond.struStopTime.dwMinute = endTimeDt.getMinute();
+                    playCond.struStopTime.dwSecond = endTimeDt.getSecond();
+                    
+                    playCond.write();
+
+                    downloadHandle = client.hCNetSDK.NET_DVR_GetFileByTime_V40(lUserID, savePath, playCond);
+                } else {
+                    // 旧版API
+                    HCNetSDK.NET_DVR_TIME startTimeStruct = new HCNetSDK.NET_DVR_TIME();
+                    HCNetSDK.NET_DVR_TIME endTimeStruct = new HCNetSDK.NET_DVR_TIME();
+                    
+                    startTimeStruct.dwYear = startTimeDt.getYear();
+                    startTimeStruct.dwMonth = startTimeDt.getMonthValue();
+                    startTimeStruct.dwDay = startTimeDt.getDayOfMonth();
+                    startTimeStruct.dwHour = startTimeDt.getHour();
+                    startTimeStruct.dwMinute = startTimeDt.getMinute();
+                    startTimeStruct.dwSecond = startTimeDt.getSecond();
+                    
+                    endTimeStruct.dwYear = endTimeDt.getYear();
+                    endTimeStruct.dwMonth = endTimeDt.getMonthValue();
+                    endTimeStruct.dwDay = endTimeDt.getDayOfMonth();
+                    endTimeStruct.dwHour = endTimeDt.getHour();
+                    endTimeStruct.dwMinute = endTimeDt.getMinute();
+                    endTimeStruct.dwSecond = endTimeDt.getSecond();
+                    
+                    downloadHandle = client.hCNetSDK.NET_DVR_GetFileByTime(lUserID, request.getChannelId(), startTimeStruct, endTimeStruct, savePath);
+                }
+
+                if (downloadHandle < 0) {
+                    int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                    log.warn("策略 {} 失败，句柄无效: {}, 错误码:{}", strategy.description, downloadHandle, errorCode);
+                    continue;
+                }
+
+                CompletableFuture<String> future = new CompletableFuture<>();
+
+                // 开始下载
+                client.hCNetSDK.NET_DVR_PlayBackControl(downloadHandle, HCNetSDK.NET_DVR_PLAYSTART, 0, null);
+                
+                // 设置下载速度
+                IntByReference intP = new IntByReference(5 * 8 * 1024);
+                IntByReference intInlen = new IntByReference(0);
+                boolean b_PlayBack = client.hCNetSDK.NET_DVR_PlayBackControl_V40(downloadHandle, 24, intP.getPointer(), 4, Pointer.NULL, intInlen);
+                if (!b_PlayBack) {
+                    log.warn("策略 {} 设置下载速度失败，错误码为: {}", strategy.description, client.hCNetSDK.NET_DVR_GetLastError());
+                }
+
+                log.info("策略 {} 开始下载...", strategy.description);
+                downloadTimer = new Timer();
+                downloadTimer.schedule(new DownloadTask(downloadHandle, downloadTimer, future, savePath, client, strategy.description), 0, 1000);
+
+                // 等待下载完成（最多10分钟）
+                future.get(60 * 10, TimeUnit.SECONDS);
+
+                File file = new File(savePath);
+                if (file.exists() && file.length() > 0) {
+                    log.info("策略 {} 下载成功! 文件大小: {}字节", strategy.description, file.length());
+                    return file;
+                }
+
+            } catch (Exception e) {
+                log.error("策略 {} 下载异常: {}", strategy.description, e.getMessage());
+            } finally {
+                // 停止下载
+                if (downloadHandle >= 0) {
+                    client.hCNetSDK.NET_DVR_StopGetFile(downloadHandle);
+                }
+                if (downloadTimer != null) {
+                    downloadTimer.cancel();
+                }
+            }
+        }
+
+        throw new ServiceException("所有下载策略都失败了");
+    }
+
+    /**
+     * 下载任务类
+     */
+    class DownloadTask extends java.util.TimerTask {
+        int downloadHandle;
+        Timer downloadTimer;
+        CompletableFuture<String> future;
+        String savePath;
+        com.ruoyi.haikang.net.Client client;
+        String strategyDesc;
+        int zeroFileSizeCount = 0;
+        long lastFileSize = 0;
+        int noProgressCount = 0;
+
+        public DownloadTask(int downloadHandle, Timer downloadTimer, CompletableFuture<String> future, String savePath, com.ruoyi.haikang.net.Client client, String strategyDesc) {
+            this.downloadHandle = downloadHandle;
+            this.downloadTimer = downloadTimer;
+            this.future = future;
+            this.savePath = savePath;
+            this.client = client;
+            this.strategyDesc = strategyDesc;
+        }
+
+        @Override
+        public void run() {
+            IntByReference nPos = new IntByReference(0);
+            client.hCNetSDK.NET_DVR_PlayBackControl(downloadHandle, HCNetSDK.NET_DVR_PLAYGETPOS, 0, nPos);
+            
+            // 检查文件大小
+            File file = new File(savePath);
+            long fileSize = file.exists() ? file.length() : 0;
+            
+            // 快速失败：文件大小长时间为0
+            if (fileSize == 0) {
+                zeroFileSizeCount++;
+                if (zeroFileSizeCount > 15) { // 15秒文件大小还是0，放弃当前策略
+                    log.warn("策略 {} 文件大小长时间为0，放弃当前策略", strategyDesc);
+                    client.hCNetSDK.NET_DVR_StopGetFile(downloadHandle);
+                    downloadTimer.cancel();
+                    future.completeExceptionally(new RuntimeException("文件大小长时间为0"));
+                    return;
+                }
+            } else {
+                zeroFileSizeCount = 0;
+            }
+            
+            // 检查文件是否在增长
+            if (fileSize > lastFileSize) {
+                noProgressCount = 0;
+                lastFileSize = fileSize;
+            } else {
+                noProgressCount++;
+            }
+            
+            log.info("策略 {} 下载进度: {}%, 文件大小: {}字节", strategyDesc, nPos.getValue(), fileSize);
+
+            if (nPos.getValue() > 100) {
+                log.warn("策略 {} 由于网络原因或DVR忙,下载异常终止!", strategyDesc);
+                client.hCNetSDK.NET_DVR_StopGetFile(downloadHandle);
+                downloadTimer.cancel();
+                future.completeExceptionally(new RuntimeException("下载异常终止"));
+            } else if (nPos.getValue() == 100) {
+                log.info("策略 {} 下载完成!", strategyDesc);
+                client.hCNetSDK.NET_DVR_StopGetFile(downloadHandle);
+                downloadTimer.cancel();
+                future.complete("SUCCESS");
+            }
+        }
+    }
+
 }
