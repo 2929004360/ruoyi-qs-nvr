@@ -3278,4 +3278,340 @@ public class DaHuaServiceImpl implements IDaHuaService {
 
         return result;
     }
+
+    @Override
+    public java.io.File downloadRecordFile(DahuaRecordDownloadRequest request) throws Exception {
+        log.info("开始下载大华设备录像(直接返回文件), deviceId:{}, channelId:{}, 开始时间:{}, 结束时间:{}",
+                request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(request.getId(), SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", request.getId(), r.getCode(), r.getMsg());
+                throw new RuntimeException(r.getMsg());
+            }
+            QsDevice device = r.getData();
+            log.debug("获取设备信息成功, deviceId:{}, IP:{}", request.getId(), device.getIpAddress());
+
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", request.getId(), device.getIpAddress());
+                throw new RuntimeException("大华设备未登录");
+            }
+
+            // 🚀 第一步：先查询这个时间段里有哪些录像！
+            log.info("先查询该时间段的录像列表, deviceId:{}, channelId:{}, startTime:{}, endTime:{}",
+                    request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+
+            ArrayList<HashMap<String, Object>> recordList;
+            try {
+                recordList = queryRecord(request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+            } catch (Exception e) {
+                log.warn("查询录像失败, 继续尝试直接下载, error:{}", e.getMessage());
+                recordList = null;
+            }
+
+            // 解析开始和结束时间
+            NetSDKLib.NET_TIME stTimeStart = new NetSDKLib.NET_TIME();
+            NetSDKLib.NET_TIME stTimeEnd = new NetSDKLib.NET_TIME();
+
+            try {
+                String[] dateStartByFile = request.getStartTime().split(" ");
+                String[] dateStart1 = dateStartByFile[0].split("-");
+                String[] dateStart2 = dateStartByFile[1].split(":");
+
+                stTimeStart.dwYear = Integer.parseInt(dateStart1[0]);
+                stTimeStart.dwMonth = Integer.parseInt(dateStart1[1]);
+                stTimeStart.dwDay = Integer.parseInt(dateStart1[2]);
+                stTimeStart.dwHour = Integer.parseInt(dateStart2[0]);
+                stTimeStart.dwMinute = Integer.parseInt(dateStart2[1]);
+                stTimeStart.dwSecond = Integer.parseInt(dateStart2[2]);
+
+                String[] dateEndByFile = request.getEndTime().split(" ");
+                String[] dateEnd1 = dateEndByFile[0].split("-");
+                String[] dateEnd2 = dateEndByFile[1].split(":");
+
+                stTimeEnd.dwYear = Integer.parseInt(dateEnd1[0]);
+                stTimeEnd.dwMonth = Integer.parseInt(dateEnd1[1]);
+                stTimeEnd.dwDay = Integer.parseInt(dateEnd1[2]);
+                stTimeEnd.dwHour = Integer.parseInt(dateEnd2[0]);
+                stTimeEnd.dwMinute = Integer.parseInt(dateEnd2[1]);
+                stTimeEnd.dwSecond = Integer.parseInt(dateEnd2[2]);
+
+                // 验证时间间隔不超过10分钟
+                long startSeconds = stTimeStart.dwHour * 3600 + stTimeStart.dwMinute * 60 + stTimeStart.dwSecond;
+                long endSeconds = stTimeEnd.dwHour * 3600 + stTimeEnd.dwMinute * 60 + stTimeEnd.dwSecond;
+                long durationSeconds;
+
+                if (stTimeStart.dwDay == stTimeEnd.dwDay && stTimeStart.dwMonth == stTimeEnd.dwMonth
+                        && stTimeStart.dwYear == stTimeEnd.dwYear) {
+                    durationSeconds = endSeconds - startSeconds;
+                } else {
+                    // 跨天的情况，先检查是否是同一天的不同小时，然后限制在10分钟内
+                    durationSeconds = 0; // 跨天不允许，为了简化逻辑
+                }
+
+                if (durationSeconds <= 0 || durationSeconds > 10 * 60) {
+                    log.error("录像下载时间间隔必须在10分钟以内, deviceId:{}, 持续时间:{}秒", request.getId(), durationSeconds);
+                    throw new RuntimeException("录像下载时间间隔必须在10分钟以内");
+                }
+
+            } catch (Exception e) {
+                log.error("时间解析失败, deviceId:{}, error:{}", request.getId(), e.getMessage(), e);
+                throw new RuntimeException("时间格式不正确，请使用 yyyy-MM-dd HH:mm:ss 格式");
+            }
+
+            // 🚀 如果查询到了录像，我们再调用一次 queryRecordFile 来获取更精确的 NET_RECORDFILE_INFO
+            // 然后用第一个录像文件的真实开始和结束时间来下载！
+            NetSDKLib.NET_RECORDFILE_INFO targetFileInfo = null;
+            if (recordList != null && recordList.size() > 0) {
+                log.info("查询到 {} 条录像记录，获取详细文件信息", recordList.size());
+
+                // 录像文件信息
+                NetSDKLib.NET_RECORDFILE_INFO[] stFileInfo = (NetSDKLib.NET_RECORDFILE_INFO[]) new NetSDKLib.NET_RECORDFILE_INFO().toArray(2000);
+                IntByReference nFindCount = new IntByReference(0);
+
+                if (queryRecordFile(request.getChannelId(), stTimeStart, stTimeEnd, stFileInfo, nFindCount, m_hLoginHandle)) {
+                    int totalCount = nFindCount.getValue();
+                    if (totalCount > 0) {
+                        // 取第一条录像
+                        targetFileInfo = stFileInfo[0];
+                        log.info("获取到第一条录像的详细信息, 真实开始时间:{}, 真实结束时间:{}",
+                                targetFileInfo.starttime.toStringTime(), targetFileInfo.endtime.toStringTime());
+
+                        // ⚠️ 重要！使用真实的开始时间，但是结束时间只取开始时间+10分钟，或者用户指定的结束时间（取较小的那个）
+                        stTimeStart = targetFileInfo.starttime;
+
+                        // 计算开始时间+10分钟
+                        NetSDKLib.NET_TIME maxEndTime = new NetSDKLib.NET_TIME();
+                        maxEndTime.dwYear = stTimeStart.dwYear;
+                        maxEndTime.dwMonth = stTimeStart.dwMonth;
+                        maxEndTime.dwDay = stTimeStart.dwDay;
+                        maxEndTime.dwHour = stTimeStart.dwHour;
+                        maxEndTime.dwMinute = stTimeStart.dwMinute + 10;
+                        maxEndTime.dwSecond = stTimeStart.dwSecond;
+
+                        // 处理分钟+10后的溢出
+                        if (maxEndTime.dwMinute >= 60) {
+                            maxEndTime.dwMinute -= 60;
+                            maxEndTime.dwHour += 1;
+                        }
+                        if (maxEndTime.dwHour >= 24) {
+                            maxEndTime.dwHour -= 24;
+                            maxEndTime.dwDay += 1;
+                        }
+
+                        // 比较 maxEndTime 和用户请求的 endTime，取较小的那个作为结束时间
+                        // 先把用户的 endTime 也转成 Date 来比较
+                        java.util.Calendar userEndCal = java.util.Calendar.getInstance();
+                        userEndCal.set(stTimeEnd.dwYear, stTimeEnd.dwMonth - 1, stTimeEnd.dwDay, stTimeEnd.dwHour, stTimeEnd.dwMinute, stTimeEnd.dwSecond);
+
+                        java.util.Calendar maxEndCal = java.util.Calendar.getInstance();
+                        maxEndCal.set(maxEndTime.dwYear, maxEndTime.dwMonth - 1, maxEndTime.dwDay, maxEndTime.dwHour, maxEndTime.dwMinute, maxEndTime.dwSecond);
+
+                        if (userEndCal.before(maxEndCal)) {
+                            stTimeEnd = stTimeEnd; // 用户请求的结束时间更早，用用户的
+                            log.info("使用用户请求的结束时间: {}", stTimeEnd.toStringTime());
+                        } else {
+                            stTimeEnd = maxEndTime; // 开始时间+10分钟更早，用这个
+                            log.info("限制下载时间为开始时间+10分钟: {}", stTimeEnd.toStringTime());
+                        }
+                    }
+                }
+            }
+
+            // 创建保存目录 - 使用原来的配置路径
+            String saveDir = filePath + "/dahua/record/" + request.getId() + "/" + System.currentTimeMillis();
+            File dir = new File(saveDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            // 生成文件名
+            String fileName = "device_" + request.getId() + "_channel_" + request.getChannelId() + "_"
+                    + request.getStartTime().replace(":", "-").replace(" ", "_") + ".dav";
+            String fullPath = saveDir + File.separator + fileName;
+
+            log.debug("保存录像文件路径: {}", fullPath);
+
+            // 创建下载回调
+            RecordDownloadCallback callback = new RecordDownloadCallback();
+            callback.setSavePath(fullPath);
+            // 不需要 response，设置 null
+
+            // 录像文件类型，默认主码流
+            int recordFileType = request.getRecordFileType() != null ? request.getRecordFileType() : 0;
+
+            // 开始下载
+            NetSDKLib.LLong downloadHandle = netsdk.CLIENT_DownloadByTimeEx(
+                    m_hLoginHandle,
+                    request.getChannelId(),
+                    recordFileType,
+                    stTimeStart,
+                    stTimeEnd,
+                    fullPath,
+                    callback,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+
+            if (downloadHandle.longValue() == 0) {
+                log.error("录像下载失败, deviceId:{}, error:{}", request.getId(), getErrorCodePrint());
+                throw new RuntimeException("录像下载失败: " + getErrorCodePrint());
+            }
+
+            // 等待下载完成，最多等待5分钟
+            int maxWaitTime = 5 * 60 * 1000;
+            int waitInterval = 1000;
+            int waitedTime = 0;
+            boolean downloadCompleted = false;
+
+            while (waitedTime < maxWaitTime && !downloadCompleted) {
+                Thread.sleep(waitInterval);
+                waitedTime += waitInterval;
+
+                if (callback.isCompleted()) {
+                    downloadCompleted = true;
+                }
+
+                if (callback.getDownloadSize() > 0) {
+                    long totalSize = callback.getTotalSize();
+                    int progress = totalSize > 0 ? (int) (callback.getDownloadSize() * 100 / totalSize) : 0;
+                    // 直接返回文件，不需要进度
+                }
+            }
+
+            // 如果下载还未完成，强制停止
+            if (!downloadCompleted) {
+                netsdk.CLIENT_StopDownload(downloadHandle);
+                log.warn("录像下载超时，强制停止, deviceId:{}", request.getId());
+                throw new RuntimeException("录像下载超时");
+            }
+
+            // 检查是否下载成功
+            if (callback.getError() != null) {
+                // 检查文件是否存在（双重保险）
+                File downloadFile = new File(fullPath);
+                if (downloadFile.exists() && downloadFile.length() > 0) {
+                    log.warn("回调报告失败但文件实际已下载成功，继续处理, deviceId:{}", request.getId());
+                } else {
+                    log.error("录像下载失败, deviceId:{}, error:{}", request.getId(), callback.getError());
+                    throw new RuntimeException("录像下载失败: " + callback.getError());
+                }
+            }
+
+            // 检查文件是否存在
+            File downloadFile = new File(fullPath);
+            if (!downloadFile.exists() || downloadFile.length() == 0) {
+                log.error("录像文件不存在或为空, deviceId:{}, path:{}", request.getId(), fullPath);
+                throw new RuntimeException("录像文件下载失败");
+            }
+
+            log.info("录像下载成功, deviceId:{}, 路径:{}, 大小:{}字节", request.getId(), fullPath, downloadFile.length());
+            return downloadFile;
+
+        } catch (Exception e) {
+            log.error("录像下载异常, deviceId:{}, error:{}", request.getId(), e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    @Override
+    public DahuaRecordDownloadResponse downloadRecord(DahuaRecordDownloadRequest request) {
+        log.info("开始下载大华设备录像, deviceId:{}, channelId:{}, 开始时间:{}, 结束时间:{}",
+                request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+
+        DahuaRecordDownloadResponse response = new DahuaRecordDownloadResponse();
+        response.setSuccess(false);
+
+        try {
+            File downloadFile = downloadRecordFile(request);
+
+            // 构建响应
+            response.setSuccess(true);
+            response.setFilePath(downloadFile.getAbsolutePath());
+            response.setFileSize(downloadFile.length());
+
+            // 构建访问URL
+            String timestampDir = downloadFile.getParentFile().getName();
+            response.setFileUrl(fileDomain + "/dahua/record/" + request.getId() + "/" + timestampDir + "/" + downloadFile.getName());
+            response.setProgress(100);
+
+            log.info("录像下载成功, deviceId:{}, 路径:{}, 大小:{}字节", request.getId(), downloadFile.getAbsolutePath(), downloadFile.length());
+
+        } catch (Exception e) {
+            log.error("录像下载异常, deviceId:{}, error:{}", request.getId(), e.getMessage(), e);
+            response.setErrorMessage("录像下载异常: " + e.getMessage());
+        }
+
+        return response;
+    }
+
+    /**
+     * 录像下载回调类
+     */
+    private static class RecordDownloadCallback implements NetSDKLib.fTimeDownLoadPosCallBack {
+        private String savePath;
+        private DahuaRecordDownloadResponse response;
+        private boolean completed = false;
+        private String error;
+        private long totalSize = 0;
+        private long downloadSize = 0;
+
+        public void setSavePath(String savePath) {
+            this.savePath = savePath;
+        }
+
+        public void setResponse(DahuaRecordDownloadResponse response) {
+            this.response = response;
+        }
+
+        public boolean isCompleted() {
+            return completed;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        public long getTotalSize() {
+            return totalSize;
+        }
+
+        public long getDownloadSize() {
+            return downloadSize;
+        }
+
+        @Override
+        public void invoke(NetSDKLib.LLong lPlayHandle, int dwTotalSize, int dwDownLoadSize,
+                          int index, NetSDKLib.NET_RECORDFILE_INFO.ByValue recordfileinfo, Pointer dwUser) {
+
+            log.debug("录像下载回调, 总大小:{}, 已下载:{}", dwTotalSize, dwDownLoadSize);
+
+            totalSize = dwTotalSize;
+            downloadSize = dwDownLoadSize;
+
+            if (dwDownLoadSize == -1) {
+                // 🚀 关键修改：先不急着标记失败！检查一下文件是否已经下载成功了！
+                if (savePath != null) {
+                    java.io.File downloadFile = new java.io.File(savePath);
+                    if (downloadFile.exists() && downloadFile.length() > 0) {
+                        log.info("dwDownLoadSize == -1 但是文件已经下载成功，视为下载完成！文件大小:{}字节", downloadFile.length());
+                        completed = true;
+                        error = null; // 清除错误
+                        return;
+                    }
+                }
+                log.error("录像下载失败: 文件不存在");
+                completed = true;
+                error = "录像文件不存在";
+            } else if (dwDownLoadSize == dwTotalSize) {
+                log.info("录像下载完成");
+                completed = true;
+                error = null;
+            }
+        }
+    }
 }

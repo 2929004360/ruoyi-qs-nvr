@@ -15,6 +15,8 @@ import com.ruoyi.dahua.api.domain.DahuaSDCardInfo;
 import com.ruoyi.dahua.api.domain.DahuaBitrateInfo;
 import com.ruoyi.dahua.api.domain.DahuaNetworkStatusInfo;
 import com.ruoyi.dahua.api.domain.DahuaSoftwareVersionInfo;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadRequest;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadResponse;
 import com.ruoyi.dahua.api.domain.LoginDevice;
 import com.ruoyi.dahua.service.IDaHuaService;
 import jakarta.validation.constraints.NotBlank;
@@ -479,5 +481,14 @@ public class DaHuaApiController {
     @GetMapping("/softwareVersionInfo/{id}")
     public R<DahuaSoftwareVersionInfo> getSoftwareVersionInfo(@PathVariable Long id) {
         return R.ok(daHuaService.getSoftwareVersionInfo(id));
+    }
+
+    /**
+     * 大华设备录像下载
+     */
+    @InnerAuth
+    @PostMapping("/downloadRecord")
+    public R<DahuaRecordDownloadResponse> downloadRecord(@RequestBody DahuaRecordDownloadRequest request) {
+        return R.ok(daHuaService.downloadRecord(request));
     }
 }

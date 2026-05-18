@@ -5,6 +5,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.RemoteDaHuaService;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.api.domain.LoginDevice;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadRequest;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FallbackFactory;
@@ -159,6 +161,11 @@ public class RemoteDaHuaFallbackFactory implements FallbackFactory<RemoteDaHuaSe
             @Override
             public R<Long> captureAndSave(Long id, int channelId, String snapshotType, String source) {
                 return R.fail("大华sdk抓图并保存失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<DahuaRecordDownloadResponse> downloadRecord(DahuaRecordDownloadRequest request, String source) {
+                return R.fail("大华sdk录像下载失败:" + throwable.getMessage());
             }
         };
     }

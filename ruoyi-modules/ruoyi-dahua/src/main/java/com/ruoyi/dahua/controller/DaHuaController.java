@@ -20,17 +20,24 @@ import com.ruoyi.dahua.api.domain.DahuaPowerStateInfo;
 import com.ruoyi.dahua.api.domain.DahuaAlarmArmInfo;
 import com.ruoyi.dahua.api.domain.DahuaCameraInfo;
 import com.ruoyi.dahua.api.domain.DahuaRtspUrlInfo;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadRequest;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadResponse;
 import com.ruoyi.dahua.runner.DahuaCommandLineRunnerImpl;
 import com.ruoyi.dahua.service.IDaHuaService;
 
 import jakarta.validation.constraints.NotBlank;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.io.File;
 
 /**
  * 大华sdk Controller
@@ -247,6 +254,27 @@ public class DaHuaController extends BaseController {
     @GetMapping("/rtspUrlInfo/{id}")
     public R<DahuaRtspUrlInfo> getRtspUrlInfo(@PathVariable Long id) {
         return R.ok(daHuaService.getRtspUrlInfo(id));
+    }
+
+    /**
+     * 大华设备录像下载
+     */
+    @PostMapping("/downloadRecord")
+    public R<DahuaRecordDownloadResponse> downloadRecord(@RequestBody DahuaRecordDownloadRequest request) {
+        return R.ok(daHuaService.downloadRecord(request));
+    }
+
+    /**
+     * 大华设备录像直接下载到用户电脑
+     */
+    @PostMapping("/downloadRecordDirect")
+    public ResponseEntity<Resource> downloadRecordDirect(@RequestBody DahuaRecordDownloadRequest request) throws Exception {
+        File file = daHuaService.downloadRecordFile(request);
+        Resource resource = new FileSystemResource(file);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getName() + "\"")
+                .body(resource);
     }
 }
 

@@ -17,6 +17,8 @@ import com.ruoyi.dahua.api.domain.DahuaPowerStateInfo;
 import com.ruoyi.dahua.api.domain.DahuaAlarmArmInfo;
 import com.ruoyi.dahua.api.domain.DahuaCameraInfo;
 import com.ruoyi.dahua.api.domain.DahuaRtspUrlInfo;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadRequest;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadResponse;
 import com.ruoyi.dahua.lib.NetSDKLib;
 
 import java.util.ArrayList;
@@ -414,4 +416,20 @@ public interface IDaHuaService {
      * @return RTSP URL信息
      */
     DahuaRtspUrlInfo getRtspUrlInfo(Long id);
+
+    /**
+     * 大华设备录像下载
+     *
+     * @param request 下载请求参数
+     * @return 下载响应
+     */
+    DahuaRecordDownloadResponse downloadRecord(DahuaRecordDownloadRequest request);
+
+    /**
+     * 大华设备录像下载（返回文件）
+     *
+     * @param request 下载请求参数
+     * @return 下载的文件
+     */
+    java.io.File downloadRecordFile(DahuaRecordDownloadRequest request) throws Exception;
 }

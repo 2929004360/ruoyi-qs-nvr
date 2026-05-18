@@ -7,6 +7,8 @@ import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.dahua.api.domain.DahuaDevice;
 import com.ruoyi.dahua.api.domain.LoginDevice;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadRequest;
+import com.ruoyi.dahua.api.domain.DahuaRecordDownloadResponse;
 import com.ruoyi.dahua.api.factory.RemoteDaHuaFallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
@@ -315,4 +317,14 @@ public interface RemoteDaHuaService {
      */
     @PostMapping(value = "/api/dahua/captureAndSave/{id}/{channelId}")
     R<Long> captureAndSave(@PathVariable Long id, @PathVariable int channelId, @RequestParam String snapshotType, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
+
+    /**
+     * 大华设备录像下载
+     *
+     * @param request 下载请求
+     * @param source 请求来源
+     * @return 下载响应
+     */
+    @PostMapping(value = "/api/dahua/downloadRecord")
+    R<DahuaRecordDownloadResponse> downloadRecord(@RequestBody DahuaRecordDownloadRequest request, @RequestHeader(SecurityConstants.FROM_SOURCE) String source);
 }
