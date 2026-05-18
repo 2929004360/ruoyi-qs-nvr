@@ -9,6 +9,17 @@ import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
 import com.ruoyi.dahua.api.domain.DahuaSystemParam;
 import com.ruoyi.dahua.api.domain.DahuaVideoParam;
 import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
+import com.ruoyi.dahua.api.domain.DahuaStorageInfo;
+import com.ruoyi.dahua.api.domain.DahuaSystemResourceInfo;
+import com.ruoyi.dahua.api.domain.DahuaSDCardInfo;
+import com.ruoyi.dahua.api.domain.DahuaBitrateInfo;
+import com.ruoyi.dahua.api.domain.DahuaNetworkStatusInfo;
+import com.ruoyi.dahua.api.domain.DahuaSoftwareVersionInfo;
+import com.ruoyi.dahua.api.domain.DahuaRecordStateInfo;
+import com.ruoyi.dahua.api.domain.DahuaPowerStateInfo;
+import com.ruoyi.dahua.api.domain.DahuaAlarmArmInfo;
+import com.ruoyi.dahua.api.domain.DahuaCameraInfo;
+import com.ruoyi.dahua.api.domain.DahuaRtspUrlInfo;
 import com.ruoyi.dahua.runner.DahuaCommandLineRunnerImpl;
 import com.ruoyi.dahua.service.IDaHuaService;
 
@@ -148,6 +159,94 @@ public class DaHuaController extends BaseController {
             snapshotType = "manual";
         }
         return R.ok(daHuaService.captureAndSave(id, channelId, snapshotType));
+    }
+
+    /**
+     * 获取大华设备存储/硬盘信息
+     */
+    @GetMapping("/storageInfo/{id}")
+    public R<DahuaStorageInfo> getStorageInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getStorageInfo(id));
+    }
+
+    /**
+     * 获取大华设备系统资源信息
+     */
+    @GetMapping("/systemResourceInfo/{id}")
+    public R<DahuaSystemResourceInfo> getSystemResourceInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getSystemResourceInfo(id));
+    }
+
+    /**
+     * 获取大华设备SD卡信息
+     */
+    @GetMapping("/sdCardInfo/{id}")
+    public R<DahuaSDCardInfo> getSDCardInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getSDCardInfo(id));
+    }
+
+    /**
+     * 获取大华设备通道码流信息
+     */
+    @GetMapping("/bitrateInfo/{id}")
+    public R<DahuaBitrateInfo> getBitrateInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getBitrateInfo(id));
+    }
+
+    /**
+     * 获取大华设备网络状态信息
+     */
+    @GetMapping("/networkStatusInfo/{id}")
+    public R<DahuaNetworkStatusInfo> getNetworkStatusInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getNetworkStatusInfo(id));
+    }
+
+    /**
+     * 获取大华设备软件版本信息
+     */
+    @GetMapping("/softwareVersionInfo/{id}")
+    public R<DahuaSoftwareVersionInfo> getSoftwareVersionInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getSoftwareVersionInfo(id));
+    }
+
+    /**
+     * 获取大华设备录像状态信息
+     */
+    @GetMapping("/recordStateInfo/{id}")
+    public R<DahuaRecordStateInfo> getRecordStateInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getRecordStateInfo(id));
+    }
+
+    /**
+     * 获取大华设备电源状态信息
+     */
+    @GetMapping("/powerStateInfo/{id}")
+    public R<DahuaPowerStateInfo> getPowerStateInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getPowerStateInfo(id));
+    }
+
+    /**
+     * 获取大华设备报警布撤防信息
+     */
+    @GetMapping("/alarmArmInfo/{id}")
+    public R<DahuaAlarmArmInfo> getAlarmArmInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getAlarmArmInfo(id));
+    }
+
+    /**
+     * 获取大华设备摄像头属性信息
+     */
+    @GetMapping("/cameraInfo/{id}")
+    public R<DahuaCameraInfo> getCameraInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getCameraInfo(id));
+    }
+
+    /**
+     * 获取大华设备RTSP URL信息
+     */
+    @GetMapping("/rtspUrlInfo/{id}")
+    public R<DahuaRtspUrlInfo> getRtspUrlInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getRtspUrlInfo(id));
     }
 }
 

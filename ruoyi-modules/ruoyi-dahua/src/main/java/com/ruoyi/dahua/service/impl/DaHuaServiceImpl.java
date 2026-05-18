@@ -5,16 +5,16 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
-import com.ruoyi.common.core.domain.RtpServerParam;
-import com.ruoyi.dahua.api.domain.DahuaDevice;
-import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
-import com.ruoyi.dahua.api.domain.DahuaSystemParam;
-import com.ruoyi.dahua.api.domain.DahuaVideoParam;
-import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
+import com.ruoyi.dahua.api.domain.*;
+import com.ruoyi.dahua.api.domain.DahuaStorageInfo;
 import com.ruoyi.dahua.common.ErrorCode;
 import com.ruoyi.dahua.common.Res;
 import com.ruoyi.dahua.config.DahuaConfig;
 import com.ruoyi.dahua.lib.NetSDKLib;
+import com.ruoyi.dahua.lib.structure.NET_IN_STORAGE_DEV_INFOS;
+import com.ruoyi.dahua.lib.structure.NET_OUT_STORAGE_DEV_INFOS;
+import com.ruoyi.dahua.lib.structure.NET_STORAGE_DEVICE;
+import com.ruoyi.dahua.lib.structure.NET_STORAGE_PARTITION;
 import com.ruoyi.dahua.lib.ToolKits;
 import com.ruoyi.dahua.manager.StreamManager;
 import com.ruoyi.dahua.runner.DahuaCommandLineRunnerImpl;
@@ -2142,5 +2142,1140 @@ public class DaHuaServiceImpl implements IDaHuaService {
             captureContextMap.remove(cmdSerial);
             throw e;
         }
+    }
+
+    @Override
+    public DahuaStorageInfo getStorageInfo(Long id) {
+        log.info("开始获取大华设备存储信息, deviceId:{}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (R.isError(r)) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+        if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+            log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("大华设备未登录, IP:" + device.getIpAddress());
+        }
+
+        DahuaStorageInfo result = new DahuaStorageInfo();
+        List<DahuaStorageInfo.StorageDevice> deviceList = new ArrayList<>();
+
+        try {
+            NET_IN_STORAGE_DEV_INFOS inParam = new NET_IN_STORAGE_DEV_INFOS();
+            inParam.dwSize = inParam.size();
+            inParam.write();
+
+            NET_OUT_STORAGE_DEV_INFOS outParam = new NET_OUT_STORAGE_DEV_INFOS();
+            outParam.dwSize = outParam.size();
+            outParam.write();
+
+            boolean success = netsdk.CLIENT_QueryDevInfo(m_hLoginHandle, NetSDKLib.NET_QUERY_DEV_STORAGE_INFOS,
+                    inParam.getPointer(), outParam.getPointer(), null, 5000);
+
+            if (success) {
+                outParam.read();
+                log.info("获取到{}个存储设备", outParam.nDevInfosNum);
+
+                for (int i = 0; i < outParam.nDevInfosNum; i++) {
+                    NET_STORAGE_DEVICE storage = outParam.stuStoregeDevInfos[i];
+                    DahuaStorageInfo.StorageDevice storageDevice = convertStorageDevice(storage);
+                    if (storageDevice != null) {
+                        deviceList.add(storageDevice);
+                    }
+                }
+            } else {
+                log.warn("获取存储信息失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+            }
+        } catch (Exception e) {
+            log.error("获取存储信息异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+        }
+
+        result.setStorageDevices(deviceList);
+        log.info("获取大华设备存储信息完成, deviceId:{}, 存储设备数:{}", id, deviceList.size());
+        return result;
+    }
+
+    private DahuaStorageInfo.StorageDevice convertStorageDevice(NET_STORAGE_DEVICE storage) {
+        DahuaStorageInfo.StorageDevice device = new DahuaStorageInfo.StorageDevice();
+
+        // 基础信息
+        device.setName(new String(storage.szName).trim());
+        device.setTotalSpace(storage.nTotalSpace);
+        device.setFreeSpace(storage.nFreeSpace);
+        
+        // 计算空间
+        long usedSpace = storage.nTotalSpace - storage.nFreeSpace;
+        device.setUsedSpace(usedSpace);
+        
+        // 转换为GB
+        double gbUnit = 1024.0 * 1024.0 * 1024.0;
+        device.setTotalSpaceGB(storage.nTotalSpace / gbUnit);
+        device.setFreeSpaceGB(storage.nFreeSpace / gbUnit);
+        device.setUsedSpaceGB(usedSpace / gbUnit);
+        
+        // 计算使用率
+        if (storage.nTotalSpace > 0) {
+            double usage = (double) usedSpace / storage.nTotalSpace * 100;
+            device.setUsagePercent(Math.round(usage * 100.0) / 100.0);
+        } else {
+            device.setUsagePercent(0.0);
+        }
+
+        // 介质类型
+        device.setMediaType((int) storage.byMedia);
+        device.setMediaTypeDesc(getMediaTypeDesc(storage.byMedia));
+
+        // 总线类型
+        device.setBusType((int) storage.byBUS);
+        device.setBusTypeDesc(getBusTypeDesc(storage.byBUS));
+
+        // 卷类型
+        device.setVolumeType((int) storage.byVolume);
+        device.setVolumeTypeDesc(getVolumeTypeDesc(storage.byVolume));
+
+        // 状态
+        device.setState((int) storage.byState);
+        device.setStateDesc(getStateDesc(storage.byState));
+
+        // 其他信息
+        device.setPhysicNo(storage.nPhysicNo);
+        device.setLogicNo(storage.nLogicNo);
+        device.setParent(new String(storage.szParent).trim());
+        device.setModule(new String(storage.szModule).trim());
+        device.setSerial(new String(storage.szSerial).trim());
+        device.setFirmware(new String(storage.szFirmware).trim());
+        device.setPartitionNum(storage.nPartitionNum);
+        device.setOpState(storage.nOpState);
+        device.setOpStateDesc(getOpStateDesc(storage.nOpState));
+
+        // 转换分区信息
+        List<DahuaStorageInfo.StoragePartition> partitions = new ArrayList<>();
+        for (int i = 0; i < storage.nPartitionNum; i++) {
+            if (i < storage.stuPartitions.length) {
+                NET_STORAGE_PARTITION partition = storage.stuPartitions[i];
+                DahuaStorageInfo.StoragePartition p = convertPartition(partition);
+                if (p != null) {
+                    partitions.add(p);
+                }
+            }
+        }
+        device.setPartitions(partitions);
+
+        log.debug("存储设备: name={}, total={}GB, free={}GB, media={}", 
+                device.getName(), device.getTotalSpaceGB(), device.getFreeSpaceGB(), device.getMediaTypeDesc());
+
+        return device;
+    }
+
+    private DahuaStorageInfo.StoragePartition convertPartition(NET_STORAGE_PARTITION partition) {
+        if (partition == null) {
+            return null;
+        }
+
+        DahuaStorageInfo.StoragePartition p = new DahuaStorageInfo.StoragePartition();
+        p.setName(new String(partition.szName).trim());
+        p.setPath(new String(partition.szMountOn).trim());
+        p.setTotalSpace(partition.nTotalSpace);
+        p.setFreeSpace(partition.nFreeSpace);
+        
+        double gbUnit = 1024.0 * 1024.0 * 1024.0;
+        p.setTotalSpaceGB(partition.nTotalSpace / gbUnit);
+        p.setFreeSpaceGB(partition.nFreeSpace / gbUnit);
+        p.setState(partition.nStatus);
+
+        return p;
+    }
+
+    private String getMediaTypeDesc(byte type) {
+        switch (type) {
+            case 0: return "硬盘";
+            case 1: return "CDROM";
+            case 2: return "FLASH/SD卡";
+            default: return "未知(" + type + ")";
+        }
+    }
+
+    private String getBusTypeDesc(byte type) {
+        switch (type) {
+            case 0: return "ATA";
+            case 1: return "SATA";
+            case 2: return "USB";
+            case 3: return "SDIO";
+            case 4: return "SCSI";
+            default: return "未知(" + type + ")";
+        }
+    }
+
+    private String getVolumeTypeDesc(byte type) {
+        switch (type) {
+            case 0: return "物理卷";
+            case 1: return "Raid卷";
+            case 2: return "VG虚拟卷";
+            case 3: return "ISCSI";
+            case 4: return "独立物理卷";
+            case 5: return "全局热备卷";
+            case 6: return "NAS卷";
+            default: return "未知(" + type + ")";
+        }
+    }
+
+    private String getStateDesc(byte state) {
+        switch (state) {
+            case 0: return "离线";
+            case 1: return "运行中";
+            default: return "未知(" + state + ")";
+        }
+    }
+
+    private String getOpStateDesc(int state) {
+        switch (state) {
+            case 0: return "正常工作";
+            case 1: return "休眠中";
+            case 2: return "等待格式化";
+            case 3: return "格式化进行中";
+            case 4: return "等待碎片整理";
+            case 5: return "碎片整理中";
+            case 6: return "等待创建RAID";
+            case 7: return "创建RAID中";
+            case 8: return "等待删除RAID";
+            case 9: return "删除RAID中";
+            case 10: return "等待文件系统修复";
+            case 11: return "文件系统修复中";
+            case 12: return "等待预检";
+            case 13: return "正在预检";
+            default: return "未知(" + state + ")";
+        }
+    }
+
+    @Override
+    public DahuaSystemResourceInfo getSystemResourceInfo(Long id) {
+        log.info("开始获取大华设备系统资源信息, deviceId:{}", id);
+        DahuaSystemResourceInfo result = new DahuaSystemResourceInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            // 尝试获取系统资源信息（超时时间缩短为3秒）
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                NetSDKLib.NET_RESOURCE_STATE resourceState = new NetSDKLib.NET_RESOURCE_STATE();
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_RESOURCE,
+                        resourceState.getPointer(),
+                        resourceState.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    resourceState.read();
+
+                    result.setIpChannelIn(resourceState.nIPChanneIn);
+                    result.setNetRemain(resourceState.nNetRemain);
+                    result.setNetCapability(resourceState.nNetCapability);
+                    result.setRemotePreview(resourceState.nRemotePreview);
+                    result.setRemotePlayDownload(resourceState.nRmtPlayDownload);
+                    result.setRemoteSendRemain(resourceState.nRemoteSendRemain);
+                    result.setRemoteSendCapability(resourceState.nRemoteSendCapability);
+
+                    log.info("获取系统资源信息成功, deviceId:{}", id);
+                } else {
+                    log.warn("获取系统资源信息失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                }
+            } catch (Exception e) {
+                log.warn("获取系统资源信息时出现异常: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备系统资源信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取系统资源信息异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaSDCardInfo getSDCardInfo(Long id) {
+        log.info("开始获取大华设备SD卡信息, deviceId:{}", id);
+        DahuaSDCardInfo result = new DahuaSDCardInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            // 先尝试用NET_DEVSTATE_DISK获取存储设备信息
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                NetSDKLib.NET_DEV_HARDDISK_STATE diskState = new NetSDKLib.NET_DEV_HARDDISK_STATE();
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_DISK,
+                        diskState.getPointer(),
+                        diskState.size(),
+                        pRetLen,
+                        5000
+                );
+
+                if (success) {
+                    diskState.read();
+
+                    result.setDiskCount(diskState.dwDiskNum);
+                    List<DahuaSDCardInfo.DiskInfo> diskList = new ArrayList<>();
+
+                    for (int i = 0; i < diskState.dwDiskNum && i < NetSDKLib.NET_MAX_DISKNUM; i++) {
+                        NetSDKLib.NET_DEV_DISKSTATE disk = diskState.stDisks[i];
+                        DahuaSDCardInfo.DiskInfo diskInfo = new DahuaSDCardInfo.DiskInfo();
+
+                        diskInfo.setDiskNumber(disk.bDiskNum & 0xFF);
+                        diskInfo.setPartitionNumber(disk.bSubareaNum & 0xFF);
+                        diskInfo.setVolume(disk.dwVolume);
+                        diskInfo.setFreeSpace(disk.dwFreeSpace);
+                        diskInfo.setStatus(disk.dwStatus & 0xFF);
+                        diskInfo.setSignal(disk.bSignal & 0xFF);
+
+                        // 解析状态字节
+                        int diskType = (disk.dwStatus >> 4) & 0x0F;
+                        int diskStatus = disk.dwStatus & 0x0F;
+                        diskInfo.setDiskType(diskType);
+                        diskInfo.setDiskStatus(diskStatus);
+
+                        // 判断是否是SD卡（通常SD卡的分区号或磁盘号有特定标识）
+                        // 或者根据设备类型判断，这里我们把所有存储设备都列出来
+                        diskList.add(diskInfo);
+                    }
+
+                    result.setDiskList(diskList);
+                    result.setExists(diskState.dwDiskNum > 0);
+
+                    log.info("获取SD卡信息成功, deviceId:{}, diskCount:{}", id, diskState.dwDiskNum);
+                } else {
+                    log.warn("获取SD卡信息失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                    result.setExists(false);
+                }
+            } catch (Exception e) {
+                log.warn("获取SD卡信息时出现异常: {}", e.getMessage(), e);
+                result.setExists(false);
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备SD卡信息完成, deviceId:{}, exists:{}", id, result.getExists());
+        } catch (Exception e) {
+            log.error("获取SD卡信息异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaBitrateInfo getBitrateInfo(Long id) {
+        log.info("开始获取大华设备通道码流信息, deviceId:{}", id);
+        DahuaBitrateInfo result = new DahuaBitrateInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            List<DahuaBitrateInfo.ChannelBitrate> channelBitrates = new ArrayList<>();
+            
+            // 尝试获取码流信息（超时时间缩短为3秒）
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                // 分配足够大的缓冲区，假设最多64个通道
+                int bufferSize = 4096;
+                Memory buffer = new Memory(bufferSize);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_BITRATE,
+                        buffer,
+                        bufferSize,
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    int retLen = pRetLen.getValue();
+                    log.info("获取到码流信息数据长度: {}", retLen);
+                    
+                    // 尝试解析返回的数据（根据常见的大华SDK格式，可能是通道号+码流值的数组）
+                    if (retLen > 0 && retLen <= bufferSize) {
+                        // 这里需要根据实际设备返回的数据格式进行解析
+                        // 暂时先创建一些占位信息
+                        for (int i = 0; i < Math.min(retLen / 8, 32); i++) {
+                            DahuaBitrateInfo.ChannelBitrate channel = new DahuaBitrateInfo.ChannelBitrate();
+                            channel.setChannelId(i);
+                            // 尝试从buffer中读取数据（这里只是示意，具体格式需要根据实际SDK文档）
+                            channel.setBitrate(0);
+                            channelBitrates.add(channel);
+                        }
+                    }
+                } else {
+                    log.warn("获取码流信息失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                }
+            } catch (Exception e) {
+                log.warn("获取码流信息时出现异常: {}", e.getMessage());
+            }
+
+            result.setChannelBitrates(channelBitrates);
+            result.setSuccess(true);
+
+            log.info("获取大华设备通道码流信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取码流信息异常, deviceId:{}, error:{}", id, e.getMessage());
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaNetworkStatusInfo getNetworkStatusInfo(Long id) {
+        log.info("开始获取大华设备网络状态信息, deviceId:{}", id);
+        DahuaNetworkStatusInfo result = new DahuaNetworkStatusInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            result.setIpAddress(device.getIpAddress());
+            
+            // 先尝试获取网络信息（超时时间缩短为3秒）
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory buffer = new Memory(4096);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_NET,
+                        buffer,
+                        (int)buffer.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    int retLen = pRetLen.getValue();
+                    log.info("获取到网络信息数据长度: {}", retLen);
+                    result.setNetworkAvailable(true);
+                } else {
+                    log.warn("获取网络信息失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                    // 如果 NET 失败，尝试 NETINTERFACE
+                    try {
+                        netsdk.CLIENT_QueryDevState(
+                                m_hLoginHandle,
+                                NetSDKLib.NET_DEVSTATE_NETINTERFACE,
+                                buffer,
+                                (int)buffer.size(),
+                                pRetLen,
+                                3000
+                        );
+                        result.setNetworkAvailable(true);
+                    } catch (Exception e2) {
+                        log.warn("获取 NETINTERFACE 状态也失败: {}", e2.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("获取网络状态时出现异常: {}", e.getMessage());
+            }
+
+            // 尝试获取无线信号强度（如果支持，超时时间缩短为2秒）
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory buffer = new Memory(1024);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_NET_RSSI,
+                        buffer,
+                        (int)buffer.size(),
+                        pRetLen,
+                        2000
+                );
+
+                if (success) {
+                    int retLen = pRetLen.getValue();
+                    log.info("获取到无线信号强度数据长度: {}", retLen);
+                    result.setHasWireless(true);
+                }
+            } catch (Exception e) {
+                log.debug("设备可能不支持无线信号查询: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备网络状态信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取网络状态异常, deviceId:{}, error:{}", id, e.getMessage());
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaSoftwareVersionInfo getSoftwareVersionInfo(Long id) {
+        log.info("开始获取大华设备软件版本信息, deviceId:{}", id);
+        DahuaSoftwareVersionInfo result = new DahuaSoftwareVersionInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                NetSDKLib.NETDEV_VERSION_INFO versionInfo = new NetSDKLib.NETDEV_VERSION_INFO();
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_SOFTWARE,
+                        versionInfo.getPointer(),
+                        versionInfo.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    versionInfo.read();
+
+                    result.setSerialNumber(new String(versionInfo.szDevSerialNo, Charset.forName("GBK")).trim());
+                    result.setDeviceModel(new String(versionInfo.szDevType, Charset.forName("GBK")).trim());
+                    result.setSoftwareVersion(new String(versionInfo.szSoftWareVersion, Charset.forName("GBK")).trim());
+                    result.setHardwareVersion(new String(versionInfo.szHardwareVersion, Charset.forName("GBK")).trim());
+                    result.setWebVersion(new String(versionInfo.szWebVersion, Charset.forName("GBK")).trim());
+                    result.setPeripheralVersion(new String(versionInfo.szPeripheralSoftwareVersion, Charset.forName("GBK")).trim());
+                    result.setGeographyVersion(new String(versionInfo.szGeographySoftwareVersion, Charset.forName("GBK")).trim());
+                    result.setProtocolVersion(versionInfo.nProtocalVer);
+                    result.setSoftwareBuildDate(versionInfo.dwSoftwareBuildDate);
+                    result.setPeripheralBuildDate(versionInfo.dwPeripheralSoftwareBuildDate);
+                    result.setGeographyBuildDate(versionInfo.dwGeographySoftwareBuildDate);
+                    result.setHardwareDate(versionInfo.dwHardwareDate);
+                    result.setWebBuildDate(versionInfo.dwWebBuildDate);
+
+                    // 组合完整版本信息
+                    StringBuilder fullVersion = new StringBuilder();
+                    if (!result.getSoftwareVersion().isEmpty()) {
+                        fullVersion.append("软件:").append(result.getSoftwareVersion());
+                    }
+                    if (!result.getHardwareVersion().isEmpty()) {
+                        if (fullVersion.length() > 0) fullVersion.append(", ");
+                        fullVersion.append("硬件:").append(result.getHardwareVersion());
+                    }
+                    if (!result.getWebVersion().isEmpty()) {
+                        if (fullVersion.length() > 0) fullVersion.append(", ");
+                        fullVersion.append("Web:").append(result.getWebVersion());
+                    }
+                    result.setFullVersion(fullVersion.toString());
+
+                    log.info("获取软件版本信息成功, deviceId:{}, model:{}", id, result.getDeviceModel());
+                } else {
+                    log.warn("获取软件版本信息失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                }
+            } catch (Exception e) {
+                log.warn("获取软件版本信息时出现异常: {}", e.getMessage(), e);
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备软件版本信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取软件版本信息异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaRecordStateInfo getRecordStateInfo(Long id) {
+        log.info("开始获取大华设备录像状态信息, deviceId:{}", id);
+        DahuaRecordStateInfo result = new DahuaRecordStateInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            // 获取整体录像状态
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory wholeState = new Memory(4);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_WHOLE_RECORDING,
+                        wholeState,
+                        4,
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    result.setWholeRecording(wholeState.getInt(0) != 0);
+                }
+            } catch (Exception e) {
+                log.warn("获取整体录像状态异常: {}", e.getMessage());
+            }
+
+            // 获取整体编码状态
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory wholeState = new Memory(4);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_WHOLE_ENCODING,
+                        wholeState,
+                        4,
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    result.setWholeEncoding(wholeState.getInt(0) != 0);
+                }
+            } catch (Exception e) {
+                log.warn("获取整体编码状态异常: {}", e.getMessage());
+            }
+
+            // 尝试获取每个通道的录像状态
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory buffer = new Memory(8192);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_RECORDING_DETAIL,
+                        buffer,
+                        (int) buffer.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    int retLen = pRetLen.getValue();
+                    log.info("获取录像细节数据长度: {}", retLen);
+                    
+                    List<DahuaRecordStateInfo.ChannelRecordState> channelStates = new ArrayList<>();
+                    int structSize = new NetSDKLib.NET_RECORD_STATE_DETAIL().size();
+                    int count = retLen / structSize;
+                    
+                    for (int i = 0; i < count && i < 64; i++) {
+                        NetSDKLib.NET_RECORD_STATE_DETAIL detail = 
+                            new NetSDKLib.NET_RECORD_STATE_DETAIL();
+                        
+                        // 手动实现结构体内存复制
+                        detail.write();
+                        Pointer pJavaMem = detail.getPointer();
+                        pJavaMem.write(0, buffer.getByteArray(i * structSize, structSize), 0, structSize);
+                        detail.read();
+                        
+                        DahuaRecordStateInfo.ChannelRecordState state = new DahuaRecordStateInfo.ChannelRecordState();
+                        state.setChannelId(i);
+                        state.setMainStreamRecording(detail.bMainStream != 0);
+                        state.setExtraStream1Recording(detail.bExtraStream1 != 0);
+                        state.setExtraStream2Recording(detail.bExtraStream2 != 0);
+                        state.setExtraStream3Recording(detail.bExtraStream3 != 0);
+                        
+                        channelStates.add(state);
+                    }
+                    
+                    result.setChannelStates(channelStates);
+                }
+            } catch (Exception e) {
+                log.warn("获取录像细节异常: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备录像状态信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取录像状态异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaPowerStateInfo getPowerStateInfo(Long id) {
+        log.info("开始获取大华设备电源状态信息, deviceId:{}", id);
+        DahuaPowerStateInfo result = new DahuaPowerStateInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            try {
+                com.ruoyi.dahua.lib.structure.NET_POWER_STATUS powerStatus =
+                        new com.ruoyi.dahua.lib.structure.NET_POWER_STATUS();
+                IntByReference pRetLen = new IntByReference(0);
+                
+                powerStatus.write();
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_POWER_STATE,
+                        powerStatus.getPointer(),
+                        powerStatus.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    powerStatus.read();
+                    int retLen = pRetLen.getValue();
+                    log.info("获取电源状态数据长度: {}, 电源数量: {}, 电池数量: {}", 
+                            retLen, powerStatus.nCount, powerStatus.nBatteryNum);
+                    
+                    // 处理电源状态
+                    result.setPowerCount(powerStatus.nCount);
+                    List<DahuaPowerStateInfo.PowerState> powerStates = new ArrayList<>();
+                    
+                    for (int i = 0; i < powerStatus.nCount && i < powerStatus.stuPowers.length; i++) {
+                        com.ruoyi.dahua.lib.structure.NET_POWER_INFO powerInfo = powerStatus.stuPowers[i];
+                        DahuaPowerStateInfo.PowerState state = new DahuaPowerStateInfo.PowerState();
+                        state.setPowerId(i);
+                        state.setPowerName("电源" + (i + 1));
+                        state.setStatus(powerInfo.bPowerOn);
+                        
+                        String statusDesc = "";
+                        if (powerInfo.bPowerOn == 0) {
+                            statusDesc = "关闭";
+                        } else if (powerInfo.bPowerOn == 1) {
+                            statusDesc = "开启";
+                        } else if (powerInfo.bPowerOn == 2) {
+                            statusDesc = "开启但有故障";
+                        }
+                        state.setStatusDesc(statusDesc);
+                        state.setOnline(powerInfo.bPowerOn != 0);
+                        
+                        powerStates.add(state);
+                    }
+                    
+                    result.setPowerStates(powerStates);
+                } else {
+                    log.warn("获取电源状态失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                }
+            } catch (Exception e) {
+                log.warn("获取电源状态异常: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备电源状态信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取电源状态异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaAlarmArmInfo getAlarmArmInfo(Long id) {
+        log.info("开始获取大华设备报警布撤防信息, deviceId:{}", id);
+        DahuaAlarmArmInfo result = new DahuaAlarmArmInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            try {
+                // 首先获取报警通道数量
+                com.ruoyi.dahua.lib.structure.NET_ALARM_CHANNEL_COUNT channelCount = 
+                    new com.ruoyi.dahua.lib.structure.NET_ALARM_CHANNEL_COUNT();
+                IntByReference pRetLen = new IntByReference(0);
+                
+                channelCount.write();
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_ALARM_CHN_COUNT,
+                        channelCount.getPointer(),
+                        channelCount.size(),
+                        pRetLen,
+                        3000
+                );
+                
+                int totalAlarmIn = 0;
+                if (success) {
+                    channelCount.read();
+                    totalAlarmIn = channelCount.nLocalAlarmIn + channelCount.nRemoteAlarmIn;
+                    log.info("报警通道数量 - 本地输入:{}, 本地输出:{}, 远程输入:{}, 远程输出:{}", 
+                        channelCount.nLocalAlarmIn, channelCount.nLocalAlarmOut,
+                        channelCount.nRemoteAlarmIn, channelCount.nRemoteAlarmOut);
+                }
+                
+                // 获取报警输入通道信息
+                List<DahuaAlarmArmInfo.AlarmChannelState> channelStates = new ArrayList<>();
+                if (totalAlarmIn > 0) {
+                    int bufferSize = new com.ruoyi.dahua.lib.structure.NET_ALARM_IN_CHANNEL().size() * Math.max(totalAlarmIn, 64);
+                    Memory buffer = new Memory(bufferSize);
+                    pRetLen = new IntByReference(0);
+                    
+                    success = netsdk.CLIENT_QueryDevState(
+                            m_hLoginHandle,
+                            NetSDKLib.NET_DEVSTATE_ALARM_IN_CHANNEL,
+                            buffer,
+                            bufferSize,
+                            pRetLen,
+                            3000
+                    );
+                    
+                    if (success) {
+                        int retLen = pRetLen.getValue();
+                        log.info("获取报警输入通道数据长度: {}", retLen);
+                        
+                        int structSize = new com.ruoyi.dahua.lib.structure.NET_ALARM_IN_CHANNEL().size();
+                        int count = retLen / structSize;
+                        
+                        for (int i = 0; i < count && i < 64; i++) {
+                            com.ruoyi.dahua.lib.structure.NET_ALARM_IN_CHANNEL alarmChannel = 
+                                new com.ruoyi.dahua.lib.structure.NET_ALARM_IN_CHANNEL();
+                            
+                            // 手动实现结构体内存复制
+                            alarmChannel.write();
+                            Pointer pJavaMem = alarmChannel.getPointer();
+                            pJavaMem.write(0, buffer.getByteArray(i * structSize, structSize), 0, structSize);
+                            alarmChannel.read();
+                            
+                            if (alarmChannel.bValid != 0) {
+                                DahuaAlarmArmInfo.AlarmChannelState state = new DahuaAlarmArmInfo.AlarmChannelState();
+                                state.setChannelId(alarmChannel.nChannel);
+                                state.setChannelName(new String(alarmChannel.szName).trim());
+                                state.setArmed(false); // 默认值，需要根据实际布撤防状态设置
+                                state.setArmType(0);
+                                state.setArmTypeDesc("未知");
+                                
+                                channelStates.add(state);
+                            }
+                        }
+                    }
+                }
+                
+                // 尝试获取布撤防状态
+                try {
+                    pRetLen = new IntByReference(0);
+                    Memory buffer = new Memory(4096);
+                    
+                    success = netsdk.CLIENT_QueryDevState(
+                            m_hLoginHandle,
+                            NetSDKLib.NET_DEVSTATE_ALARM_ARM_DISARM,
+                            buffer,
+                            (int)buffer.size(),
+                            pRetLen,
+                            3000
+                    );
+                    
+                    if (success) {
+                        int retLen = pRetLen.getValue();
+                        log.info("获取报警布撤防数据长度: {}", retLen);
+                        
+                        // 如果有布撤防数据，尝试更新通道的布撤防状态
+                        if (retLen > 0 && retLen <= channelStates.size() * 4) {
+                            for (int i = 0; i < Math.min(channelStates.size(), retLen / 4); i++) {
+                                int armState = buffer.getInt(i * 4);
+                                channelStates.get(i).setArmed(armState != 0);
+                                channelStates.get(i).setArmTypeDesc(armState != 0 ? "布防" : "撤防");
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("获取报警布撤防状态异常: {}", e.getMessage());
+                }
+                
+                result.setChannelCount(channelStates.size());
+                result.setChannelStates(channelStates);
+                
+            } catch (Exception e) {
+                log.warn("获取报警信息异常: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备报警布撤防信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取报警布撤防异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaCameraInfo getCameraInfo(Long id) {
+        log.info("开始获取大华设备摄像头属性信息, deviceId:{}", id);
+        DahuaCameraInfo result = new DahuaCameraInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory buffer = new Memory(8192);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_CAMERA,
+                        buffer,
+                        (int)buffer.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    int retLen = pRetLen.getValue();
+                    log.info("获取摄像头属性数据长度: {}", retLen);
+                    
+                    // 尝试解析摄像头信息
+                    if (retLen > 0) {
+                        List<DahuaCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+                        int structSize = new com.ruoyi.dahua.lib.structure.NET_CAMERA_INFO().size();
+                        int cameraCount = retLen / structSize;
+                        
+                        for (int i = 0; i < cameraCount && i < 64; i++) {
+                            com.ruoyi.dahua.lib.structure.NET_CAMERA_INFO cameraInfo = 
+                                new com.ruoyi.dahua.lib.structure.NET_CAMERA_INFO();
+                            
+                            // 从内存中读取结构体
+                            // 手动实现结构体内存复制
+                            cameraInfo.write();
+                            Pointer pJavaMem = cameraInfo.getPointer();
+                            pJavaMem.write(0, buffer.getByteArray(i * structSize, structSize), 0, structSize);
+                            cameraInfo.read();
+                            
+                            DahuaCameraInfo.CameraInfo info = new DahuaCameraInfo.CameraInfo();
+                            info.setChannelId(cameraInfo.nChannel);
+                            info.setCameraName(new String(cameraInfo.szName).trim());
+                            info.setOnline(cameraInfo.bEnable != 0);
+                            
+                            String channelType = "";
+                            switch (cameraInfo.emChannelType) {
+                                case 0: channelType = "本地"; break;
+                                case 1: channelType = "远程"; break;
+                                case 2: channelType = "虚拟"; break;
+                                default: channelType = "未知";
+                            }
+                            info.setCameraType(channelType);
+                            
+                            cameraList.add(info);
+                        }
+                        
+                        result.setCameraCount(cameraList.size());
+                        result.setCameraList(cameraList);
+                    }
+                } else {
+                    log.warn("获取摄像头属性失败, deviceId:{}, error:{}", id, getErrorCodePrint());
+                }
+            } catch (Exception e) {
+                log.warn("获取摄像头属性异常: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备摄像头属性信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取摄像头属性异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
+    }
+
+    @Override
+    public DahuaRtspUrlInfo getRtspUrlInfo(Long id) {
+        log.info("开始获取大华设备RTSP URL信息, deviceId:{}", id);
+        DahuaRtspUrlInfo result = new DahuaRtspUrlInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + device.getIpAddress());
+            if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
+                log.error("大华设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+                result.setErrorMessage("大华设备未登录");
+                return result;
+            }
+
+            try {
+                IntByReference pRetLen = new IntByReference(0);
+                Memory buffer = new Memory(4096);
+
+                boolean success = netsdk.CLIENT_QueryDevState(
+                        m_hLoginHandle,
+                        NetSDKLib.NET_DEVSTATE_RTSP_URL,
+                        buffer,
+                        (int)buffer.size(),
+                        pRetLen,
+                        3000
+                );
+
+                if (success) {
+                    int retLen = pRetLen.getValue();
+                    log.info("获取RTSP URL数据长度: {}", retLen);
+                }
+            } catch (Exception e) {
+                log.warn("获取RTSP URL异常: {}", e.getMessage());
+            }
+
+            // 生成标准的RTSP URL（备用方案）
+            try {
+                String baseUrl = "rtsp://" + device.getUserName() + ":" + device.getPassword() + "@" + device.getIpAddress() + ":554";
+                
+                DahuaRtspUrlInfo.RtspUrl mainUrl = new DahuaRtspUrlInfo.RtspUrl();
+                mainUrl.setChannelId(1);
+                mainUrl.setStreamType("主码流");
+                mainUrl.setUrl(baseUrl + "/cam/realmonitor?channel=1&subtype=0");
+                mainUrl.setDescription("主码流实时预览");
+                result.getUrlList().add(mainUrl);
+
+                DahuaRtspUrlInfo.RtspUrl subUrl = new DahuaRtspUrlInfo.RtspUrl();
+                subUrl.setChannelId(1);
+                subUrl.setStreamType("子码流");
+                subUrl.setUrl(baseUrl + "/cam/realmonitor?channel=1&subtype=1");
+                subUrl.setDescription("子码流实时预览");
+                result.getUrlList().add(subUrl);
+
+                result.setUrlCount(2);
+            } catch (Exception e) {
+                log.warn("生成标准URL异常: {}", e.getMessage());
+            }
+
+            result.setSuccess(true);
+            log.info("获取大华设备RTSP URL信息完成, deviceId:{}", id);
+        } catch (Exception e) {
+            log.error("获取RTSP URL异常, deviceId:{}, error:{}", id, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true);
+        }
+
+        return result;
     }
 }

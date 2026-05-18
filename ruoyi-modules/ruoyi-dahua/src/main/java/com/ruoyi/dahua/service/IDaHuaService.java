@@ -6,6 +6,17 @@ import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
 import com.ruoyi.dahua.api.domain.DahuaSystemParam;
 import com.ruoyi.dahua.api.domain.DahuaVideoParam;
 import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
+import com.ruoyi.dahua.api.domain.DahuaStorageInfo;
+import com.ruoyi.dahua.api.domain.DahuaSystemResourceInfo;
+import com.ruoyi.dahua.api.domain.DahuaSDCardInfo;
+import com.ruoyi.dahua.api.domain.DahuaBitrateInfo;
+import com.ruoyi.dahua.api.domain.DahuaNetworkStatusInfo;
+import com.ruoyi.dahua.api.domain.DahuaSoftwareVersionInfo;
+import com.ruoyi.dahua.api.domain.DahuaRecordStateInfo;
+import com.ruoyi.dahua.api.domain.DahuaPowerStateInfo;
+import com.ruoyi.dahua.api.domain.DahuaAlarmArmInfo;
+import com.ruoyi.dahua.api.domain.DahuaCameraInfo;
+import com.ruoyi.dahua.api.domain.DahuaRtspUrlInfo;
 import com.ruoyi.dahua.lib.NetSDKLib;
 
 import java.util.ArrayList;
@@ -315,4 +326,92 @@ public interface IDaHuaService {
      * @return 抓图记录ID
      */
     Long captureAndSave(Long id, int channelId, String snapshotType);
+
+    /**
+     * 获取大华设备存储/硬盘信息
+     *
+     * @param id 设备ID
+     * @return 存储信息
+     */
+    DahuaStorageInfo getStorageInfo(Long id);
+
+    /**
+     * 获取大华设备系统资源信息（CPU、内存）
+     *
+     * @param id 设备ID
+     * @return 系统资源信息
+     */
+    DahuaSystemResourceInfo getSystemResourceInfo(Long id);
+
+    /**
+     * 获取大华设备SD卡信息
+     *
+     * @param id 设备ID
+     * @return SD卡信息
+     */
+    DahuaSDCardInfo getSDCardInfo(Long id);
+
+    /**
+     * 获取大华设备通道码流信息
+     *
+     * @param id 设备ID
+     * @return 码流信息
+     */
+    DahuaBitrateInfo getBitrateInfo(Long id);
+
+    /**
+     * 获取大华设备网络状态信息
+     *
+     * @param id 设备ID
+     * @return 网络状态信息
+     */
+    DahuaNetworkStatusInfo getNetworkStatusInfo(Long id);
+
+    /**
+     * 获取大华设备软件版本信息
+     *
+     * @param id 设备ID
+     * @return 软件版本信息
+     */
+    DahuaSoftwareVersionInfo getSoftwareVersionInfo(Long id);
+
+    /**
+     * 获取大华设备录像状态信息
+     *
+     * @param id 设备ID
+     * @return 录像状态信息
+     */
+    DahuaRecordStateInfo getRecordStateInfo(Long id);
+
+    /**
+     * 获取大华设备电源状态信息
+     *
+     * @param id 设备ID
+     * @return 电源状态信息
+     */
+    DahuaPowerStateInfo getPowerStateInfo(Long id);
+
+    /**
+     * 获取大华设备报警布撤防信息
+     *
+     * @param id 设备ID
+     * @return 报警布撤防信息
+     */
+    DahuaAlarmArmInfo getAlarmArmInfo(Long id);
+
+    /**
+     * 获取大华设备摄像头属性信息
+     *
+     * @param id 设备ID
+     * @return 摄像头属性信息
+     */
+    DahuaCameraInfo getCameraInfo(Long id);
+
+    /**
+     * 获取大华设备RTSP URL信息
+     *
+     * @param id 设备ID
+     * @return RTSP URL信息
+     */
+    DahuaRtspUrlInfo getRtspUrlInfo(Long id);
 }

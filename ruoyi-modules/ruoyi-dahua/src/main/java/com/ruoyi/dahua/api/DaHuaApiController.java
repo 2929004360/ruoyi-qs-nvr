@@ -9,6 +9,12 @@ import com.ruoyi.dahua.api.domain.DahuaDeviceInfo;
 import com.ruoyi.dahua.api.domain.DahuaSystemParam;
 import com.ruoyi.dahua.api.domain.DahuaVideoParam;
 import com.ruoyi.dahua.api.domain.DahuaDeviceVideoParam;
+import com.ruoyi.dahua.api.domain.DahuaStorageInfo;
+import com.ruoyi.dahua.api.domain.DahuaSystemResourceInfo;
+import com.ruoyi.dahua.api.domain.DahuaSDCardInfo;
+import com.ruoyi.dahua.api.domain.DahuaBitrateInfo;
+import com.ruoyi.dahua.api.domain.DahuaNetworkStatusInfo;
+import com.ruoyi.dahua.api.domain.DahuaSoftwareVersionInfo;
 import com.ruoyi.dahua.api.domain.LoginDevice;
 import com.ruoyi.dahua.service.IDaHuaService;
 import jakarta.validation.constraints.NotBlank;
@@ -419,5 +425,59 @@ public class DaHuaApiController {
             snapshotType = "manual";
         }
         return R.ok(daHuaService.captureAndSave(id, channelId, snapshotType));
+    }
+
+    /**
+     * 获取大华设备存储/硬盘信息
+     */
+    @InnerAuth
+    @GetMapping("/storageInfo/{id}")
+    public R<DahuaStorageInfo> getStorageInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getStorageInfo(id));
+    }
+
+    /**
+     * 获取大华设备系统资源信息
+     */
+    @InnerAuth
+    @GetMapping("/systemResourceInfo/{id}")
+    public R<DahuaSystemResourceInfo> getSystemResourceInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getSystemResourceInfo(id));
+    }
+
+    /**
+     * 获取大华设备SD卡信息
+     */
+    @InnerAuth
+    @GetMapping("/sdCardInfo/{id}")
+    public R<DahuaSDCardInfo> getSDCardInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getSDCardInfo(id));
+    }
+
+    /**
+     * 获取大华设备通道码流信息
+     */
+    @InnerAuth
+    @GetMapping("/bitrateInfo/{id}")
+    public R<DahuaBitrateInfo> getBitrateInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getBitrateInfo(id));
+    }
+
+    /**
+     * 获取大华设备网络状态信息
+     */
+    @InnerAuth
+    @GetMapping("/networkStatusInfo/{id}")
+    public R<DahuaNetworkStatusInfo> getNetworkStatusInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getNetworkStatusInfo(id));
+    }
+
+    /**
+     * 获取大华设备软件版本信息
+     */
+    @InnerAuth
+    @GetMapping("/softwareVersionInfo/{id}")
+    public R<DahuaSoftwareVersionInfo> getSoftwareVersionInfo(@PathVariable Long id) {
+        return R.ok(daHuaService.getSoftwareVersionInfo(id));
     }
 }
