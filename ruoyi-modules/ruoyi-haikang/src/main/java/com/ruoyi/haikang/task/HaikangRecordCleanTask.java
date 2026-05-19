@@ -1,4 +1,4 @@
-package com.ruoyi.haikang;
+package com.ruoyi.haikang.task;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

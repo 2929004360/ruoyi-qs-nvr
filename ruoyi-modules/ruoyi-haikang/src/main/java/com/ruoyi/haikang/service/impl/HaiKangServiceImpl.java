@@ -17,7 +17,9 @@ import com.ruoyi.haikang.service.IHaiKangService;
 import com.ruoyi.haikang.service.IHaikangMediaStreamService;
 import com.ruoyi.haikang.utils.CommonUtil;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.RemoteQsDeviceSnapshotService;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.api.domain.QsDeviceSnapshot;
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
@@ -28,6 +30,8 @@ import com.ruoyi.haikang.enums.HCCruiseControlEnum;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.LocalDateTime;
@@ -56,6 +60,12 @@ public class HaiKangServiceImpl implements IHaiKangService {
     @Value("${file.path}")
     private String filePath;
 
+    @Value("${file.domain}")
+    private String fileDomain;
+
+    @Value("${file.prefix}")
+    private String filePrefix;
+
     /**
      * 设备信息
      */
@@ -71,6 +81,9 @@ public class HaiKangServiceImpl implements IHaiKangService {
 
     @Autowired
     private IHaikangMediaStreamService mediaStreamService;
+
+    @Autowired
+    private RemoteQsDeviceSnapshotService remoteQsDeviceSnapshotService;
 
     /**
      * 登录设备，支持 V40 和 V30 版本，功能一致。
@@ -1063,7 +1076,9 @@ public class HaiKangServiceImpl implements IHaiKangService {
         }
         m_Time.read();
 
-        return String.format("%04d-%02d-%02d %02d:%02d:%02d", m_Time.dwYear, m_Time.dwMonth, m_Time.dwDay, m_Time.dwHour, m_Time.dwMinute, m_Time.dwSecond);
+        String time = String.format("%04d-%02d-%02d %02d:%02d:%02d", m_Time.dwYear, m_Time.dwMonth, m_Time.dwDay, m_Time.dwHour, m_Time.dwMinute, m_Time.dwSecond);
+        log.info("获取设备时间参数成功, deviceId:{}, 时间:{}", deviceId, time);
+        return time;
     }
 
     @Override
@@ -1691,6 +1706,1122 @@ public class HaiKangServiceImpl implements IHaiKangService {
                 future.complete("SUCCESS");
             }
         }
+    }
+
+    @Override
+    public Long captureAndSave(Long id, int channelId, String snapshotType) throws IOException {
+        log.info("开始海康设备抓图, deviceId:{}, channelId:{}, snapshotType:{}", id, channelId, snapshotType);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (R.isError(r)) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        Integer lUserID = userIdMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", id, device.getIpAddress());
+            throw new RuntimeException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+
+        // 准备需要尝试的通道号列表
+        int[] channelIdsToTry = {channelId};
+        // 如果传入的通道号不是0，也尝试0
+        if (channelId != 0) {
+            channelIdsToTry = new int[]{channelId, 0};
+        }
+
+        try {
+            // 创建目录
+            File dir = new File(filePath + "/haikang_snapshot/");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            byte[] imageData = null;
+            int successChannelId = channelId;
+
+            // 遍历通道号尝试抓图
+            for (int currentChannelId : channelIdsToTry) {
+                // 设置抓图参数
+                HCNetSDK.NET_DVR_JPEGPARA jpegPara = new HCNetSDK.NET_DVR_JPEGPARA();
+                jpegPara.wPicQuality = 1; // 图片质量 0-最好，1-较好，2-一般，3-较差，4-最差
+                jpegPara.wPicSize = 0xff; // 0xff表示按设备默认或者原来的分辨率
+                jpegPara.write();
+
+                // 分配内存（假设最大2MB）
+                int bufferSize = 2 * 1024 * 1024;
+                com.sun.jna.Memory jpegBuffer = new com.sun.jna.Memory(bufferSize);
+                com.sun.jna.ptr.IntByReference sizeReturned = new com.sun.jna.ptr.IntByReference(0);
+
+                log.info("发送抓图命令(内存), deviceId:{}, channelId:{}", id, currentChannelId);
+                boolean success = client.hCNetSDK.NET_DVR_CaptureJPEGPicture_NEW(
+                        lUserID,
+                        currentChannelId,
+                        jpegPara,
+                        jpegBuffer,
+                        bufferSize,
+                        sizeReturned
+                );
+
+                if (!success) {
+                    int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                    String errorMsg = "抓图失败(通道" + currentChannelId + "): 错误码=" + errorCode + ", 说明=" + getErrorMessage(errorCode);
+                    log.error(errorMsg);
+                    continue;
+                }
+
+                // 获取返回的图片大小
+                int actualSize = sizeReturned.getValue();
+                if (actualSize > 0) {
+                    imageData = jpegBuffer.getByteArray(0, actualSize);
+                    successChannelId = currentChannelId;
+                    log.info("通道{}抓图成功! 图片大小:{} bytes", currentChannelId, actualSize);
+                    break;
+                } else {
+                    log.warn("通道{}返回图片大小为0，尝试下一个通道", currentChannelId);
+                }
+            }
+
+            if (imageData == null) {
+                String errorMsg = "所有通道尝试抓图均失败";
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+
+            // 生成文件名并保存到文件
+            String fileName = generateFileName(id, successChannelId);
+            String localFilePath = filePath + "/haikang_snapshot/" + fileName;
+            String fileUrl = fileDomain + filePrefix + "/haikang_snapshot/" + fileName;
+
+            try (FileOutputStream fos = new FileOutputStream(localFilePath)) {
+                fos.write(imageData);
+            }
+
+            File savedFile = new File(localFilePath);
+            log.info("图片保存成功, deviceId:{}, channelId:{}, filePath:{}, fileUrl:{}, fileSize:{}",
+                    id, successChannelId, localFilePath, fileUrl, savedFile.length());
+
+            // 构造抓图记录
+            QsDeviceSnapshot snapshot = new QsDeviceSnapshot();
+            snapshot.setDeviceId(device.getId());
+            snapshot.setDeviceCode(device.getDeviceCode());
+            snapshot.setDeviceName(device.getDeviceName());
+            snapshot.setFileUrl(fileUrl);
+            snapshot.setFilePath(localFilePath);
+            snapshot.setFileSize(savedFile.length());
+            snapshot.setFileName(fileName);
+            snapshot.setFileType("jpg");
+            snapshot.setSnapshotType(snapshotType);
+            snapshot.setSdkType("hik");
+            snapshot.setChannel(successChannelId);
+            snapshot.setCaptureTime(new Date());
+
+            // 保存到数据库
+            R<Long> result = remoteQsDeviceSnapshotService.add(snapshot, SecurityConstants.INNER);
+
+            if (R.isSuccess(result)) {
+                log.info("抓图记录保存成功, snapshotId:{}", result.getData());
+                return result.getData();
+            } else {
+                String errorMsg = "保存抓图记录失败: " + result.getMsg();
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+
+        } catch (Exception e) {
+            log.error("海康设备抓图异常", e);
+            throw e;
+        }
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangDeviceInfo(Long deviceId) {
+        log.info("开始获取海康设备信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+            
+            // 使用NET_DVR_DEVICECFG_V40获取设备配置信息
+            HCNetSDK.NET_DVR_DEVICECFG_V40 deviceCfg = new HCNetSDK.NET_DVR_DEVICECFG_V40();
+            deviceCfg.dwSize = deviceCfg.size();
+            deviceCfg.write();
+            Pointer pDeviceCfg = deviceCfg.getPointer();
+            IntByReference pInt = new IntByReference(0);
+            
+            boolean bGetCfg = client.hCNetSDK.NET_DVR_GetDVRConfig(
+                lUserID, 
+                HCNetSDK.NET_DVR_GET_DEVICECFG_V40, 
+                0Xffffffff, 
+                pDeviceCfg, 
+                deviceCfg.dwSize, 
+                pInt
+            );
+            
+            if (!bGetCfg) {
+                log.error("获取设备配置失败, IP:{}, 错误码:{}", device.getIpAddress(), client.hCNetSDK.NET_DVR_GetLastError());
+                result.put("message", "获取设备配置失败");
+                return result;
+            }
+            
+            deviceCfg.read();
+            
+            // 填充返回结果
+            result.put("deviceName", new String(deviceCfg.sDVRName).trim());
+            result.put("deviceType", new String(deviceCfg.byDevTypeName).trim());
+            result.put("serialNumber", new String(deviceCfg.sSerialNumber).trim());
+            result.put("ipAddress", device.getIpAddress());
+            
+            // 计算总通道数（模拟通道 + 数字通道）
+            int analogChanNum = deviceCfg.byChanNum & 0xFF;
+            int ipChanNum = ((deviceCfg.byHighIPChanNum & 0xFF) << 8) | (deviceCfg.byIPChanNum & 0xFF);
+            int totalChanNum = analogChanNum + ipChanNum;
+            result.put("channelNum", totalChanNum);
+            result.put("analogChanNum", analogChanNum);
+            result.put("ipChanNum", ipChanNum);
+            
+            // 其他信息
+            result.put("dvrType", deviceCfg.byDVRType & 0xFF);
+            result.put("devType", deviceCfg.wDevType);
+            result.put("devClass", deviceCfg.wDevClass);
+            result.put("alarmInPortNum", deviceCfg.byAlarmInPortNum & 0xFF);
+            result.put("alarmOutPortNum", deviceCfg.byAlarmOutPortNum & 0xFF);
+            result.put("diskNum", deviceCfg.byDiskNum & 0xFF);
+            
+            result.put("success", true);
+            log.info("获取海康设备信息成功, deviceId:{}, deviceName:{}, serialNumber:{}", deviceId, new String(deviceCfg.sDVRName).trim(), new String(deviceCfg.sSerialNumber).trim());
+        } catch (Exception e) {
+            log.error("获取海康设备信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangStorageInfo(Long deviceId) {
+        log.info("开始获取海康存储信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_HDCFG hdCfg = new HCNetSDK.NET_DVR_HDCFG();
+            hdCfg.dwSize = hdCfg.size();
+            hdCfg.write();
+            IntByReference lpBytesReturned = new IntByReference(0);
+            
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_HDCFG, 0, hdCfg.getPointer(), hdCfg.size(), lpBytesReturned);
+            
+            if (success) {
+                hdCfg.read();
+                List<HashMap<String, Object>> diskList = new ArrayList<>();
+                
+                for (int i = 0; i < hdCfg.dwHDCount; i++) {
+                    HCNetSDK.NET_DVR_SINGLE_HD singleHd = hdCfg.struHDInfo[i];
+                    HashMap<String, Object> diskInfo = new HashMap<>();
+                    diskInfo.put("diskNo", singleHd.dwHDNo);
+                    diskInfo.put("capacity", singleHd.dwCapacity);
+                    diskInfo.put("freeSpace", singleHd.dwFreeSpace);
+                    diskInfo.put("usedSpace", singleHd.dwCapacity - singleHd.dwFreeSpace);
+                    diskInfo.put("status", singleHd.dwHdStatus);
+                    diskInfo.put("statusDesc", getHdStatusDesc(singleHd.dwHdStatus));
+                    diskInfo.put("attr", singleHd.byHDAttr);
+                    diskInfo.put("attrDesc", getHdAttrDesc(singleHd.byHDAttr));
+                    diskInfo.put("groupNo", singleHd.dwHdGroup);
+                    diskList.add(diskInfo);
+                }
+                
+                result.put("diskList", diskList);
+                result.put("diskCount", hdCfg.dwHDCount);
+                result.put("success", true);
+                log.info("获取海康存储信息成功, deviceId:{}, diskCount:{}", deviceId, hdCfg.dwHDCount);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取硬盘配置失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康存储信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康存储信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+    
+    private String getHdStatusDesc(int status) {
+        switch (status) {
+            case 0: return "正常";
+            case 1: return "未格式化";
+            case 2: return "错误";
+            case 3: return "SMART状态";
+            case 4: return "不匹配";
+            case 5: return "休眠";
+            default: return "未知(" + status + ")";
+        }
+    }
+    
+    private String getHdAttrDesc(int attr) {
+        switch (attr) {
+            case 0: return "默认";
+            case 1: return "冗余";
+            case 2: return "只读";
+            default: return "未知(" + attr + ")";
+        }
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangSDCardInfo(Long deviceId) {
+        log.info("开始获取海康SD卡信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_HDCFG hdCfg = new HCNetSDK.NET_DVR_HDCFG();
+            hdCfg.dwSize = hdCfg.size();
+            hdCfg.write();
+            IntByReference lpBytesReturned = new IntByReference(0);
+            
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_HDCFG, 0, hdCfg.getPointer(), hdCfg.size(), lpBytesReturned);
+            
+            if (success) {
+                hdCfg.read();
+                List<HashMap<String, Object>> sdCardList = new ArrayList<>();
+                
+                for (int i = 0; i < hdCfg.dwHDCount; i++) {
+                    HCNetSDK.NET_DVR_SINGLE_HD singleHd = hdCfg.struHDInfo[i];
+                    HashMap<String, Object> sdCardInfo = new HashMap<>();
+                    sdCardInfo.put("cardNo", singleHd.dwHDNo);
+                    sdCardInfo.put("capacity", singleHd.dwCapacity);
+                    sdCardInfo.put("freeSpace", singleHd.dwFreeSpace);
+                    sdCardInfo.put("usedSpace", singleHd.dwCapacity - singleHd.dwFreeSpace);
+                    sdCardInfo.put("status", singleHd.dwHdStatus);
+                    sdCardInfo.put("statusDesc", getHdStatusDesc(singleHd.dwHdStatus));
+                    sdCardInfo.put("attr", singleHd.byHDAttr);
+                    sdCardInfo.put("attrDesc", getHdAttrDesc(singleHd.byHDAttr));
+                    sdCardList.add(sdCardInfo);
+                }
+                
+                result.put("sdCardList", sdCardList);
+                result.put("sdCardCount", hdCfg.dwHDCount);
+                result.put("success", true);
+                log.info("获取海康SD卡信息成功, deviceId:{}, cardCount:{}", deviceId, hdCfg.dwHDCount);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取SD卡配置失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康SD卡信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康SD卡信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangBitrateInfo(Long deviceId) {
+        log.info("开始获取海康码率信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            int channelId = (device.getChannel() != null && device.getChannel() > 0) ? device.getChannel() : 1;
+            
+            log.info("使用通道: {}", channelId);
+            
+            HCNetSDK.NET_DVR_COMPRESSIONCFG_V30 compCfg = new HCNetSDK.NET_DVR_COMPRESSIONCFG_V30();
+            compCfg.dwSize = compCfg.size();
+            compCfg.write();
+            IntByReference lpBytesReturned = new IntByReference(0);
+            
+            log.info("调用 NET_DVR_GET_COMPRESSCFG_V30, lUserID:{}, 通道:{}", lUserID, channelId);
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_COMPRESSCFG_V30, 
+                channelId, compCfg.getPointer(), compCfg.size(), lpBytesReturned);
+            
+            if (success) {
+                compCfg.read();
+                List<HashMap<String, Object>> streamList = new ArrayList<>();
+                
+                streamList.add(createStreamInfo("主码流(录像)", compCfg.struNormHighRecordPara));
+                streamList.add(createStreamInfo("事件码流", compCfg.struEventRecordPara));
+                streamList.add(createStreamInfo("子码流(网传)", compCfg.struNetPara));
+                
+                result.put("streamList", streamList);
+                result.put("success", true);
+                log.info("获取海康码率信息成功, deviceId:{}, channelId:{}", deviceId, channelId);
+                return result;
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                log.warn("获取码率配置失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+            
+            result.put("message", "无法获取码率信息");
+            result.put("success", true);
+            result.put("streamList", new ArrayList<>());
+            log.warn("无法获取码率信息, deviceId:{}", deviceId);
+            
+        } catch (Exception e) {
+            log.error("获取海康码率信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+            result.put("success", true);
+            result.put("streamList", new ArrayList<>());
+        }
+        return result;
+    }
+    
+    private HashMap<String, Object> createStreamInfo(String streamName, HCNetSDK.NET_DVR_COMPRESSION_INFO_V30 info) {
+        HashMap<String, Object> streamInfo = new HashMap<>();
+        streamInfo.put("streamName", streamName);
+        streamInfo.put("streamType", info.byStreamType);
+        streamInfo.put("streamTypeDesc", info.byStreamType == 0 ? "视频流" : "复合流");
+        streamInfo.put("resolution", info.byResolution);
+        streamInfo.put("resolutionDesc", getResolutionDesc(info.byResolution));
+        streamInfo.put("bitrateType", info.byBitrateType);
+        streamInfo.put("bitrateTypeDesc", info.byBitrateType == 0 ? "定码率" : "变码率");
+        streamInfo.put("picQuality", info.byPicQuality);
+        streamInfo.put("picQualityDesc", getPicQualityDesc(info.byPicQuality));
+        streamInfo.put("videoBitrate", getActualBitrate(info.dwVideoBitrate));
+        streamInfo.put("videoFrameRate", info.dwVideoFrameRate);
+        streamInfo.put("videoFrameRateDesc", getFrameRateDesc(info.dwVideoFrameRate));
+        streamInfo.put("intervalFrameI", info.wIntervalFrameI);
+        streamInfo.put("videoEncType", info.byVideoEncType);
+        streamInfo.put("videoEncTypeDesc", getVideoEncTypeDesc(info.byVideoEncType));
+        return streamInfo;
+    }
+    
+    private String getResolutionDesc(int resolution) {
+        switch (resolution) {
+            case 0: return "DCIF";
+            case 1: return "CIF";
+            case 2: return "QCIF";
+            case 3: return "4CIF";
+            case 4: return "2CIF";
+            case 16: return "VGA(640*480)";
+            case 17: return "UXGA(1600*1200)";
+            case 18: return "SVGA(800*600)";
+            case 19: return "HD720p(1280*720)";
+            case 20: return "XVGA";
+            case 21: return "HD900p";
+            default: return "未知(" + resolution + ")";
+        }
+    }
+    
+    private String getPicQualityDesc(int quality) {
+        switch (quality) {
+            case 0: return "最好";
+            case 1: return "次好";
+            case 2: return "较好";
+            case 3: return "一般";
+            case 4: return "较差";
+            case 5: return "差";
+            default: return "未知(" + quality + ")";
+        }
+    }
+    
+    private int getActualBitrate(int bitrateValue) {
+        boolean isCustom = (bitrateValue & 0x80000000) != 0;
+        if (isCustom) {
+            return bitrateValue & 0x7FFFFFFF;
+        }
+        int[] bitrateTable = {0, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048};
+        if (bitrateValue >= 0 && bitrateValue < bitrateTable.length) {
+            return bitrateTable[bitrateValue];
+        }
+        return bitrateValue;
+    }
+    
+    private String getFrameRateDesc(int frameRate) {
+        switch (frameRate) {
+            case 0: return "全部";
+            case 1: return "1/16 fps";
+            case 2: return "1/8 fps";
+            case 3: return "1/4 fps";
+            case 4: return "1/2 fps";
+            case 5: return "1 fps";
+            case 6: return "2 fps";
+            case 7: return "4 fps";
+            case 8: return "6 fps";
+            case 9: return "8 fps";
+            case 10: return "10 fps";
+            case 11: return "12 fps";
+            case 12: return "16 fps";
+            case 13: return "20 fps";
+            case 14: return "15 fps";
+            case 15: return "18 fps";
+            case 16: return "22 fps";
+            default: return "未知(" + frameRate + ")";
+        }
+    }
+    
+    private String getVideoEncTypeDesc(int encType) {
+        switch (encType) {
+            case 0: return "Hik264";
+            case 1: return "标准H264";
+            case 2: return "标准MPEG4";
+            default: return "未知(" + encType + ")";
+        }
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangNetworkStatusInfo(Long deviceId) {
+        log.info("开始获取海康网络状态信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+            
+            if (success) {
+                workState.read();
+                int channelId = (device.getChannel() != null && device.getChannel() > 0) ? device.getChannel() - 1 : 0;
+                
+                if (channelId >= 0 && channelId < workState.struChanStatic.length) {
+                    HCNetSDK.NET_DVR_CHANNELSTATE_V30 chanState = workState.struChanStatic[channelId];
+                    List<HashMap<String, Object>> clientList = new ArrayList<>();
+                    
+                    for (int i = 0; i < chanState.dwLinkNum && i < chanState.struClientIP.length; i++) {
+                        HashMap<String, Object> clientInfo = new HashMap<>();
+                        HCNetSDK.NET_DVR_IPADDR ipAddr = chanState.struClientIP[i];
+                        clientInfo.put("clientNo", i + 1);
+                        clientInfo.put("ip", String.format("%d.%d.%d.%d", 
+                            ipAddr.sIpV4[0] & 0xFF, ipAddr.sIpV4[1] & 0xFF, 
+                            ipAddr.sIpV4[2] & 0xFF, ipAddr.sIpV4[3] & 0xFF));
+                        clientList.add(clientInfo);
+                    }
+                    
+                    result.put("clientList", clientList);
+                    result.put("clientCount", chanState.dwLinkNum);
+                    result.put("bitRate", chanState.dwBitRate);
+                    result.put("allBitRate", chanState.dwAllBitRate);
+                    result.put("ipLinkNum", chanState.dwIPLinkNum);
+                    result.put("exceedMaxLink", chanState.byExceedMaxLink);
+                    result.put("success", true);
+                    log.info("获取海康网络状态信息成功, deviceId:{}", deviceId);
+                } else {
+                    result.put("message", "通道号超出范围");
+                    result.put("success", true);
+                }
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取工作状态失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康网络状态信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康网络状态信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangSoftwareVersionInfo(Long deviceId) {
+        log.info("开始获取海康软件版本信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+            
+            if (success) {
+                workState.read();
+                result.put("deviceStatic", workState.dwDeviceStatic);
+                result.put("deviceStaticDesc", getDeviceStaticDesc(workState.dwDeviceStatic));
+                result.put("localDisplay", workState.dwLocalDisplay);
+                result.put("localDisplayDesc", workState.dwLocalDisplay == 0 ? "正常" : "不正常");
+                result.put("success", true);
+                log.info("获取海康软件版本信息成功, deviceId:{}", deviceId);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取工作状态失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康软件版本信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康软件版本信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    private String getDeviceStaticDesc(int staticCode) {
+        switch (staticCode) {
+            case 0: return "正常";
+            case 1: return "CPU占用率太高，超过85%";
+            case 2: return "硬件错误，例如串口死掉";
+            default: return "未知状态(" + staticCode + ")";
+        }
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangRecordStateInfo(Long deviceId) {
+        log.info("开始获取海康录像状态信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+            
+            if (success) {
+                workState.read();
+                List<HashMap<String, Object>> channelRecordList = new ArrayList<>();
+                
+                for (int i = 0; i < workState.struChanStatic.length; i++) {
+                    HCNetSDK.NET_DVR_CHANNELSTATE_V30 chanState = workState.struChanStatic[i];
+                    HashMap<String, Object> recordInfo = new HashMap<>();
+                    recordInfo.put("channelId", i + 1);
+                    recordInfo.put("isRecording", chanState.byRecordStatic == 1);
+                    recordInfo.put("recordingDesc", chanState.byRecordStatic == 1 ? "录像中" : "未录像");
+                    recordInfo.put("signalStatic", chanState.bySignalStatic);
+                    recordInfo.put("signalDesc", chanState.bySignalStatic == 0 ? "信号正常" : "信号丢失");
+                    recordInfo.put("hardwareStatic", chanState.byHardwareStatic);
+                    recordInfo.put("hardwareDesc", chanState.byHardwareStatic == 0 ? "硬件正常" : "硬件异常");
+                    recordInfo.put("bitRate", chanState.dwBitRate);
+                    channelRecordList.add(recordInfo);
+                }
+                
+                result.put("channelRecordList", channelRecordList);
+                result.put("success", true);
+                log.info("获取海康录像状态信息成功, deviceId:{}", deviceId);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取工作状态失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康录像状态信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康录像状态信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangPowerStateInfo(Long deviceId) {
+        log.info("开始获取海康电源状态信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+            
+            if (success) {
+                workState.read();
+                result.put("deviceStatic", workState.dwDeviceStatic);
+                result.put("deviceStaticDesc", getDeviceStaticDesc(workState.dwDeviceStatic));
+                result.put("devicePowerStatus", 0); // 海康SDK中没有直接电源状态，用0表示正常
+                result.put("localDisplay", workState.dwLocalDisplay);
+                result.put("success", true);
+                log.info("获取海康电源状态信息成功, deviceId:{}", deviceId);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取工作状态失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康电源状态信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康电源状态信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangAlarmArmInfo(Long deviceId) {
+        log.info("开始获取海康报警布撤防信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+            
+            if (success) {
+                workState.read();
+                List<HashMap<String, Object>> alarmInList = new ArrayList<>();
+                List<HashMap<String, Object>> alarmOutList = new ArrayList<>();
+                
+                for (int i = 0; i < workState.byAlarmInStatic.length; i++) {
+                    HashMap<String, Object> alarmIn = new HashMap<>();
+                    alarmIn.put("alarmInNo", i + 1);
+                    alarmIn.put("alarmInStatus", workState.byAlarmInStatic[i] == 0 ? "无报警" : "有报警");
+                    alarmInList.add(alarmIn);
+                }
+                
+                for (int i = 0; i < workState.byAlarmOutStatic.length; i++) {
+                    HashMap<String, Object> alarmOut = new HashMap<>();
+                    alarmOut.put("alarmOutNo", i + 1);
+                    alarmOut.put("alarmOutStatus", workState.byAlarmOutStatic[i] == 0 ? "无输出" : "有报警输出");
+                    alarmOutList.add(alarmOut);
+                }
+                
+                result.put("alarmInList", alarmInList);
+                result.put("alarmOutList", alarmOutList);
+                result.put("success", true);
+                log.info("获取海康报警布撤防信息成功, deviceId:{}", deviceId);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取工作状态失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康报警布撤防信息失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康报警布撤防信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public com.ruoyi.haikang.api.domain.HaiKangCameraInfo getHaiKangCameraInfo(Long deviceId) {
+        log.info("开始获取海康摄像头属性信息, deviceId:{}", deviceId);
+        com.ruoyi.haikang.api.domain.HaiKangCameraInfo result = new com.ruoyi.haikang.api.domain.HaiKangCameraInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                log.error("海康设备未登录, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+                result.setErrorMessage("设备未登录");
+                return result;
+            }
+
+            // 获取设备工作状态
+            try {
+                HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+                workState.write();
+                
+                boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+                
+                if (success) {
+                    workState.read();
+                    List<com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+                    
+                    // 遍历通道状态
+                    int channelCount = workState.struChanStatic.length;
+                    for (int i = 0; i < channelCount; i++) {
+                        HCNetSDK.NET_DVR_CHANNELSTATE_V30 chanState = workState.struChanStatic[i];
+                        
+                        com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo info = new com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo();
+                        info.setChannelId(i + 1); // 通道从1开始
+                        info.setCameraName("通道" + (i + 1));
+                        info.setCameraType("本地");
+                        
+                        // 信号状态: 0-正常, 1-信号丢失
+                        boolean online = chanState.bySignalStatic == 0;
+                        info.setOnline(online);
+                        
+                        // 状态描述
+                        String statusDesc;
+                        if (chanState.byRecordStatic == 1) {
+                            statusDesc = "录像中";
+                        } else if (chanState.bySignalStatic == 1) {
+                            statusDesc = "信号丢失";
+                        } else {
+                            statusDesc = "正常";
+                        }
+                        info.setStatusDesc(statusDesc);
+                        
+                        // 如果设备有通道号，则匹配
+                        if (device.getChannel() != null && device.getChannel() == (i + 1)) {
+                            info.setCameraName(device.getDeviceName());
+                        }
+                        
+                        cameraList.add(info);
+                    }
+                    
+                    result.setCameraCount(cameraList.size());
+                    result.setCameraList(cameraList);
+                    log.info("获取海康摄像头属性成功, 共 {} 个通道", cameraList.size());
+                } else {
+                    log.warn("获取设备工作状态失败, 错误码: {}", client.hCNetSDK.NET_DVR_GetLastError());
+                    // 如果获取工作状态失败，尝试用 V30 之前的版本
+                    try {
+                        HCNetSDK.NET_DVR_WORKSTATE workStateOld = new HCNetSDK.NET_DVR_WORKSTATE();
+                        workStateOld.write();
+                        boolean successOld = client.hCNetSDK.NET_DVR_GetDVRWorkState(lUserID, workStateOld);
+                        
+                        if (successOld) {
+                            workStateOld.read();
+                            List<com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+                            int channelCount = workStateOld.struChanStatic.length;
+                            for (int i = 0; i < channelCount; i++) {
+                                HCNetSDK.NET_DVR_CHANNELSTATE chanState = workStateOld.struChanStatic[i];
+                                
+                                com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo info = new com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo();
+                                info.setChannelId(i + 1);
+                                info.setCameraName("通道" + (i + 1));
+                                info.setCameraType("本地");
+                                
+                                boolean online = chanState.bySignalStatic == 0;
+                                info.setOnline(online);
+                                
+                                String statusDesc;
+                                if (chanState.byRecordStatic == 1) {
+                                    statusDesc = "录像中";
+                                } else if (chanState.bySignalStatic == 1) {
+                                    statusDesc = "信号丢失";
+                                } else {
+                                    statusDesc = "正常";
+                                }
+                                info.setStatusDesc(statusDesc);
+                                
+                                if (device.getChannel() != null && device.getChannel() == (i + 1)) {
+                                    info.setCameraName(device.getDeviceName());
+                                }
+                                
+                                cameraList.add(info);
+                            }
+                            
+                            result.setCameraCount(cameraList.size());
+                            result.setCameraList(cameraList);
+                            log.info("获取海康摄像头属性成功(旧版), 共 {} 个通道", cameraList.size());
+                        } else {
+                            log.warn("获取旧版设备工作状态也失败, 错误码: {}", client.hCNetSDK.NET_DVR_GetLastError());
+                            // 都失败的话，至少返回默认通道
+                            List<com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+                            com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo info = new com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo();
+                            info.setChannelId(device.getChannel() != null && device.getChannel() > 0 ? device.getChannel() : 1);
+                            info.setCameraName(device.getDeviceName());
+                            info.setCameraType("本地");
+                            info.setOnline(true);
+                            info.setStatusDesc("正常");
+                            cameraList.add(info);
+                            result.setCameraCount(cameraList.size());
+                            result.setCameraList(cameraList);
+                        }
+                    } catch (Exception e2) {
+                        log.warn("获取旧版设备工作状态异常: {}", e2.getMessage());
+                        // 异常时至少返回默认通道
+                        List<com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+                        com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo info = new com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo();
+                        info.setChannelId(device.getChannel() != null && device.getChannel() > 0 ? device.getChannel() : 1);
+                        info.setCameraName(device.getDeviceName());
+                        info.setCameraType("本地");
+                        info.setOnline(true);
+                        info.setStatusDesc("正常");
+                        cameraList.add(info);
+                        result.setCameraCount(cameraList.size());
+                        result.setCameraList(cameraList);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("获取设备工作状态异常: {}", e.getMessage());
+                // 异常时至少返回默认通道
+                List<com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+                com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo info = new com.ruoyi.haikang.api.domain.HaiKangCameraInfo.CameraInfo();
+                info.setChannelId(device.getChannel() != null && device.getChannel() > 0 ? device.getChannel() : 1);
+                info.setCameraName(device.getDeviceName());
+                info.setCameraType("本地");
+                info.setOnline(true);
+                info.setStatusDesc("正常");
+                cameraList.add(info);
+                result.setCameraCount(cameraList.size());
+                result.setCameraList(cameraList);
+            }
+
+            result.setSuccess(true);
+            log.info("获取海康摄像头属性信息完成, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康摄像头属性异常, deviceId:{}, error:{}", deviceId, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true); // 尽量返回成功，即使有异常
+        }
+
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangRtspUrlInfo(Long deviceId) {
+        log.info("开始获取海康RTSP URL, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            int channelId = (device.getChannel() != null && device.getChannel() > 0) ? device.getChannel() : 1;
+            String rtspUrl = String.format("rtsp://%s:%s@%s:554/Streaming/Channels/%02d01", 
+                device.getUserName(), device.getPassword(), device.getIpAddress(), channelId);
+            result.put("rtspUrl", rtspUrl);
+            result.put("success", true);
+            log.info("获取海康RTSP URL成功, deviceId:{}, channelId:{}, rtspUrl:{}", deviceId, channelId, rtspUrl);
+        } catch (Exception e) {
+            log.error("获取海康RTSP URL异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangSystemParam(Long deviceId) {
+        log.info("开始获取海康系统参数, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            HCNetSDK.NET_DVR_WORKSTATE_V30 workState = new HCNetSDK.NET_DVR_WORKSTATE_V30();
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, workState);
+            
+            if (success) {
+                workState.read();
+                result.put("deviceStatic", workState.dwDeviceStatic);
+                result.put("deviceStaticDesc", getDeviceStaticDesc(workState.dwDeviceStatic));
+                result.put("localDisplay", workState.dwLocalDisplay);
+                result.put("localDisplayDesc", workState.dwLocalDisplay == 0 ? "正常" : "不正常");
+                result.put("audioChanStatus", byteArrayToIntList(workState.byAudioChanStatus));
+                
+                List<HashMap<String, Object>> diskList = new ArrayList<>();
+                for (int i = 0; i < workState.struHardDiskStatic.length; i++) {
+                    HCNetSDK.NET_DVR_DISKSTATE disk = workState.struHardDiskStatic[i];
+                    HashMap<String, Object> diskInfo = new HashMap<>();
+                    diskInfo.put("diskNo", i + 1);
+                    diskInfo.put("volume", disk.dwVolume);
+                    diskInfo.put("freeSpace", disk.dwFreeSpace);
+                    diskInfo.put("hardDiskStatic", disk.dwHardDiskStatic);
+                    diskInfo.put("diskStaticDesc", getDiskStaticDesc(disk.dwHardDiskStatic));
+                    diskList.add(diskInfo);
+                }
+                result.put("diskList", diskList);
+                
+                result.put("success", true);
+                log.info("获取海康系统参数成功, deviceId:{}", deviceId);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取工作状态失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康系统参数失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康系统参数异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    private List<Integer> byteArrayToIntList(byte[] byteArray) {
+        List<Integer> intList = new ArrayList<>();
+        for (byte b : byteArray) {
+            intList.add((int) b);
+        }
+        return intList;
+    }
+
+    private String getDiskStaticDesc(int staticCode) {
+        if ((staticCode & 1) != 0) {
+            return "休眠";
+        } else if ((staticCode & 2) != 0) {
+            return "不正常";
+        } else if ((staticCode & 4) != 0) {
+            return "休眠硬盘出错";
+        } else {
+            return "正常";
+        }
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangVideoParam(Long deviceId, int channelId, String streamType) {
+        log.info("开始获取海康视频参数, deviceId:{}, channelId:{}, streamType:{}", deviceId, channelId, streamType);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = userIdMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            int actualChannelId = (channelId > 0) ? channelId - 1 : 0;
+            
+            HCNetSDK.NET_DVR_COMPRESSIONCFG_V30 compCfg = new HCNetSDK.NET_DVR_COMPRESSIONCFG_V30();
+            compCfg.dwSize = compCfg.size();
+            compCfg.write();
+            IntByReference lpBytesReturned = new IntByReference(0);
+            
+            boolean success = client.hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_COMPRESSCFG_V30, actualChannelId, compCfg.getPointer(), compCfg.size(), lpBytesReturned);
+            
+            if (success) {
+                compCfg.read();
+                HCNetSDK.NET_DVR_COMPRESSION_INFO_V30 selectedStream;
+                
+                if ("sub".equalsIgnoreCase(streamType)) {
+                    selectedStream = compCfg.struNetPara;
+                    result.put("streamType", "子码流");
+                } else if ("event".equalsIgnoreCase(streamType)) {
+                    selectedStream = compCfg.struEventRecordPara;
+                    result.put("streamType", "事件码流");
+                } else {
+                    selectedStream = compCfg.struNormHighRecordPara;
+                    result.put("streamType", "主码流");
+                }
+                
+                result.put("channelId", channelId);
+                result.put("videoEncType", selectedStream.byVideoEncType);
+                result.put("videoEncTypeDesc", getVideoEncTypeDesc(selectedStream.byVideoEncType));
+                result.put("resolution", selectedStream.byResolution);
+                result.put("resolutionDesc", getResolutionDesc(selectedStream.byResolution));
+                result.put("bitrateType", selectedStream.byBitrateType);
+                result.put("bitrateTypeDesc", selectedStream.byBitrateType == 0 ? "定码率" : "变码率");
+                result.put("picQuality", selectedStream.byPicQuality);
+                result.put("picQualityDesc", getPicQualityDesc(selectedStream.byPicQuality));
+                result.put("videoBitrate", getActualBitrate(selectedStream.dwVideoBitrate));
+                result.put("videoFrameRate", selectedStream.dwVideoFrameRate);
+                result.put("videoFrameRateDesc", getFrameRateDesc(selectedStream.dwVideoFrameRate));
+                result.put("intervalFrameI", selectedStream.wIntervalFrameI);
+                result.put("streamTypeSetting", selectedStream.byStreamType);
+                result.put("streamTypeSettingDesc", selectedStream.byStreamType == 0 ? "视频流" : "复合流");
+                result.put("audioEncType", selectedStream.byAudioEncType);
+                
+                result.put("success", true);
+                log.info("获取海康视频参数成功, deviceId:{}, channelId:{}, streamType:{}", deviceId, channelId, streamType);
+            } else {
+                int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+                result.put("message", "获取压缩配置失败, 错误码: " + errorCode);
+                result.put("success", true);
+                log.warn("获取海康视频参数失败, deviceId:{}, errorCode:{}", deviceId, errorCode);
+            }
+        } catch (Exception e) {
+            log.error("获取海康视频参数异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    // 生成文件名
+    private String generateFileName(Long deviceId, int channelId) {
+        String timeStr = new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date());
+        return "haikang_" + deviceId + "_" + channelId + "_" + timeStr + ".jpg";
     }
 
 }
