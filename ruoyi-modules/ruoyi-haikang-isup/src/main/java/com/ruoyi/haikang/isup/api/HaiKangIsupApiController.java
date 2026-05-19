@@ -260,4 +260,43 @@ public class HaiKangIsupApiController {
                                                               @NotBlank(message = "结束时间不能为空") String endTime) {
         return R.ok(haiKangIsupService.queryRecord(deviceId, channelId, startTime, endTime));
     }
+
+    /**
+     * 重启海康设备
+     *
+     * @param deviceId 设备id
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/restartDevice/{deviceId}")
+    public R<Void> restartDevice(@PathVariable("deviceId") Long deviceId) {
+        haiKangIsupService.restartDevice(deviceId);
+        return R.ok();
+    }
+
+    /**
+     * 获取海康设备时间
+     *
+     * @param deviceId 设备id
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/getDevTime/{deviceId}")
+    public R<String> getDevTime(@PathVariable("deviceId") Long deviceId) {
+        return R.ok(haiKangIsupService.getDevTime(deviceId));
+    }
+
+    /**
+     * 设置海康设备时间
+     *
+     * @param deviceId 设备id
+     * @param time     时间，格式：yyyy-MM-dd HH:mm:ss
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/setDevTime/{deviceId}")
+    public R<Void> setDevTime(@PathVariable("deviceId") Long deviceId, String time) {
+        haiKangIsupService.setDevTime(deviceId, time);
+        return R.ok();
+    }
 }

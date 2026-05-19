@@ -28,4 +28,9 @@ public class StreamManager {
     public static Map<Integer, Integer> playbackHandSAndSessionIDandMap = new ConcurrentHashMap<>();
     public static Map<Integer, Integer> sessionIDAndPlaybackHandleMap = new ConcurrentHashMap<>();
     public static Map<Integer, RtpServerParam> luserIdAndPlaybackRtpServerParamMap = new ConcurrentHashMap<>();
+    
+    // 下载相关的映射
+    public static Map<Integer, String> playbackUserIDandTypeMap = new ConcurrentHashMap<>();
+    public static Map<Integer, String> playbackUserIDandFilePathMap = new ConcurrentHashMap<>();
+    public static Map<Integer, String> sessionIDandDownloadKeyMap = new ConcurrentHashMap<>();
 }

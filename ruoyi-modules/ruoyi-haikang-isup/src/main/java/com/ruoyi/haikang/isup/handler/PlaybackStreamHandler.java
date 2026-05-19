@@ -7,12 +7,15 @@ import com.sun.jna.Pointer;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -26,6 +29,9 @@ public class PlaybackStreamHandler implements HCISUPStream.PLAYBACK_DATA_CB {
     private static final int FPS = 25;
     private static final int TIMESTAMP_INCREMENT = CLOCK_RATE / FPS; // 3600
     private static final int MAX_PAYLOAD_SIZE = 1400 - 12; // RTP包大小减去头部
+
+    // 下载相关的latch map - 静态，用于跨实例访问
+    public static final Map<String, CountDownLatch> downloadLatchMap = new ConcurrentHashMap<>();
 
     // 存储每个回放句柄对应的连接信息
     private class RtpConnection {
@@ -56,6 +62,48 @@ public class PlaybackStreamHandler implements HCISUPStream.PLAYBACK_DATA_CB {
             return true;
         }
 
+        // 获取回放类型
+        String type = StreamManager.playbackUserIDandTypeMap.get(sessionID);
+        
+        if ("download".equals(type)) {
+            // 下载模式：将数据写入文件
+            String filePath = StreamManager.playbackUserIDandFilePathMap.get(sessionID);
+            if (filePath == null) {
+                log.error("下载文件路径未设置，sessionID: {}", sessionID);
+                return true;
+            }
+
+            if (pDataCBInfo.dwType == 2 && pDataCBInfo.pData != null && pDataCBInfo.dwDataLen > 0) {
+                try {
+                    File file = new File(filePath);
+                    // 确保父目录存在
+                    if (file.getParentFile() != null && !file.getParentFile().exists()) {
+                        file.getParentFile().mkdirs();
+                    }
+                    
+                    try (FileOutputStream fos = new FileOutputStream(file, true)) {
+                        byte[] data = pDataCBInfo.pData.getByteArray(0, pDataCBInfo.dwDataLen);
+                        fos.write(data);
+                    }
+                } catch (Exception e) {
+                    log.error("写入录像文件失败，sessionID: {}, filePath: {}", sessionID, filePath, e);
+                }
+            } else if (pDataCBInfo.dwType == 3) {
+                log.info("收到回放停止信令（下载模式），句柄: {}, sessionID: {}", iPlayBackLinkHandle, sessionID);
+                // 唤醒下载等待的线程
+                String downloadKey = StreamManager.sessionIDandDownloadKeyMap.get(sessionID);
+                if (downloadKey != null) {
+                    CountDownLatch latch = downloadLatchMap.get(downloadKey);
+                    if (latch != null) {
+                        latch.countDown();
+                        log.info("已唤醒下载等待线程，downloadKey: {}", downloadKey);
+                    }
+                }
+            }
+            return true;
+        }
+
+        // 回放模式：正常的RTP发送
         // 通过 sessionID 获取 rtpServerParam
         RtpServerParam rtpServerParam = StreamManager.luserIdAndPlaybackRtpServerParamMap.get(sessionID);
         if (rtpServerParam == null) {

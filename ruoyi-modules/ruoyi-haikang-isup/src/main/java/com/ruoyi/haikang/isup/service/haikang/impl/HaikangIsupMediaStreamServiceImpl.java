@@ -18,9 +18,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @FileName HaikangIsupMediaStreamServiceImpl
@@ -39,6 +43,9 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
     private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
 
     private final HaikangIsupConfig haikangIsupConfig;
+    
+    // 下载相关的latch map
+    private final Map<String, CountDownLatch> downloadLatchMap = new ConcurrentHashMap<>();
 
     /**
      * 开始播放
@@ -487,6 +494,220 @@ public class HaikangIsupMediaStreamServiceImpl implements IHaikangIsupMediaStrea
             throw new RuntimeException("NET_ECMS_StartPushPlayBack失败");
         } else {
             log.info("NET_ECMS_StartPushPlayBack成功，lSessionID:" + lSessionID);
+        }
+    }
+
+    /**
+     * 按时间下载录像
+     *
+     * @param lUserID
+     * @param device
+     * @param channelId
+     * @param startTime
+     * @param endTime
+     * @param filePath
+     * @return
+     */
+    @Override
+    public File downloadRecordByTime(Integer lUserID, QsDevice device, Integer channelId, String startTime, String endTime, String filePath) {
+        String downloadKey = "download_" + device.getId() + "_" + channelId + "_" + System.currentTimeMillis();
+        
+        log.info("开始下载海康设备录像, deviceId: {}, channelId: {}, startTime: {}, endTime: {}, filePath: {}",
+                device.getId(), channelId, startTime, endTime, filePath);
+        
+        CountDownLatch latch = new CountDownLatch(1);
+        downloadLatchMap.put(downloadKey, latch);
+        // 同时也设置到PlaybackStreamHandler的静态map中
+        PlaybackStreamHandler.downloadLatchMap.put(downloadKey, latch);
+        
+        try {
+            // 开始下载
+            startDownloadInternal(lUserID, device, channelId, startTime, endTime, filePath, downloadKey);
+            
+            // 等待下载完成（最多等待10分钟）
+            boolean completed = latch.await(10, TimeUnit.MINUTES);
+            if (!completed) {
+                log.error("下载超时，downloadKey: {}", downloadKey);
+                throw new RuntimeException("下载超时");
+            }
+            
+            // 检查文件是否存在
+            File file = new File(filePath);
+            if (!file.exists() || file.length() == 0) {
+                log.error("下载的文件不存在或为空，filePath: {}", filePath);
+                throw new RuntimeException("下载失败：文件不存在或为空");
+            }
+            
+            log.info("海康设备录像下载成功, deviceId: {}, filePath: {}, fileSize: {} bytes",
+                    device.getId(), filePath, file.length());
+            
+            return file;
+        } catch (InterruptedException e) {
+            log.error("下载被中断, downloadKey: {}", downloadKey, e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("下载被中断", e);
+        } catch (Exception e) {
+            log.error("海康设备录像下载失败, deviceId: {}, error: {}", device.getId(), e.getMessage(), e);
+            throw new RuntimeException("下载失败：" + e.getMessage(), e);
+        } finally {
+            downloadLatchMap.remove(downloadKey);
+            cleanupDownloadResources(downloadKey, lUserID);
+        }
+    }
+
+    /**
+     * 内部开始下载方法
+     */
+    private void startDownloadInternal(Integer luserId, QsDevice device, Integer channelId, String startTime, 
+                                        String endTime, String filePath, String downloadKey) {
+        log.info("开始下载内部方法, deviceId: {}, ip: {}, lUserID: {}, channel: {}, startTime: {}, endTime: {}",
+                device.getId(), device.getIpAddress(), luserId, channelId, startTime, endTime);
+
+        // 验证登录句柄
+        if (luserId == null) {
+            log.error("登录句柄无效, deviceId: {}", device.getId());
+            throw new RuntimeException("登录句柄无效");
+        }
+
+        // 构造回放参数
+        HCISUPCMS.NET_EHOME_PLAYBACK_INFO_IN m_struPlayBackInfoIn = new HCISUPCMS.NET_EHOME_PLAYBACK_INFO_IN();
+        m_struPlayBackInfoIn.read();
+        m_struPlayBackInfoIn.dwSize = m_struPlayBackInfoIn.size();
+        m_struPlayBackInfoIn.dwChannel = channelId; //通道号
+        m_struPlayBackInfoIn.byPlayBackMode = 1;//0- 按文件名回放，1- 按时间回放
+        m_struPlayBackInfoIn.byStreamPackage = 0;//回放码流类型，设备端发出的码流格式 0－PS（默认） 1－RTP
+        m_struPlayBackInfoIn.unionPlayBackMode.setType(HCISUPCMS.NET_EHOME_PLAYBACKBYTIME.class);
+
+        // 解析时间
+        DateTimeFormatter formatter;
+        if (startTime.contains("T")) {
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        } else {
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        }
+
+        LocalDateTime start = LocalDateTime.parse(startTime, formatter);
+        LocalDateTime end = LocalDateTime.parse(endTime, formatter);
+
+        // 填充开始时间
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime = new HCISUPCMS.NET_EHOME_TIME();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.wYear = (short) start.getYear();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byMonth = (byte) start.getMonthValue();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byDay = (byte) start.getDayOfMonth();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byHour = (byte) start.getHour();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byMinute = (byte) start.getMinute();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.bySecond = (byte) start.getSecond();
+
+        // 填充结束时间
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime = new HCISUPCMS.NET_EHOME_TIME();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.wYear = (short) end.getYear();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byMonth = (byte) end.getMonthValue();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byDay = (byte) end.getDayOfMonth();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byHour = (byte) end.getHour();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byMinute = (byte) end.getMinute();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.bySecond = (byte) end.getSecond();
+
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.byLocalOrUTC = 0; //0-设备本地时间
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.byDuplicateSegment = 0; //0-重复时间段的前段
+
+        System.arraycopy(haikangIsupConfig.getSmsBackServer().getIp().getBytes(), 0, m_struPlayBackInfoIn.struStreamSever.szIP,
+                0, haikangIsupConfig.getSmsBackServer().getIp().length());
+        m_struPlayBackInfoIn.struStreamSever.wPort = (short) haikangIsupConfig.getSmsBackServer().getPort();
+        m_struPlayBackInfoIn.write();
+
+        HCISUPCMS.NET_EHOME_PLAYBACK_INFO_OUT m_struPlayBackInfoOut = new HCISUPCMS.NET_EHOME_PLAYBACK_INFO_OUT();
+        m_struPlayBackInfoOut.write();
+
+        if (!CmsService.hCEhomeCMS.NET_ECMS_StartPlayBack(luserId, m_struPlayBackInfoIn, m_struPlayBackInfoOut)) {
+            log.error("NET_ECMS_StartPlayBack失败，错误代码:" + CmsService.hCEhomeCMS.NET_ECMS_GetLastError());
+            throw new RuntimeException("NET_ECMS_StartPlayBack失败");
+        } else {
+            m_struPlayBackInfoOut.read();
+            log.info("NET_ECMS_StartPlayBack成功，lSessionID:" + m_struPlayBackInfoOut.lSessionID);
+        }
+
+        int lSessionID = m_struPlayBackInfoOut.lSessionID;
+
+        // 设置映射
+        StreamManager.playbackKeyAndSessionIDMap.put(downloadKey, lSessionID);
+        StreamManager.playbackKeyAndLuserIdMap.put(downloadKey, luserId);
+        StreamManager.playbackKeyAndPlaybackHandleMap.put(downloadKey, lSessionID);
+        StreamManager.playbackUserIDandTypeMap.put(lSessionID, "download");
+        StreamManager.playbackUserIDandFilePathMap.put(lSessionID, filePath);
+        StreamManager.sessionIDandDownloadKeyMap.put(lSessionID, downloadKey);
+
+        HCISUPCMS.NET_EHOME_PUSHPLAYBACK_IN m_struPushPlayBackIn = new HCISUPCMS.NET_EHOME_PUSHPLAYBACK_IN();
+        m_struPushPlayBackIn.read();
+        m_struPushPlayBackIn.dwSize = m_struPushPlayBackIn.size();
+        m_struPushPlayBackIn.lSessionID = lSessionID;
+        m_struPushPlayBackIn.write();
+
+        HCISUPCMS.NET_EHOME_PUSHPLAYBACK_OUT m_struPushPlayBackOut = new HCISUPCMS.NET_EHOME_PUSHPLAYBACK_OUT();
+        m_struPushPlayBackOut.read();
+        m_struPushPlayBackOut.dwSize = m_struPushPlayBackOut.size();
+        m_struPushPlayBackOut.write();
+
+        if (!CmsService.hCEhomeCMS.NET_ECMS_StartPushPlayBack(luserId, m_struPushPlayBackIn, m_struPushPlayBackOut)) {
+            log.error("NET_ECMS_StartPushPlayBack失败，错误代码:" + CmsService.hCEhomeCMS.NET_ECMS_GetLastError());
+            throw new RuntimeException("NET_ECMS_StartPushPlayBack失败");
+        } else {
+            log.info("NET_ECMS_StartPushPlayBack成功，lSessionID:" + lSessionID);
+        }
+    }
+
+    /**
+     * 清理下载资源
+     */
+    private void cleanupDownloadResources(String downloadKey, Integer luserId) {
+        Integer sessionId = StreamManager.playbackKeyAndSessionIDMap.get(downloadKey);
+        Integer playbackHandleId = null;
+
+        if (sessionId != null) {
+            playbackHandleId = StreamManager.sessionIDAndPlaybackHandleMap.get(sessionId);
+        }
+
+        try {
+            if (playbackHandleId != null) {
+                StreamService.hCEhomeStream.NET_ESTREAM_StopPlayBack(playbackHandleId);
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 停止下载回放失败, downloadKey: {}", downloadKey, e);
+        }
+
+        try {
+            if (luserId != null && sessionId != null) {
+                CmsService.hCEhomeCMS.NET_ECMS_StopPlayBack(luserId, sessionId);
+            }
+        } catch (Exception e) {
+            log.error("[海康设备] 停止获取下载回放流失败, downloadKey: {}", downloadKey, e);
+        }
+
+        // 清理所有 Map
+        if (luserId != null) {
+            StreamManager.playbackKeyAndLuserIdMap.remove(downloadKey);
+        }
+        if (sessionId != null) {
+            StreamManager.sessionIDAndPlaybackHandleMap.remove(sessionId);
+            StreamManager.playbackUserIDandTypeMap.remove(sessionId);
+            StreamManager.playbackUserIDandFilePathMap.remove(sessionId);
+        }
+        if (playbackHandleId != null) {
+            StreamManager.playbackHandSAndSessionIDandMap.remove(playbackHandleId);
+        }
+
+        StreamManager.playbackKeyAndPlaybackHandleMap.remove(downloadKey);
+        StreamManager.playbackKeyAndSessionIDMap.remove(downloadKey);
+        if (sessionId != null) {
+            StreamManager.sessionIDandDownloadKeyMap.remove(sessionId);
+        }
+        
+        // 清理PlaybackStreamHandler中的latch
+        PlaybackStreamHandler.downloadLatchMap.remove(downloadKey);
+        
+        // 唤醒等待的线程
+        CountDownLatch latch = downloadLatchMap.get(downloadKey);
+        if (latch != null) {
+            latch.countDown();
         }
     }
 }

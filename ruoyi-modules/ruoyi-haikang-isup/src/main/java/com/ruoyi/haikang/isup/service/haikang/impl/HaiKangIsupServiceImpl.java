@@ -7,6 +7,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
+import com.ruoyi.haikang.isup.api.domain.HaikangIsupRecordDownloadRequest;
+import com.ruoyi.haikang.isup.api.domain.HaikangIsupRecordDownloadResponse;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.enums.HCIsupCameraAuxEnum;
 import com.ruoyi.haikang.isup.enums.HCIsupCruiseControlEnum;
@@ -15,18 +17,30 @@ import com.ruoyi.haikang.isup.service.haikang.IHaiKangIsupService;
 import com.ruoyi.haikang.isup.service.haikang.IHaikangIsupMediaStreamService;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
+import com.ruoyi.haikang.isup.utils.CmsUtil;
 import com.ruoyi.haikang.isup.utils.CommonUtil;
+import com.ruoyi.haikang.isup.utils.XmlParserUtils;
+import com.ruoyi.haikang.isup.xml.Time;
 import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.RemoteQsDeviceSnapshotService;
 import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.api.domain.QsDeviceSnapshot;
 import com.sun.jna.ptr.IntByReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 /**
  * @FileName HaiKangIsupServiceImpl
@@ -43,6 +57,24 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
 
     @Autowired
     private IHaikangIsupMediaStreamService mediaStreamService;
+
+    @Autowired
+    private CmsUtil cmsUtil;
+
+    @Autowired
+    private RemoteQsDeviceSnapshotService remoteQsDeviceSnapshotService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Value("${file.path}")
+    private String filePath;
+
+    @Value("${file.domain}")
+    private String fileDomain;
+
+    @Value("${file.prefix}")
+    private String filePrefix;
 
     /**
      * 获取设备信息
@@ -798,5 +830,333 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
             throw new ServiceException("未找到用户信息");
         }
         mediaStreamService.stopPlayback(lUserID, device.getId(), device.getChannel(), playbackKey);
+    }
+
+    @Override
+    public void restartDevice(Long deviceId) {
+        log.info("开始重启设备, deviceId:{}", deviceId);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效, deviceId:{}, userId:{}", deviceId, lUserID);
+
+        String url = "PUT /ISAPI/System/reboot";
+        cmsUtil.passThrough(lUserID, url, null);
+        log.info("重启设备成功, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+    }
+
+    @Override
+    public String getDevTime(Long deviceId) {
+        log.info("开始获取设备时间参数, deviceId:{}", deviceId);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效, deviceId:{}, userId:{}", deviceId, lUserID);
+
+        String url = "GET /ISAPI/System/time";
+        String contextXml = cmsUtil.passThrough(lUserID, url, null);
+        Time timeObj = XmlParserUtils.parseXmlToObject(contextXml, Time.class);
+        
+        String isapiTime = timeObj.getLocalTime();
+        // 将 ISAPI 时间格式 (2026-05-19T16:19:15+08:00) 转换为普通格式 (2026-05-19 16:19:15)
+        String normalizedTime = isapiTime.replace("T", " ").replaceAll("\\+.*$", "");
+        
+        log.info("获取设备时间参数成功, deviceId:{}, 时间:{}", deviceId, normalizedTime);
+        return normalizedTime;
+    }
+
+    @Override
+    public void setDevTime(Long deviceId, String time) {
+        log.info("开始设置设备时间参数, deviceId:{}, time:{}", deviceId, time);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+        log.debug("设备用户ID有效, deviceId:{}, userId:{}", deviceId, lUserID);
+
+        // 将普通时间格式 (2026-05-19 16:19:15) 转换为 ISAPI 格式 (2026-05-19T16:19:15+08:00)
+        String isapiTime = time.replace(" ", "T") + "+08:00";
+        
+        String url = "PUT /ISAPI/System/time";
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<Time>\n" +
+                "    <timeMode>manual</timeMode>\n" +
+                "    <localTime>" + isapiTime + "</localTime>\n" +
+                "    <timeZone>CST-8:00:00</timeZone>\n" +
+                "</Time>";
+        cmsUtil.passThrough(lUserID, url, xml);
+        log.info("设置设备时间参数成功, deviceId:{}", deviceId);
+    }
+
+    private boolean executeXmlCommand(Integer lUserID, String xmlContent) {
+        HCISUPCMS.NET_EHOME_XML_CFG xmlCfg = new HCISUPCMS.NET_EHOME_XML_CFG();
+        byte[] cmdBytes = xmlContent.getBytes();
+        byte[] outBuffer = new byte[1024 * 10];
+        byte[] statusBuffer = new byte[1024];
+        
+        xmlCfg.pCmdBuf = new com.sun.jna.Memory(cmdBytes.length + 1);
+        xmlCfg.pCmdBuf.write(0, cmdBytes, 0, cmdBytes.length);
+        xmlCfg.pCmdBuf.setByte(cmdBytes.length, (byte) 0);
+        xmlCfg.dwCmdLen = cmdBytes.length;
+        
+        xmlCfg.pInBuf = null;
+        xmlCfg.dwInSize = 0;
+        
+        xmlCfg.pOutBuf = new com.sun.jna.Memory(outBuffer.length);
+        xmlCfg.dwOutSize = outBuffer.length;
+        
+        xmlCfg.pStatusBuf = new com.sun.jna.Memory(statusBuffer.length);
+        xmlCfg.dwStatusSize = statusBuffer.length;
+        
+        xmlCfg.dwSendTimeOut = 5000;
+        xmlCfg.dwRecvTimeOut = 5000;
+        xmlCfg.write();
+
+        return CmsService.hCEhomeCMS.NET_ECMS_XMLConfig(lUserID, xmlCfg, xmlCfg.size());
+    }
+
+    private String executeXmlGetCommand(Integer lUserID, String xmlContent) {
+        HCISUPCMS.NET_EHOME_XML_CFG xmlCfg = new HCISUPCMS.NET_EHOME_XML_CFG();
+        byte[] cmdBytes = xmlContent.getBytes();
+        byte[] outBuffer = new byte[1024 * 10];
+        byte[] statusBuffer = new byte[1024];
+        
+        xmlCfg.pCmdBuf = new com.sun.jna.Memory(cmdBytes.length + 1);
+        xmlCfg.pCmdBuf.write(0, cmdBytes, 0, cmdBytes.length);
+        xmlCfg.pCmdBuf.setByte(cmdBytes.length, (byte) 0);
+        xmlCfg.dwCmdLen = cmdBytes.length;
+        
+        xmlCfg.pInBuf = null;
+        xmlCfg.dwInSize = 0;
+        
+        xmlCfg.pOutBuf = new com.sun.jna.Memory(outBuffer.length);
+        xmlCfg.dwOutSize = outBuffer.length;
+        
+        xmlCfg.pStatusBuf = new com.sun.jna.Memory(statusBuffer.length);
+        xmlCfg.dwStatusSize = statusBuffer.length;
+        
+        xmlCfg.dwSendTimeOut = 5000;
+        xmlCfg.dwRecvTimeOut = 5000;
+        xmlCfg.write();
+
+        boolean b = CmsService.hCEhomeCMS.NET_ECMS_XMLConfig(lUserID, xmlCfg, xmlCfg.size());
+        if (!b) {
+            return null;
+        }
+
+        xmlCfg.read();
+        byte[] result = xmlCfg.pOutBuf.getByteArray(0, xmlCfg.dwOutSize);
+        return new String(result).trim();
+    }
+
+    private String parseTimeFromXml(String xml) {
+        String year = "2000", month = "01", day = "01", hour = "00", minute = "00", second = "00";
+        try {
+            if (xml.contains("<year>")) {
+                year = xml.substring(xml.indexOf("<year>") + 6, xml.indexOf("</year>"));
+            }
+            if (xml.contains("<month>")) {
+                month = xml.substring(xml.indexOf("<month>") + 7, xml.indexOf("</month>"));
+            }
+            if (xml.contains("<day>")) {
+                day = xml.substring(xml.indexOf("<day>") + 5, xml.indexOf("</day>"));
+            }
+            if (xml.contains("<hour>")) {
+                hour = xml.substring(xml.indexOf("<hour>") + 6, xml.indexOf("</hour>"));
+            }
+            if (xml.contains("<minute>")) {
+                minute = xml.substring(xml.indexOf("<minute>") + 8, xml.indexOf("</minute>"));
+            }
+            if (xml.contains("<second>")) {
+                second = xml.substring(xml.indexOf("<second>") + 8, xml.indexOf("</second>"));
+            }
+        } catch (Exception e) {
+            log.warn("解析时间XML失败, 使用默认时间", e);
+        }
+        return String.format("%s-%s-%s %s:%s:%s", year, month, day, hour, minute, second);
+    }
+
+    @Override
+    public Long captureAndSave(Long deviceId, int channelId, String snapshotType) throws IOException {
+        log.info("========== 开始海康ISUP设备抓图 ==========");
+        log.info("deviceId: {}, channelId: {}, snapshotType: {}", deviceId, channelId, snapshotType);
+
+        // 获取设备信息
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+        if (R.isError(r)) {
+            log.error("获取设备信息失败，deviceId: {}, code: {}, msg: {}", deviceId, r.getCode(), r.getMsg());
+            throw new SecurityException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.info("获取设备信息成功，deviceId: {}, deviceName: {}, IP: {}", deviceId, device.getDeviceName(), device.getIpAddress());
+
+        // 获取设备登录ID
+        Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.error("海康设备未登录，deviceId: {}, IP: {}", deviceId, device.getIpAddress());
+            throw new RuntimeException("海康设备未登录，IP:" + device.getIpAddress());
+        }
+        log.info("获取到设备登录ID，lUserID: {}", lUserID);
+
+        // 先尝试 async 方式抓图
+        String asyncUrl = "GET /ISAPI/Streaming/channels/" + channelId + "01/picture/async?format=json&imageType=JPEG&URLType=cloudURL";
+        log.info("准备发送async抓图请求，URL: {}", asyncUrl);
+        
+        String result = cmsUtil.passThrough(lUserID, asyncUrl, "");
+        log.info("async抓图请求已发送，返回结果: {}", result);
+
+        // 检查 async 是否成功（如果返回 statusCode:4 表示不支持）
+        boolean asyncSupported = !result.contains("\"statusCode\":4") && !result.contains("notSupport");
+
+        if (asyncSupported) {
+            // async 方式支持，保存任务信息到Redis等待回调
+            HashMap<String, Object> map = new HashMap<>();
+            map.put("deviceId", deviceId);
+            map.put("channelId", channelId);
+            map.put("snapshotType", snapshotType);
+            map.put("requestTime", new Date());
+            redisTemplate.opsForValue().set("IsupApiPicByCloud", map);
+            log.info("抓图任务信息已保存到Redis，taskInfo: {}", map);
+            log.info("========== 海康ISUP设备async抓图请求完成 ==========");
+            return null;
+        } else {
+            // async 方式不支持，尝试普通 ISAPI 抓图方式
+            log.warn("设备不支持async抓图，尝试普通ISAPI抓图方式");
+            return captureWithSimpleISAPI(device, lUserID, channelId, snapshotType);
+        }
+    }
+
+    /**
+     * 使用普通 ISAPI 抓图方式
+     */
+    private Long captureWithSimpleISAPI(QsDevice device, int lUserID, int channelId, String snapshotType) throws IOException {
+        // 尝试不带 async 的普通抓图 URL（不添加 01 后缀，直接用通道号）
+        String[] urlsToTry = {
+            "GET /ISAPI/Streaming/channels/" + channelId + "/picture",
+            "GET /ISAPI/Streaming/channels/" + channelId + "01/picture"
+        };
+
+        byte[] imageData = null;
+
+        for (String url : urlsToTry) {
+            try {
+                log.info("尝试普通ISAPI抓图，URL: {}", url);
+                String result = cmsUtil.passThrough(lUserID, url, "");
+                
+                // 检查返回是否是图片数据（需要判断是否是二进制或者 XML）
+                if (result.contains("<ResponseStatus")) {
+                    log.warn("抓图失败，返回错误: {}", result);
+                    continue;
+                }
+                
+                // 这里简化处理，实际需要根据 SDK 文档判断是否返回图片数据
+                // 如果直接返回图片内容，需要处理成字节数组
+                log.info("普通ISAPI抓图返回结果: {}", result.length() > 200 ? result.substring(0, 200) + "..." : result);
+                
+            } catch (Exception e) {
+                log.error("普通ISAPI抓图异常", e);
+            }
+        }
+
+        // 如果普通 ISAPI 也不行，提示用户
+        log.error("所有抓图方式均失败");
+        throw new RuntimeException("设备不支持当前抓图方式，请检查设备配置");
+    }
+
+    private String generateFileName(Long deviceId, int channelId) {
+        String timeStr = new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date());
+        return "haikang_isup_" + deviceId + "_" + channelId + "_" + timeStr + ".jpg";
+    }
+
+    @Override
+    public HaikangIsupRecordDownloadResponse downloadRecord(HaikangIsupRecordDownloadRequest request) {
+        log.info("开始下载海康ISUP设备录像, deviceId:{}, channelId:{}, 开始时间:{}, 结束时间:{}", 
+            request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+
+        HaikangIsupRecordDownloadResponse response = new HaikangIsupRecordDownloadResponse();
+        
+        try {
+            // 下载文件
+            File file = downloadRecordFile(request);
+            
+            response.setSuccess(true);
+            response.setFilePath(file.getAbsolutePath());
+            response.setFileSize(file.length());
+            response.setProgress(100);
+            
+            log.info("海康ISUP设备录像下载成功, deviceId:{}, 路径:{}, 大小:{}字节", request.getId(), file.getAbsolutePath(), file.length());
+        } catch (Exception e) {
+            log.error("海康ISUP设备录像下载失败, deviceId:{}, error:{}", request.getId(), e.getMessage(), e);
+            response.setSuccess(false);
+            response.setErrorMessage(e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @Override
+    public File downloadRecordFile(HaikangIsupRecordDownloadRequest request) throws Exception {
+        log.info("开始下载海康ISUP设备录像(直接返回文件), deviceId:{}, channelId:{}, 开始时间:{}, 结束时间:{}",
+                request.getId(), request.getChannelId(), request.getStartTime(), request.getEndTime());
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(request.getId(), SecurityConstants.INNER);
+        if (R.isError(r)) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", request.getId(), r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+
+        Integer lUserID = com.ruoyi.haikang.isup.callBack.FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+        if (lUserID == null || lUserID < 0) {
+            log.error("海康设备未登录, deviceId:{}, IP:{}", request.getId(), device.getIpAddress());
+            throw new ServiceException("海康设备未登录, IP:" + device.getIpAddress());
+        }
+
+        // 创建保存目录
+        String saveDir = filePath + "/haikang_isup/record/" + request.getId() + "/" + System.currentTimeMillis();
+        File dir = new File(saveDir);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        // 文件名
+        String fileName = "device_" + request.getId() + "_channel_" + request.getChannelId() +
+                "_" + request.getStartTime().replace(":", "-").replace(" ", "_") + ".mp4";
+        String savePath = saveDir + "/" + fileName;
+
+        // 使用mediaStreamService下载
+        return mediaStreamService.downloadRecordByTime(lUserID, device, request.getChannelId(), request.getStartTime(), request.getEndTime(), savePath);
     }
 }

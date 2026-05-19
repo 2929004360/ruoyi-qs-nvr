@@ -1,6 +1,7 @@
 package com.ruoyi.haikang.isup.runner;
 
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
+import com.ruoyi.haikang.isup.service.haikang.ss.SsService;
 import com.ruoyi.haikang.isup.service.haikang.stream.StreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,27 +24,17 @@ public class HaikangIsupCommandLineRunner implements CommandLineRunner, Disposab
 
     private final CmsService cmsService;
 
-//    private final SsService ssService;
-//
-//    private final AlarmService alarmService;
+    private final SsService ssService;
 
     private final StreamService streamService;
-
-//    private final VoiceService voiceService;
 
     @Override
     public void run(String... args) throws Exception {
         log.info("=========================  开启海康isup服务监听  =========================");
-//        ssService.eSS_Init();
-//        ssService.startSsListen();
-//
-//        alarmService.eAlarm_Init();
-//        alarmService.startAlarmListen();
-//
-        streamService.eStream_Init();
+        ssService.eSS_Init();
+        ssService.startSsListen();
 
-//        voiceService.voice_Init();
-//        voiceService.startVoiceServeListen();
+        streamService.eStream_Init();
 
         cmsService.cMS_Init();
         cmsService.startCmsListen();
@@ -52,9 +43,7 @@ public class HaikangIsupCommandLineRunner implements CommandLineRunner, Disposab
     @Override
     public void destroy() {
         log.info("=========================  关闭海康isup服务监听  =========================");
-//        StreamService.hCEhomeStream.NET_ESTREAM_Fini();
         CmsService.hCEhomeCMS.NET_ECMS_Fini();
-//        AlarmService.hcEHomeAlarm.NET_EALARM_Fini();
-//        SsService.hCEhomeSS.NET_ESS_Fini();
+        SsService.hCEhomeSS.NET_ESS_Fini();
     }
 }
