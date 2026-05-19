@@ -1,8 +1,10 @@
 package com.ruoyi.haikang.isup.service.haikang;
 
 import com.ruoyi.common.core.domain.RtpServerParam;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupCameraInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
 import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
+import com.ruoyi.haikang.isup.api.domain.HaiKangIsupUpgradeRequest;
 import com.ruoyi.haikang.isup.api.domain.HaikangIsupRecordDownloadRequest;
 import com.ruoyi.haikang.isup.api.domain.HaikangIsupRecordDownloadResponse;
 
@@ -191,4 +193,110 @@ public interface IHaiKangIsupService {
      * @return 临时文件
      */
     java.io.File downloadRecordFile(HaikangIsupRecordDownloadRequest request) throws Exception;
+
+    /**
+     * 获取海康设备信息
+     *
+     * @param deviceId 设备ID
+     * @return 设备信息
+     */
+    HashMap<String, Object> getHaiKangIsupDeviceInfo(Long deviceId);
+
+    /**
+     * 获取海康存储信息
+     *
+     * @param deviceId 设备ID
+     * @return 存储信息
+     */
+    HashMap<String, Object> getHaiKangIsupStorageInfo(Long deviceId);
+
+    /**
+     * 获取海康SD卡信息
+     *
+     * @param deviceId 设备ID
+     * @return SD卡信息
+     */
+    HashMap<String, Object> getHaiKangIsupSDCardInfo(Long deviceId);
+
+    /**
+     * 获取海康码率信息
+     *
+     * @param deviceId 设备ID
+     * @return 码率信息
+     */
+    HashMap<String, Object> getHaiKangIsupBitrateInfo(Long deviceId);
+
+    /**
+     * 获取海康网络状态信息
+     *
+     * @param deviceId 设备ID
+     * @return 网络状态信息
+     */
+    HashMap<String, Object> getHaiKangIsupNetworkStatusInfo(Long deviceId);
+
+    /**
+     * 获取海康软件版本信息
+     *
+     * @param deviceId 设备ID
+     * @return 软件版本信息
+     */
+    HashMap<String, Object> getHaiKangIsupSoftwareVersionInfo(Long deviceId);
+
+    /**
+     * 获取海康电源状态信息
+     *
+     * @param deviceId 设备ID
+     * @return 电源状态信息
+     */
+    HashMap<String, Object> getHaiKangIsupPowerStateInfo(Long deviceId);
+
+    /**
+     * 获取海康摄像头属性信息
+     *
+     * @param deviceId 设备ID
+     * @return 摄像头属性信息
+     */
+    HaiKangIsupCameraInfo getHaiKangIsupCameraInfo(Long deviceId);
+
+    /**
+     * 获取海康系统参数
+     *
+     * @param deviceId 设备ID
+     * @return 系统参数
+     */
+    HashMap<String, Object> getHaiKangIsupSystemParam(Long deviceId);
+
+    /**
+     * 获取海康视频参数
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @param streamType 码流类型
+     * @return 视频参数
+     */
+    HashMap<String, Object> getHaiKangIsupVideoParam(Long deviceId, Integer channelId, String streamType);
+
+    /**
+     * 获取海康系统状态信息
+     *
+     * @param deviceId 设备ID
+     * @return 系统状态信息
+     */
+    HashMap<String, Object> getHaiKangIsupSystemStatus(Long deviceId);
+
+    /**
+     * 获取设备信息（XML格式）
+     *
+     * @param deviceId 设备ID
+     * @return 设备信息
+     */
+    HashMap<String, Object> getHaiKangIsupDeviceInfoXml(Long deviceId);
+
+    /**
+     * 远程升级设备
+     *
+     * @param request 升级请求参数
+     * @return 升级结果
+     */
+    HashMap<String, Object> upgradeHaiKangIsupDevice(HaiKangIsupUpgradeRequest request);
 }

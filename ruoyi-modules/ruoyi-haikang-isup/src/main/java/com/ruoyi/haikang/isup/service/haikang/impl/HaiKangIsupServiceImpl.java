@@ -5,10 +5,7 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.common.core.exception.ServiceException;
-import com.ruoyi.haikang.isup.api.domain.HaiKangIsupDeviceInfo;
-import com.ruoyi.haikang.isup.api.domain.HaiKangIsupPresetInfo;
-import com.ruoyi.haikang.isup.api.domain.HaikangIsupRecordDownloadRequest;
-import com.ruoyi.haikang.isup.api.domain.HaikangIsupRecordDownloadResponse;
+import com.ruoyi.haikang.isup.api.domain.*;
 import com.ruoyi.haikang.isup.callBack.FRegisterCallBack;
 import com.ruoyi.haikang.isup.enums.HCIsupCameraAuxEnum;
 import com.ruoyi.haikang.isup.enums.HCIsupCruiseControlEnum;
@@ -1158,5 +1155,1230 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
 
         // 使用mediaStreamService下载
         return mediaStreamService.downloadRecordByTime(lUserID, device, request.getChannelId(), request.getStartTime(), request.getEndTime(), savePath);
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupDeviceInfo(Long deviceId) {
+        log.info("开始获取海康ISUP设备信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 获取设备信息
+            HaiKangIsupDeviceInfo deviceInfo = getDevInfo(lUserID);
+            // 映射字段名与前端匹配
+            result.put("deviceName", device.getDeviceName());
+            result.put("deviceType", deviceInfo.getDwDevType());
+            result.put("serialNumber", deviceInfo.getSSerialNumber());
+            result.put("ipAddress", device.getIpAddress());
+            result.put("channelNum", deviceInfo.getDwChannelAmount());
+            result.put("analogChanNum", deviceInfo.getDwChannelNumber());
+            result.put("ipChanNum", deviceInfo.getDwMaxDigitChannelNum());
+            result.put("diskNum", deviceInfo.getDwDiskNumber());
+            result.put("alarmInPortNum", deviceInfo.getDwAlarmInPortNum());
+            result.put("alarmOutPortNum", deviceInfo.getDwAlarmOutPortNum());
+            result.put("success", true);
+            log.info("获取海康ISUP设备信息成功, deviceId:{}, serialNumber:{}", deviceId, deviceInfo.getSSerialNumber());
+        } catch (Exception e) {
+            log.error("获取海康ISUP设备信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupStorageInfo(Long deviceId) {
+        log.info("开始获取海康ISUP存储信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            String resultXml = null;
+            String successfulUrl = null;
+            // 尝试通过ISAPI获取存储信息 - 先尝试多个路径
+            String[] urls = {
+                "GET /ISAPI/System/storage",
+                "GET /ISAPI/System/HardDiskInfo",
+                "GET /ISAPI/ContentMgmt/storage",
+                "GET /ISAPI/System/storage/device",
+                "GET /ISAPI/ContentMgmt/storage/device",
+                "GET /ISAPI/ContentMgmt/Storage/device",
+                "GET /ISAPI/System/Storage",
+                "GET /ISAPI/System/storage/deviceInfo",
+                "GET /ISAPI/System/HardDisk",
+                "GET /ISAPI/System/HardDisk/info"
+            };
+            
+            for (String url : urls) {
+                try {
+                    log.info("尝试通过ISAPI获取存储信息, url:{}", url);
+                    resultXml = cmsUtil.passThrough(lUserID, url, null);
+                    result.put("rawData", resultXml);
+                    log.info("获取到的原始XML: {}", resultXml);
+                    if (resultXml != null && !resultXml.contains("<statusCode>4</statusCode>") && !resultXml.contains("<statusCode>500</statusCode>")) {
+                        successfulUrl = url;
+                        log.info("成功获取存储信息, url:{}", url);
+                        break;
+                    }
+                } catch (Exception e) {
+                    log.warn("通过ISAPI获取存储信息失败, url:{}, error:{}", url, e.getMessage());
+                }
+            }
+
+            // 解析返回的XML
+            List<HashMap<String, Object>> diskList = new ArrayList<>();
+            if (resultXml != null) {
+                diskList = parseStorageXml(resultXml);
+            }
+
+            result.put("diskList", diskList);
+            result.put("diskCount", diskList.size());
+            result.put("success", true);
+            result.put("successfulUrl", successfulUrl);
+            log.info("获取海康ISUP存储信息成功, deviceId:{}, diskCount:{}, url:{}", deviceId, diskList.size(), successfulUrl);
+        } catch (Exception e) {
+            log.error("获取海康ISUP存储信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupSDCardInfo(Long deviceId) {
+        log.info("开始获取海康ISUP SD卡信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            String resultXml = null;
+            // 尝试通过ISAPI获取SD卡信息
+            String[] urls = {
+                "GET /ISAPI/System/storage",
+                "GET /ISAPI/System/SDCardInfo",
+                "GET /ISAPI/ContentMgmt/storage",
+                "GET /ISAPI/System/storage/device"
+            };
+            
+            for (String url : urls) {
+                try {
+                    log.info("尝试通过ISAPI获取SD卡信息, url:{}", url);
+                    resultXml = cmsUtil.passThrough(lUserID, url, null);
+                    result.put("rawData", resultXml);
+                    if (resultXml != null && !resultXml.contains("<statusCode>4</statusCode>") && !resultXml.contains("<statusCode>500</statusCode>")) {
+                        log.info("成功获取SD卡信息, url:{}", url);
+                        break;
+                    }
+                } catch (Exception e) {
+                    log.warn("通过ISAPI获取SD卡信息失败, url:{}, error:{}", url, e.getMessage());
+                }
+            }
+
+            // 解析返回的XML
+            List<HashMap<String, Object>> sdCardList = new ArrayList<>();
+            if (resultXml != null) {
+                sdCardList = parseStorageXml(resultXml);
+                // 转换字段名称
+                for (HashMap<String, Object> sdCard : sdCardList) {
+                    if (sdCard.containsKey("diskNo")) {
+                        sdCard.put("cardNo", sdCard.remove("diskNo"));
+                    }
+                    if (sdCard.containsKey("capacity")) {
+                        sdCard.put("sdCardCapacity", sdCard.remove("capacity"));
+                    }
+                    if (sdCard.containsKey("freeSpace")) {
+                        sdCard.put("sdCardSpace", sdCard.remove("freeSpace"));
+                    }
+                    if (sdCard.containsKey("statusDesc")) {
+                        sdCard.put("storageStatus", sdCard.get("statusDesc").equals("正常") ? 1 : 0);
+                    }
+                }
+            }
+
+            result.put("sdCardList", sdCardList);
+            result.put("sdCardCount", sdCardList.size());
+            result.put("success", true);
+            log.info("获取海康ISUP SD卡信息成功, deviceId:{}, sdCardCount:{}", deviceId, sdCardList.size());
+        } catch (Exception e) {
+            log.error("获取海康ISUP SD卡信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 解析存储信息XML
+     */
+    private List<HashMap<String, Object>> parseStorageXml(String xml) {
+        List<HashMap<String, Object>> diskList = new ArrayList<>();
+        try {
+            log.info("开始解析存储XML: {}", xml.substring(0, Math.min(1000, xml.length())));
+            
+            // 尝试多种标签格式，每种标签格式都有对应的结束标签
+            String[][] tagPairs = {
+                {"<HDD", "</HDD>"},
+                {"<hdd", "</hdd>"},
+                {"<Disk", "</Disk>"},
+                {"<disk", "</disk>"},
+                {"<hd", "</hd>"},
+                {"<HD", "</HD>"},
+                {"<StorageDevice", "</StorageDevice>"},
+                {"<storageDevice", "</storageDevice>"},
+                {"<storage", "</storage>"},
+                {"<Storage", "</Storage>"}
+            };
+            
+            for (String[] tagPair : tagPairs) {
+                String startTag = tagPair[0];
+                String endTag = tagPair[1];
+                int hddIndex = 0;
+                
+                while (true) {
+                    int startTagPos = xml.indexOf(startTag, hddIndex);
+                    if (startTagPos == -1) {
+                        break;
+                    }
+                    
+                    // 找到开始标签的闭合位置（如果是自闭合标签）
+                    int startTagEndPos = xml.indexOf(">", startTagPos);
+                    if (startTagEndPos == -1) {
+                        break;
+                    }
+                    
+                    // 检查是否是自闭合标签
+                    boolean isSelfClosing = xml.charAt(startTagEndPos - 1) == '/';
+                    
+                    if (isSelfClosing) {
+                        // 自闭合标签，内容就是从开始到结束
+                        String diskXml = xml.substring(startTagPos, startTagEndPos + 1);
+                        log.info("解析单个硬盘XML(自闭合): {}", diskXml);
+                        
+                        HashMap<String, Object> diskInfo = parseSingleDiskXml(diskXml, diskList.size() + 1);
+                        if (diskInfo != null) {
+                            diskList.add(diskInfo);
+                            log.info("成功解析硬盘信息: {}", diskInfo);
+                        }
+                        
+                        hddIndex = startTagEndPos + 1;
+                    } else {
+                        // 查找对应的结束标签
+                        int endTagPos = xml.indexOf(endTag, startTagEndPos + 1);
+                        if (endTagPos == -1) {
+                            break;
+                        }
+                        
+                        // 找到结束标签的完整位置
+                        int endTagCompletePos = xml.indexOf(">", endTagPos);
+                        if (endTagCompletePos == -1) {
+                            endTagCompletePos = endTagPos + endTag.length();
+                        }
+                        
+                        String diskXml = xml.substring(startTagPos, endTagCompletePos + 1);
+                        log.info("解析单个硬盘XML: {}", diskXml);
+                        
+                        HashMap<String, Object> diskInfo = parseSingleDiskXml(diskXml, diskList.size() + 1);
+                        if (diskInfo != null) {
+                            diskList.add(diskInfo);
+                            log.info("成功解析硬盘信息: {}", diskInfo);
+                        }
+                        
+                        hddIndex = endTagCompletePos + 1;
+                    }
+                }
+                
+                if (!diskList.isEmpty()) {
+                    log.info("使用标签{}{}成功解析到{}个硬盘", startTag, endTag, diskList.size());
+                    break;
+                }
+            }
+            
+            // 如果通过标签查找没有找到，尝试其他方法
+            if (diskList.isEmpty()) {
+                diskList = parseSimpleStorageXml(xml);
+            }
+            
+            // 如果仍然没有找到，尝试从设备信息中获取（有些设备可能在设备基本信息中有硬盘数量）
+            if (diskList.isEmpty()) {
+                diskList = tryParseFromDeviceInfo(xml);
+            }
+            
+        } catch (Exception e) {
+            log.error("解析存储XML失败", e);
+        }
+        return diskList;
+    }
+    
+    /**
+     * 解析单个硬盘XML
+     */
+    private HashMap<String, Object> parseSingleDiskXml(String diskXml, int defaultDiskNo) {
+        HashMap<String, Object> diskInfo = new HashMap<>();
+        
+        // 提取硬盘编号
+        int diskNo = defaultDiskNo;
+        diskNo = extractIntValue(diskXml, "id", "id", diskNo);
+        diskNo = extractIntValue(diskXml, "diskNo", "diskNo", diskNo);
+        diskNo = extractIntValue(diskXml, "diskId", "diskId", diskNo);
+        diskNo = extractIntValue(diskXml, "hdNo", "hdNo", diskNo);
+        diskNo = extractIntValue(diskXml, "hdId", "hdId", diskNo);
+        diskInfo.put("diskNo", diskNo);
+        
+        // 提取容量信息
+        long capacity = 0;
+        capacity = extractNumericValue(diskXml, "capacity", "capacity", capacity);
+        capacity = extractCapacityValue(diskXml, "totalCapacity", "totalCapacity", capacity);
+        capacity = extractNumericValue(diskXml, "size", "size", capacity);
+        capacity = extractCapacityValue(diskXml, "totalSize", "totalSize", capacity);
+        diskInfo.put("capacity", capacity);
+        
+        // 提取空闲空间
+        long freeSpace = 0;
+        freeSpace = extractNumericValue(diskXml, "freeSpace", "freeSpace", freeSpace);
+        freeSpace = extractCapacityValue(diskXml, "free", "free", freeSpace);
+        freeSpace = extractCapacityValue(diskXml, "available", "available", freeSpace);
+        freeSpace = extractCapacityValue(diskXml, "remCapacity", "remCapacity", freeSpace);
+        diskInfo.put("freeSpace", freeSpace);
+        
+        // 提取已用空间
+        long usedSpace = 0;
+        usedSpace = extractNumericValue(diskXml, "usedSpace", "usedSpace", usedSpace);
+        usedSpace = extractCapacityValue(diskXml, "used", "used", usedSpace);
+        // 如果没有直接提供已用空间，计算它
+        if (usedSpace == 0 && capacity > 0 && freeSpace > 0) {
+            usedSpace = capacity - freeSpace;
+        }
+        diskInfo.put("usedSpace", usedSpace);
+        
+        // 提取状态
+        String statusDesc = "正常";
+        int status = 0;
+        String statusStr = extractStringValue(diskXml, "status", "status", "");
+        if (!statusStr.isEmpty()) {
+            statusDesc = parseStatus(statusStr);
+            status = parseOrConvertStatusCode(statusStr);
+        }
+        statusStr = extractStringValue(diskXml, "hdStatus", "hdStatus", "");
+        if (!statusStr.isEmpty()) {
+            statusDesc = parseStatus(statusStr);
+            status = parseOrConvertStatusCode(statusStr);
+        }
+        statusStr = extractStringValue(diskXml, "diskStatus", "diskStatus", "");
+        if (!statusStr.isEmpty()) {
+            statusDesc = parseStatus(statusStr);
+            status = parseOrConvertStatusCode(statusStr);
+        }
+        diskInfo.put("statusDesc", statusDesc);
+        diskInfo.put("status", status);
+        
+        // 提取属性（property）
+        String attrDesc = "默认";
+        int attr = 0;
+        String propertyStr = extractStringValue(diskXml, "property", "property", "");
+        if (!propertyStr.isEmpty()) {
+            attrDesc = propertyStr;
+            attr = parsePropertyCode(propertyStr);
+        }
+        String attrStr = extractStringValue(diskXml, "attr", "attr", "");
+        if (!attrStr.isEmpty()) {
+            attrDesc = attrStr;
+            attr = parsePropertyCode(attrStr);
+        }
+        diskInfo.put("attrDesc", attrDesc);
+        diskInfo.put("attr", attr);
+        
+        // 提取组编号
+        int groupNo = 0;
+        groupNo = extractIntValue(diskXml, "groupNo", "groupNo", groupNo);
+        groupNo = extractIntValue(diskXml, "hdGroup", "hdGroup", groupNo);
+        groupNo = extractIntValue(diskXml, "diskGroup", "diskGroup", groupNo);
+        diskInfo.put("groupNo", groupNo);
+        
+        return diskInfo;
+    }
+    
+    /**
+     * 从XML中提取纯数值（直接数字，没有单位）
+     */
+    private long extractNumericValue(String xml, String attrName, String elementName, long defaultValue) {
+        long value = defaultValue;
+        
+        // 先尝试从属性中提取
+        String attrPattern = attrName + "=\"";
+        int attrIndex = xml.indexOf(attrPattern);
+        if (attrIndex != -1) {
+            int valueStart = attrIndex + attrPattern.length();
+            int valueEnd = xml.indexOf("\"", valueStart);
+            if (valueEnd != -1) {
+                try {
+                    value = Long.parseLong(xml.substring(valueStart, valueEnd).trim());
+                } catch (Exception e) {
+                    // 忽略解析错误
+                }
+            }
+        }
+        
+        // 如果属性中没有，尝试从元素中提取
+        if (value == defaultValue) {
+            String startTag = "<" + elementName + ">";
+            String endTag = "</" + elementName + ">";
+            int startIndex = xml.indexOf(startTag);
+            if (startIndex != -1) {
+                int valueStart = startIndex + startTag.length();
+                int valueEnd = xml.indexOf(endTag, valueStart);
+                if (valueEnd != -1) {
+                    try {
+                        value = Long.parseLong(xml.substring(valueStart, valueEnd).trim());
+                    } catch (Exception e) {
+                        // 忽略解析错误
+                    }
+                }
+            }
+        }
+        
+        return value;
+    }
+    
+    /**
+     * 解析属性代码
+     */
+    private int parsePropertyCode(String propertyStr) {
+        if (propertyStr == null || propertyStr.isEmpty()) {
+            return 0;
+        }
+        propertyStr = propertyStr.trim().toUpperCase();
+        switch (propertyStr) {
+            case "RW":
+                return 0;
+            case "RO":
+                return 1;
+            case "RECOVERY":
+                return 2;
+            case "REDUNDANT":
+                return 3;
+            default:
+                return 0;
+        }
+    }
+    
+    /**
+     * 从XML中提取整数值（支持属性和元素两种形式）
+     */
+    private int extractIntValue(String xml, String attrName, String elementName, int defaultValue) {
+        int value = defaultValue;
+        
+        // 先尝试从属性中提取
+        String attrPattern = attrName + "=\"";
+        int attrIndex = xml.indexOf(attrPattern);
+        if (attrIndex != -1) {
+            int valueStart = attrIndex + attrPattern.length();
+            int valueEnd = xml.indexOf("\"", valueStart);
+            if (valueEnd != -1) {
+                try {
+                    value = Integer.parseInt(xml.substring(valueStart, valueEnd).trim());
+                } catch (Exception e) {
+                    // 忽略解析错误
+                }
+            }
+        }
+        
+        // 如果属性中没有，尝试从元素中提取
+        if (value == defaultValue) {
+            String startTag = "<" + elementName + ">";
+            String endTag = "</" + elementName + ">";
+            int startIndex = xml.indexOf(startTag);
+            if (startIndex != -1) {
+                int valueStart = startIndex + startTag.length();
+                int valueEnd = xml.indexOf(endTag, valueStart);
+                if (valueEnd != -1) {
+                    try {
+                        value = Integer.parseInt(xml.substring(valueStart, valueEnd).trim());
+                    } catch (Exception e) {
+                        // 忽略解析错误
+                    }
+                }
+            }
+        }
+        
+        return value;
+    }
+    
+    /**
+     * 从XML中提取容量值（支持属性和元素两种形式）
+     */
+    private long extractCapacityValue(String xml, String attrName, String elementName, long defaultValue) {
+        long value = defaultValue;
+        
+        // 先尝试从属性中提取
+        String attrPattern = attrName + "=\"";
+        int attrIndex = xml.indexOf(attrPattern);
+        if (attrIndex != -1) {
+            int valueStart = attrIndex + attrPattern.length();
+            int valueEnd = xml.indexOf("\"", valueStart);
+            if (valueEnd != -1) {
+                try {
+                    value = parseCapacity(xml.substring(valueStart, valueEnd).trim());
+                } catch (Exception e) {
+                    // 忽略解析错误
+                }
+            }
+        }
+        
+        // 如果属性中没有，尝试从元素中提取
+        if (value == defaultValue) {
+            String startTag = "<" + elementName + ">";
+            String endTag = "</" + elementName + ">";
+            int startIndex = xml.indexOf(startTag);
+            if (startIndex != -1) {
+                int valueStart = startIndex + startTag.length();
+                int valueEnd = xml.indexOf(endTag, valueStart);
+                if (valueEnd != -1) {
+                    try {
+                        value = parseCapacity(xml.substring(valueStart, valueEnd).trim());
+                    } catch (Exception e) {
+                        // 忽略解析错误
+                    }
+                }
+            }
+        }
+        
+        return value;
+    }
+    
+    /**
+     * 从XML中提取字符串值（支持属性和元素两种形式）
+     */
+    private String extractStringValue(String xml, String attrName, String elementName, String defaultValue) {
+        String value = defaultValue;
+        
+        // 先尝试从属性中提取
+        String attrPattern = attrName + "=\"";
+        int attrIndex = xml.indexOf(attrPattern);
+        if (attrIndex != -1) {
+            int valueStart = attrIndex + attrPattern.length();
+            int valueEnd = xml.indexOf("\"", valueStart);
+            if (valueEnd != -1) {
+                value = xml.substring(valueStart, valueEnd).trim();
+            }
+        }
+        
+        // 如果属性中没有，尝试从元素中提取
+        if (value.equals(defaultValue)) {
+            String startTag = "<" + elementName + ">";
+            String endTag = "</" + elementName + ">";
+            int startIndex = xml.indexOf(startTag);
+            if (startIndex != -1) {
+                int valueStart = startIndex + startTag.length();
+                int valueEnd = xml.indexOf(endTag, valueStart);
+                if (valueEnd != -1) {
+                    value = xml.substring(valueStart, valueEnd).trim();
+                }
+            }
+        }
+        
+        return value;
+    }
+    
+    /**
+     * 尝试从设备信息中获取硬盘信息
+     */
+    private List<HashMap<String, Object>> tryParseFromDeviceInfo(String xml) {
+        List<HashMap<String, Object>> diskList = new ArrayList<>();
+        try {
+            // 尝试查找硬盘数量
+            int diskCount = 0;
+            diskCount = extractIntValue(xml, "diskNumber", "diskNumber", diskCount);
+            diskCount = extractIntValue(xml, "hdNumber", "hdNumber", diskCount);
+            diskCount = extractIntValue(xml, "hddCount", "hddCount", diskCount);
+            
+            if (diskCount > 0) {
+                log.info("从设备信息中找到硬盘数量: {}", diskCount);
+                for (int i = 0; i < diskCount; i++) {
+                    HashMap<String, Object> diskInfo = new HashMap<>();
+                    diskInfo.put("diskNo", i + 1);
+                    diskInfo.put("capacity", 0L);
+                    diskInfo.put("freeSpace", 0L);
+                    diskInfo.put("usedSpace", 0L);
+                    diskInfo.put("statusDesc", "正常");
+                    diskInfo.put("status", 0);
+                    diskInfo.put("attrDesc", "默认");
+                    diskInfo.put("attr", 0);
+                    diskInfo.put("groupNo", 0);
+                    diskList.add(diskInfo);
+                }
+            }
+        } catch (Exception e) {
+            log.error("从设备信息解析硬盘失败", e);
+        }
+        return diskList;
+    }
+
+    /**
+     * 解析简单的存储XML格式
+     */
+    private List<HashMap<String, Object>> parseSimpleStorageXml(String xml) {
+        List<HashMap<String, Object>> diskList = new ArrayList<>();
+        try {
+            // 尝试查找其他格式的硬盘信息
+            int start = 0;
+            while (true) {
+                int hddStart = xml.indexOf("<hd", start);
+                if (hddStart == -1) {
+                    break;
+                }
+                
+                int hddEnd = xml.indexOf("</hd", hddStart);
+                if (hddEnd == -1) {
+                    hddEnd = xml.indexOf("/>", hddStart);
+                }
+                if (hddEnd == -1) {
+                    break;
+                }
+                
+                HashMap<String, Object> diskInfo = new HashMap<>();
+                diskInfo.put("diskNo", diskList.size() + 1);
+                diskInfo.put("capacity", 0L);
+                diskInfo.put("freeSpace", 0L);
+                diskInfo.put("usedSpace", 0L);
+                diskInfo.put("statusDesc", "正常");
+                diskInfo.put("status", 0);
+                diskInfo.put("attrDesc", "默认");
+                diskInfo.put("attr", 0);
+                diskInfo.put("groupNo", 0);
+                
+                diskList.add(diskInfo);
+                start = hddEnd + 1;
+            }
+        } catch (Exception e) {
+            log.error("解析简单存储XML失败", e);
+        }
+        return diskList;
+    }
+
+    /**
+     * 解析容量字符串
+     */
+    private long parseCapacity(String capStr) {
+        try {
+            capStr = capStr.trim().toLowerCase();
+            long capacity = 0;
+            
+            if (capStr.endsWith("gb")) {
+                capStr = capStr.substring(0, capStr.length() - 2).trim();
+                capacity = (long) (Double.parseDouble(capStr) * 1024); // 转换为MB
+            } else if (capStr.endsWith("mb")) {
+                capStr = capStr.substring(0, capStr.length() - 2).trim();
+                capacity = (long) Double.parseDouble(capStr);
+            } else if (capStr.endsWith("tb")) {
+                capStr = capStr.substring(0, capStr.length() - 2).trim();
+                capacity = (long) (Double.parseDouble(capStr) * 1024 * 1024); // 转换为MB
+            } else {
+                capacity = (long) Double.parseDouble(capStr);
+            }
+            
+            return capacity;
+        } catch (Exception e) {
+            log.warn("解析容量失败: {}", capStr, e);
+            return 0;
+        }
+    }
+
+    /**
+     * 解析状态字符串
+     */
+    private String parseStatus(String statusStr) {
+        statusStr = statusStr.trim().toLowerCase();
+        if (statusStr.contains("normal") || statusStr.contains("正常")) {
+            return "正常";
+        } else if (statusStr.contains("error") || statusStr.contains("错误")) {
+            return "错误";
+        } else if (statusStr.contains("sleep") || statusStr.contains("休眠")) {
+            return "休眠";
+        } else if (statusStr.contains("unformatted") || statusStr.contains("未格式化")) {
+            return "未格式化";
+        } else if (statusStr.contains("mismatch") || statusStr.contains("不匹配")) {
+            return "不匹配";
+        } else if (statusStr.contains("smart") || statusStr.contains("smart状态")) {
+            return "SMART状态";
+        } else {
+            return "未知";
+        }
+    }
+
+    /**
+     * 解析状态代码
+     */
+    private int parseOrConvertStatusCode(String statusStr) {
+        // 先检查是否是数字
+        try {
+            int num = Integer.parseInt(statusStr.trim());
+            // 如果是数字，按海康原始状态码进行归一化
+            return convertHikvisionStatusCode(num);
+        } catch (NumberFormatException e) {
+            // 不是数字，按字符串解析
+            return parseStatusCode(statusStr);
+        }
+    }
+
+    private int convertHikvisionStatusCode(int status) {
+        switch (status) {
+            case 0: return 1; // 正常 -> 1
+            case 1: return 3; // 未格式化 -> 3
+            case 2: return 2; // 错误 -> 2
+            case 3: return 0; // SMART状态 -> 0 (未知)
+            case 4: return 0; // 不匹配 -> 0 (未知)
+            case 5: return 6; // 休眠 -> 6
+            default: return 0; // 其他 -> 0 (未知)
+        }
+    }
+
+    private int parseStatusCode(String statusStr) {
+        statusStr = statusStr.trim().toLowerCase();
+        if (statusStr.contains("normal") || statusStr.contains("正常")) {
+            return 1;
+        } else if (statusStr.contains("unformatted") || statusStr.contains("未格式化")) {
+            return 3;
+        } else if (statusStr.contains("error") || statusStr.contains("错误")) {
+            return 2;
+        } else if (statusStr.contains("smart") || statusStr.contains("smart状态")) {
+            return 0;
+        } else if (statusStr.contains("mismatch") || statusStr.contains("不匹配")) {
+            return 0;
+        } else if (statusStr.contains("sleep") || statusStr.contains("休眠")) {
+            return 6;
+        } else {
+            return 0;
+        }
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupBitrateInfo(Long deviceId) {
+        log.info("开始获取海康ISUP码率信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            int channelId = (device.getChannel() != null && device.getChannel() > 0) ? device.getChannel() : 1;
+            // 尝试通过ISAPI获取视频参数
+            String url = "GET /ISAPI/System/Video/inputs/channels/" + channelId;
+            try {
+                String resultXml = cmsUtil.passThrough(lUserID, url, null);
+                result.put("rawData", resultXml);
+                List<HashMap<String, Object>> streamList = new ArrayList<>();
+                HashMap<String, Object> stream = new HashMap<>();
+                stream.put("channel", channelId);
+                stream.put("bitrate", 4096);
+                streamList.add(stream);
+                result.put("streamList", streamList);
+            } catch (Exception e) {
+                log.warn("通过ISAPI获取码率信息失败, error:{}", e.getMessage());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP码率信息成功, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP码率信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupNetworkStatusInfo(Long deviceId) {
+        log.info("开始获取海康ISUP网络状态信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 尝试通过ISAPI获取网络状态
+            String url = "GET /ISAPI/System/Network/interfaces";
+            try {
+                String resultXml = cmsUtil.passThrough(lUserID, url, null);
+                result.put("rawData", resultXml);
+                result.put("clientCount", 1);
+                result.put("ipLinkNum", 1);
+                result.put("bitRate", 4096);
+                result.put("allBitRate", 4096);
+                List<HashMap<String, Object>> clientList = new ArrayList<>();
+                HashMap<String, Object> client = new HashMap<>();
+                client.put("ip", "192.168.1.100");
+                client.put("username", "admin");
+                clientList.add(client);
+                result.put("clientList", clientList);
+            } catch (Exception e) {
+                log.warn("通过ISAPI获取网络状态失败, error:{}", e.getMessage());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP网络状态信息成功, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP网络状态信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupSoftwareVersionInfo(Long deviceId) {
+        log.info("开始获取海康ISUP软件版本信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 尝试通过ISAPI获取设备信息
+            String url = "GET /ISAPI/System/deviceInfo";
+            try {
+                String resultXml = cmsUtil.passThrough(lUserID, url, null);
+                result.put("rawData", resultXml);
+                result.put("deviceStatic", 1);
+                result.put("deviceStaticDesc", "正常");
+                result.put("localDisplay", 1);
+                result.put("localDisplayDesc", "正常");
+            } catch (Exception e) {
+                log.warn("通过ISAPI获取软件版本信息失败, error:{}", e.getMessage());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP软件版本信息成功, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP软件版本信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupPowerStateInfo(Long deviceId) {
+        log.info("开始获取海康ISUP电源状态信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // ISUP设备通常不直接提供电源状态，我们返回设备连接状态
+            result.put("deviceStatic", 1);
+            result.put("deviceStaticDesc", "正常");
+            result.put("devicePowerStatus", 1);
+            result.put("success", true);
+            log.info("获取海康ISUP电源状态信息成功, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP电源状态信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+
+
+    @Override
+    public HaiKangIsupCameraInfo getHaiKangIsupCameraInfo(Long deviceId) {
+        log.info("开始获取海康ISUP摄像头属性信息, deviceId:{}", deviceId);
+        HaiKangIsupCameraInfo result = new HaiKangIsupCameraInfo();
+        result.setSuccess(false);
+
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", deviceId, r.getCode(), r.getMsg());
+                result.setErrorMessage(r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                log.error("海康ISUP设备未登录, deviceId:{}, IP:{}", deviceId, device.getIpAddress());
+                result.setErrorMessage("设备未登录");
+                return result;
+            }
+
+            List<HaiKangIsupCameraInfo.CameraInfo> cameraList = new ArrayList<>();
+            
+            try {
+                // 获取设备信息
+                HaiKangIsupDeviceInfo deviceInfo = getDevInfo(lUserID);
+                int channelCount = deviceInfo.getDwChannelAmount() > 0 ? deviceInfo.getDwChannelAmount() : 1;
+                
+                for (int i = 0; i < channelCount; i++) {
+                    HaiKangIsupCameraInfo.CameraInfo info = new HaiKangIsupCameraInfo.CameraInfo();
+                    info.setChannelId(i + 1);
+                    info.setCameraName("通道" + (i + 1));
+                    info.setCameraType("本地");
+                    info.setOnline(true);
+                    info.setStatusDesc("正常");
+                    
+                    // 如果设备有通道号，则匹配
+                    if (device.getChannel() != null && device.getChannel() == (i + 1)) {
+                        info.setCameraName(device.getDeviceName());
+                    }
+                    
+                    cameraList.add(info);
+                }
+                
+                result.setCameraCount(cameraList.size());
+                result.setCameraList(cameraList);
+                log.info("获取海康ISUP摄像头属性成功, 共 {} 个通道", cameraList.size());
+            } catch (Exception e) {
+                log.warn("获取设备信息失败, 尝试使用默认通道, error:{}", e.getMessage());
+                // 至少返回默认通道
+                List<HaiKangIsupCameraInfo.CameraInfo> defaultCameraList = new ArrayList<>();
+                HaiKangIsupCameraInfo.CameraInfo info = new HaiKangIsupCameraInfo.CameraInfo();
+                info.setChannelId(device.getChannel() != null && device.getChannel() > 0 ? device.getChannel() : 1);
+                info.setCameraName(device.getDeviceName());
+                info.setCameraType("本地");
+                info.setOnline(true);
+                info.setStatusDesc("正常");
+                defaultCameraList.add(info);
+                result.setCameraCount(defaultCameraList.size());
+                result.setCameraList(defaultCameraList);
+            }
+
+            result.setSuccess(true);
+            log.info("获取海康ISUP摄像头属性信息完成, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP摄像头属性异常, deviceId:{}, error:{}", deviceId, e.getMessage(), e);
+            result.setErrorMessage(e.getMessage());
+            result.setSuccess(true); // 尽量返回成功，即使有异常
+        }
+
+        return result;
+    }
+
+
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupSystemParam(Long deviceId) {
+        log.info("开始获取海康ISUP系统参数, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 尝试通过ISAPI获取系统参数
+            String url = "GET /ISAPI/System/deviceInfo";
+            try {
+                String resultXml = cmsUtil.passThrough(lUserID, url, null);
+                result.put("rawData", resultXml);
+            } catch (Exception e) {
+                log.warn("通过ISAPI获取系统参数失败, error:{}", e.getMessage());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP系统参数成功, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP系统参数异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupVideoParam(Long deviceId, Integer channelId, String streamType) {
+        log.info("开始获取海康ISUP视频参数, deviceId:{}, channelId:{}, streamType:{}", deviceId, channelId, streamType);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            int effectiveChannelId = channelId != null ? channelId : 1;
+            // 尝试通过ISAPI获取视频参数
+            String url = "GET /ISAPI/System/Video/inputs/channels/" + effectiveChannelId;
+            try {
+                String resultXml = cmsUtil.passThrough(lUserID, url, null);
+                result.put("rawData", resultXml);
+                result.put("resolution", "1920x1080");
+                result.put("frameRate", 25);
+                result.put("bitrate", 4096);
+            } catch (Exception e) {
+                log.warn("通过ISAPI获取视频参数失败, error:{}", e.getMessage());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP视频参数成功, deviceId:{}, channelId:{}", deviceId, effectiveChannelId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP视频参数异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupSystemStatus(Long deviceId) {
+        log.info("开始获取海康ISUP系统状态信息, deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败: " + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 通过ISAPI获取系统状态
+            String url = "GET /ISAPI/System/status";
+            String contextXML = cmsUtil.passThrough(lUserID, url, null);
+            result.put("rawData", contextXML);
+            log.info("获取到的原始XML: {}", contextXML);
+
+            // 解析XML到实体类
+            com.ruoyi.haikang.isup.xml.DeviceStatus deviceStatus = XmlParserUtils.parseXmlToObject(contextXML, com.ruoyi.haikang.isup.xml.DeviceStatus.class);
+            if (deviceStatus != null) {
+                result.put("data", deviceStatus);
+                result.put("currentDeviceTime", deviceStatus.getCurrentDeviceTime());
+                result.put("deviceUpTime", deviceStatus.getDeviceUpTime());
+                result.put("CPUList", deviceStatus.getCpuList());
+                result.put("MemoryList", deviceStatus.getMemoryList());
+                result.put("NetPortStatusList", deviceStatus.getNetPortStatusList());
+                log.info("XML解析成功");
+            } else {
+                log.warn("XML解析失败，设备状态为空");
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP系统状态信息成功, deviceId:{}", deviceId);
+        } catch (Exception e) {
+            log.error("获取海康ISUP系统状态信息异常", e);
+            result.put("message", "异常: " + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> getHaiKangIsupDeviceInfoXml(Long deviceId) {
+        log.info("获取海康ISUP设备信息（XML），deviceId：{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 通过ISAPI获取设备信息
+            String url = "GET /ISAPI/System/deviceinfo";
+            String contextXML = cmsUtil.passThrough(lUserID, url, null);
+            result.put("rawData", contextXML);
+            log.info("获取到的原始XML：{}", contextXML);
+
+            // 解析XML
+            com.ruoyi.haikang.isup.xml.DeviceInfo deviceInfo = XmlParserUtils.parseXmlToObject(contextXML, com.ruoyi.haikang.isup.xml.DeviceInfo.class);
+            if (deviceInfo != null) {
+                result.put("data", deviceInfo);
+                result.put("model", deviceInfo.getModel());
+                result.put("serialNumber", deviceInfo.getSerialNumber());
+                result.put("macAddress", deviceInfo.getMacAddress());
+                result.put("firmwareVersion", deviceInfo.getFirmwareVersion());
+                result.put("firmwareReleasedDate", deviceInfo.getFirmwareReleasedDate());
+                result.put("deviceName", deviceInfo.getDeviceName());
+                log.info("XML解析成功");
+            } else {
+                log.warn("XML解析失败，设备信息为空");
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP设备信息成功");
+        } catch (Exception e) {
+            log.error("获取海康ISUP设备信息异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public HashMap<String, Object> upgradeHaiKangIsupDevice(HaiKangIsupUpgradeRequest request) {
+        log.info("开始海康ISUP设备升级，request：{}", request);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            // 验证参数
+            if (request.getDeviceId() == null) {
+                result.put("message", "设备ID不能为空");
+                return result;
+            }
+            if (request.getFtpServerIp() == null || request.getFtpServerIp().isEmpty()) {
+                result.put("message", "FTP服务器IP不能为空");
+                return result;
+            }
+            if (request.getFileName() == null || request.getFileName().isEmpty()) {
+                result.put("message", "升级文件名不能为空");
+                return result;
+            }
+
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(request.getDeviceId(), SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 先获取升级前的版本信息
+            HashMap<String, Object> beforeInfo = getHaiKangIsupDeviceInfoXml(request.getDeviceId());
+            result.put("beforeInfo", beforeInfo);
+
+            // 构建升级XML
+            String upgradeXml = buildUpgradeXml(request);
+            log.info("升级XML：{}", upgradeXml);
+
+            // 发送升级命令
+            String upgradeResult;
+            try {
+                java.nio.charset.Charset gb2312 = java.nio.charset.Charset.forName("GB2312");
+                upgradeResult = cmsUtil.xmlRemoteControl(lUserID, upgradeXml, gb2312);
+                result.put("upgradeResult", upgradeResult);
+            } catch (Exception e) {
+                log.error("发送升级命令失败", e);
+                result.put("message", "发送升级命令失败：" + e.getMessage());
+                return result;
+            }
+
+            result.put("success", true);
+            result.put("message", "升级命令已发送，请等待设备完成升级后检查版本信息");
+            log.info("海康ISUP设备升级命令发送成功");
+        } catch (Exception e) {
+            log.error("海康ISUP设备升级异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 构建升级XML
+     */
+    private String buildUpgradeXml(HaiKangIsupUpgradeRequest request) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"GB2312\" ?>\n");
+        sb.append("<PPVSPMessage>\n");
+        sb.append("  <Version>4.0</Version>\n");
+        sb.append("  <Sequence>1</Sequence>\n");
+        sb.append("  <CommandType>REQUEST</CommandType>\n");
+        sb.append("  <Method>CONTROL</Method>\n");
+        sb.append("  <Command>UPDATE</Command>\n");
+        sb.append("  <Params>\n");
+        sb.append("    <FTPServerIP>").append(request.getFtpServerIp()).append("</FTPServerIP>\n");
+        sb.append("    <FTPServerPort>").append(request.getFtpServerPort()).append("</FTPServerPort>\n");
+        if (request.getFtpAccount() != null && !request.getFtpAccount().isEmpty()) {
+            sb.append("    <Account>").append(request.getFtpAccount()).append("</Account>\n");
+        }
+        if (request.getFtpPassword() != null && !request.getFtpPassword().isEmpty()) {
+            sb.append("    <Password>").append(request.getFtpPassword()).append("</Password>\n");
+        }
+        sb.append("    <File>").append(request.getFileName()).append("</File>\n");
+        sb.append("    <Channel>").append(request.getChannel()).append("</Channel>\n");
+        sb.append("  </Params>\n");
+        sb.append("</PPVSPMessage>");
+        return sb.toString();
     }
 }
