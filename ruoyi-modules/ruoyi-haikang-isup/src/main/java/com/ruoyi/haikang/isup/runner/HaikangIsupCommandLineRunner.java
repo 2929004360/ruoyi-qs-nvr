@@ -1,5 +1,7 @@
 package com.ruoyi.haikang.isup.runner;
 
+import com.ruoyi.haikang.isup.config.HaikangIsupConfig;
+import com.ruoyi.haikang.isup.service.haikang.alarm.AlarmService;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.ss.SsService;
 import com.ruoyi.haikang.isup.service.haikang.stream.StreamService;
@@ -27,6 +29,10 @@ public class HaikangIsupCommandLineRunner implements CommandLineRunner, Disposab
     private final SsService ssService;
 
     private final StreamService streamService;
+    
+    private final AlarmService alarmService;
+
+    private final HaikangIsupConfig haikangIsupConfig;
 
     @Override
     public void run(String... args) throws Exception {
@@ -38,12 +44,36 @@ public class HaikangIsupCommandLineRunner implements CommandLineRunner, Disposab
 
         cmsService.cMS_Init();
         cmsService.startCmsListen();
+        
+        Boolean alarmStorage = haikangIsupConfig.getAlarmServer().getAlarmStorage();
+        if (alarmStorage != null && alarmStorage) {
+            log.info("海康ISUP报警存储功能已开启，启动报警监听");
+            alarmService.eAlarm_Init();
+            alarmService.startAlarmListen();
+        } else {
+            log.info("海康ISUP报警存储功能未开启，跳过报警监听启动");
+        }
     }
 
     @Override
     public void destroy() {
-        log.info("=========================  关闭海康isup服务监听  =========================");
-        CmsService.hCEhomeCMS.NET_ECMS_Fini();
-        SsService.hCEhomeSS.NET_ESS_Fini();
+        log.info("=========================  关闭海康ISUP服务监听  =========================");
+        try {
+            Boolean alarmStorage = haikangIsupConfig.getAlarmServer().getAlarmStorage();
+            if (alarmStorage != null && alarmStorage) {
+                alarmService.stopAlarmListen();
+                if (AlarmService.hcEHomeAlarm != null) {
+                    AlarmService.hcEHomeAlarm.NET_EALARM_Fini();
+                }
+            }
+            if (CmsService.hCEhomeCMS != null) {
+                CmsService.hCEhomeCMS.NET_ECMS_Fini();
+            }
+            if (SsService.hCEhomeSS != null) {
+                SsService.hCEhomeSS.NET_ESS_Fini();
+            }
+        } catch (Exception e) {
+            log.error("关闭海康ISUP服务失败", e);
+        }
     }
 }

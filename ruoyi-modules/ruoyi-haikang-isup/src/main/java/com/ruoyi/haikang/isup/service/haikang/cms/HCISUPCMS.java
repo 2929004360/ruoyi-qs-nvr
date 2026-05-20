@@ -307,6 +307,19 @@ public interface HCISUPCMS extends Library {
         public byte[] byRes = new byte[24];
     }
 
+    // 图像参数配置参数结构体
+    public static class NET_EHOME_IMAGE_PARAM extends HIKSDKStructure {
+        public int dwSize;
+        public int dwChannel;                          //通道号
+        public int dwBrightness;                        //亮度[0-100]
+        public int dwContrast;                          //对比度[0-100]
+        public int dwSaturation;                        //饱和度[0-100]
+        public int dwHue;                               //色调[0-100]
+        public int dwSendTimeOut;                      //发送超时时间，单位ms，默认5000
+        public int dwRecvTimeOut;                      //接收超时时间，单位ms，默认5000
+        public byte[] byRes = new byte[128];           //保留
+    }
+
     public static class NET_EHOME_XML_REMOTE_CTRL_PARAM extends HIKSDKStructure {
         public int dwSize;
         public Pointer lpInbuffer;
@@ -448,6 +461,29 @@ public interface HCISUPCMS extends Library {
         public int dwMajorScale;
         public int dwMinorScale;
         public byte[] byRes = new byte[292];
+    }
+
+    // 配置命令枚举
+    public static final int NET_EHOME_GET_DEVICE_CFG = 1;       // 获取设备配置
+    public static final int NET_EHOME_GET_IMAGE_CFG = 2;        // 获取图像参数配置
+    public static final int NET_EHOME_SET_IMAGE_CFG = 3;        // 设置图像参数配置
+
+    // 图像参数配置结构体
+    public static class NET_EHOME_IMAGE_CFG extends HIKSDKStructure {
+        public int dwSize;
+        public int dwChannel;                          // 通道号
+        public int dwBrightness;                        // 亮度[0-100]
+        public int dwContrast;                          // 对比度[0-100]
+        public int dwSaturation;                        // 饱和度[0-100]
+        public int dwHue;                               // 色调[0-100]
+        public byte[] byRes = new byte[256];             // 保留
+    }
+
+    // 图像参数配置条件结构体
+    public static class NET_EHOME_IMAGE_COND extends HIKSDKStructure {
+        public int dwSize;
+        public int dwChannel;                          // 通道号
+        public byte[] byRes = new byte[128];             // 保留
     }
 
     public static class NET_EHOME_DEVICE_INFO extends HIKSDKStructure {
@@ -625,6 +661,8 @@ public interface HCISUPCMS extends Library {
 
     boolean NET_ECMS_GetDevConfig(int lUserID, int dwCommand, Pointer lpConfig, int dwConfigSize);
 
+    boolean NET_ECMS_SetDevConfig(int lUserID, int dwCommand, Pointer lpConfig, int dwConfigSize);
+
     //注销设备
     boolean NET_ECMS_ForceLogout(int lUserID)
     ;
@@ -660,6 +698,10 @@ public interface HCISUPCMS extends Library {
     boolean NET_ECMS_PostPTXMLConfig(int iUserID, NET_EHOME_PTXML_PARAM lpPTXMLParam);
 
     boolean NET_ECMS_DeletePTXMLConfig(int iUserID, NET_EHOME_PTXML_PARAM lpPTXMLParam);
+
+    boolean NET_EHOME_GET_IMAGE_CF(int iUserID, NET_EHOME_IMAGE_PARAM lpImageParam);
+
+    boolean NET_EHOME_SET_IMAGE_CF(int iUserID, NET_EHOME_IMAGE_PARAM lpImageParam);
 
     boolean NET_ECMS_XMLConfig(int iUserID, NET_EHOME_XML_CFG pXmlCfg, int dwConfigSize);
 

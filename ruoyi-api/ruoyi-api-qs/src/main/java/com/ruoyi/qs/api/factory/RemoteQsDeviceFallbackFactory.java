@@ -93,6 +93,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<QsDevice> getDeviceByGbCode(String gbCode, String inner) {
                 return R.fail("根据 gbCode 获取设备失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<QsDevice> getDeviceByDeviceCode(String deviceCode, String inner) {
+                return R.fail("根据 deviceCode 获取设备失败:" + throwable.getMessage());
+            }
         };
     }
 }

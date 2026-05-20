@@ -69,6 +69,9 @@ public class DaHuaServiceImpl implements IDaHuaService {
     private RemoteQsDeviceAlarmService remoteQsDeviceAlarmService;
 
     @Autowired
+    private org.springframework.data.redis.core.RedisTemplate redisTemplate;
+
+    @Autowired
     private DahuaConfig dahuaConfig;
 
     @Value("${file.domain}")
@@ -153,21 +156,23 @@ public class DaHuaServiceImpl implements IDaHuaService {
     }
 
     // 报警抓图任务类
-    private static class AlarmCaptureTask {
-        Long deviceId;
-        String deviceCode;
-        String deviceName;
-        Long alarmId;
-        int channelId;
-        String ipAddress;
+    public static class AlarmCaptureTask {
+        public Long deviceId;
+        public String deviceCode;
+        public String deviceName;
+        public Long alarmId;
+        public int channelId;
+        public String ipAddress;
+        public int retryCount;
 
-        AlarmCaptureTask(Long deviceId, String deviceCode, String deviceName, Long alarmId, int channelId, String ipAddress) {
+        public AlarmCaptureTask(Long deviceId, String deviceCode, String deviceName, Long alarmId, int channelId, String ipAddress) {
             this.deviceId = deviceId;
             this.deviceCode = deviceCode;
             this.deviceName = deviceName;
             this.alarmId = alarmId;
             this.channelId = channelId;
             this.ipAddress = ipAddress;
+            this.retryCount = 0;
         }
     }
 
@@ -182,8 +187,8 @@ public class DaHuaServiceImpl implements IDaHuaService {
             while (captureProcessorRunning) {
                 try {
                     AlarmCaptureTask task = alarmCaptureQueue.take();
-                    log.info("处理报警抓图任务, deviceId:{}, alarmId:{}, channelId:{}", 
-                            task.deviceId, task.alarmId, task.channelId);
+                    log.info("处理报警抓图任务, deviceId:{}, alarmId:{}, channelId:{}, retryCount:{}", 
+                            task.deviceId, task.alarmId, task.channelId, task.retryCount);
                     
                     // 获取Service实例执行抓图
                     DaHuaServiceImpl service = com.ruoyi.common.core.utils.SpringUtils.getBean(DaHuaServiceImpl.class);
@@ -192,7 +197,32 @@ public class DaHuaServiceImpl implements IDaHuaService {
                             Long snapshotId = service.captureAndSaveForAlarm(task);
                             log.info("报警抓图完成, snapshotId:{}, alarmId:{}", snapshotId, task.alarmId);
                         } catch (Exception e) {
-                            log.error("报警抓图处理异常, deviceId:{}, alarmId:{}", task.deviceId, task.alarmId, e);
+                            log.error("报警抓图处理异常, deviceId:{}, alarmId:{}, channelId:{}, retryCount:{}", 
+                                    task.deviceId, task.alarmId, task.channelId, task.retryCount, e);
+                            
+                            // 失败后重试，最多重试5次
+                            if (task.retryCount < 5) {
+                                task.retryCount++;
+                                
+                                // 尝试不同的通道号
+                                if (task.retryCount == 1) {
+                                    task.channelId = 0; // 尝试通道0
+                                } else if (task.retryCount == 2) {
+                                    task.channelId = 1; // 尝试通道1
+                                } else if (task.retryCount == 3) {
+                                    task.channelId = task.channelId == 0 ? 1 : 0; // 切换通道
+                                }
+                                
+                                log.info("报警抓图任务重新加入队列, deviceId:{}, alarmId:{}, newChannelId:{}, retryCount:{}", 
+                                        task.deviceId, task.alarmId, task.channelId, task.retryCount);
+                                
+                                // 延迟2秒后重试
+                                Thread.sleep(2000);
+                                alarmCaptureQueue.offer(task);
+                            } else {
+                                log.error("报警抓图任务重试次数已达上限，放弃, deviceId:{}, alarmId:{}", 
+                                        task.deviceId, task.alarmId);
+                            }
                         }
                     }
                 } catch (InterruptedException e) {
@@ -215,11 +245,6 @@ public class DaHuaServiceImpl implements IDaHuaService {
         public boolean invoke(int lCommand, NetSDKLib.LLong lLoginID, Pointer pStuEvent, int dwBufLen,
                                String strDeviceIP, NativeLong nDevicePort, int bAlarmAckFlag,
                                NativeLong nEventID, Pointer dwUser) {
-            log.info("收到告警回调, 命令码(lCommand):{}, 设备IP(strDeviceIP):{}, 设备端口(nDevicePort):{}, 数据长度(dwBufLen):{}, 事件ID(nEventID):{}", 
-                    lCommand, strDeviceIP, nDevicePort, dwBufLen, nEventID);
-            log.debug("告警回调详细信息 - 登录句柄(lLoginID):{}, 报警确认标志(bAlarmAckFlag):{}, 事件数据指针(pStuEvent):{}", 
-                    lLoginID, bAlarmAckFlag, pStuEvent);
-
             // 获取DaHuaServiceImpl实例
             DaHuaServiceImpl service = null;
             try {
@@ -233,6 +258,24 @@ public class DaHuaServiceImpl implements IDaHuaService {
                 log.error("DaHuaServiceImpl实例为空");
                 return false;
             }
+
+            // 检查配置是否开启报警监听
+            if (!service.dahuaConfig.isEnableAlarmListen()) {
+                log.debug("告警监听已禁用，跳过处理, 命令码:{}", lCommand);
+                return true;
+            }
+
+            // 过滤垃圾报警，只保留关键的安全报警
+            boolean isCriticalAlarm = isCriticalAlarm(lCommand);
+            if (!isCriticalAlarm) {
+                log.debug("非关键报警，跳过处理, 命令码:0x{}", Integer.toHexString(lCommand));
+                return true;
+            }
+
+            log.info("收到告警回调, 命令码(lCommand):{}, 设备IP(strDeviceIP):{}, 设备端口(nDevicePort):{}, 数据长度(dwBufLen):{}, 事件ID(nEventID):{}", 
+                    lCommand, strDeviceIP, nDevicePort, dwBufLen, nEventID);
+            log.debug("告警回调详细信息 - 登录句柄(lLoginID):{}, 报警确认标志(bAlarmAckFlag):{}, 事件数据指针(pStuEvent):{}", 
+                    lLoginID, bAlarmAckFlag, pStuEvent);
 
             try {
                 // 根据登录句柄查找设备信息
@@ -285,17 +328,30 @@ public class DaHuaServiceImpl implements IDaHuaService {
                             return true;
                         }
                         
+                        // 获取设备配置的通道号
+                        Integer channel = qsDevice.getAlarmChannelId();
+                        if (channel == null) {
+                            channel = qsDevice.getChannel();
+                        }
+                        if (channel == null) {
+                            channel = 0;
+                        }
+                        log.info("使用设备配置的通道号, deviceCode:{}, channel:{}, command:{}", 
+                                qsDevice.getDeviceCode(), channel, lCommand);
+                        
                         // 解析告警事件类型（不添加_end后缀，只使用原始类型）
                         String alarmType = convertAlarmType(lCommand, true); // 强制用开始事件类型
+                        String alarmContent = convertAlarmContent(lCommand);
 
-                        // 告警去重：同一类型5分钟内只记录一次
-                        String alarmKey = qsDevice.getDeviceCode() + "_" + alarmType + "_" + lCommand;
+                        // 告警去重：同一设备同一通道同一类型5分钟内只记录一次
+                        String alarmKey = qsDevice.getDeviceCode() + "_" + channel + "_" + alarmType + "_" + lCommand;
                         long now = System.currentTimeMillis();
                         Long lastTime = recentAlarms.get(alarmKey);
                         
                         // 如果在去重间隔内，直接跳过
                         if (lastTime != null && (now - lastTime) < ALARM_DEDUP_INTERVAL) {
-                            log.debug("跳过重复告警, deviceCode:{}, alarmType:{}", qsDevice.getDeviceCode(), alarmType);
+                            log.debug("跳过重复告警, deviceCode:{}, channel:{}, alarmType:{}", 
+                                    qsDevice.getDeviceCode(), channel, alarmType);
                             return true;
                         }
                         
@@ -309,16 +365,18 @@ public class DaHuaServiceImpl implements IDaHuaService {
                         alarm.setSdkType("dahua");
                         alarm.setAlarmTime(new Date());
                         alarm.setHandled(0);
+                        alarm.setChannel(channel); // 设置设备配置的通道号
 
                         alarm.setAlarmType(alarmType);
 
                         // 设置告警级别，默认为中等
                         alarm.setAlarmLevel("medium");
 
-                        // 设置告警内容（简化，不再显示状态）
-                        alarm.setAlarmContent("告警类型: " + alarmType + ", 命令: " + lCommand);
+                        // 设置告警内容为中文
+                        alarm.setAlarmContent(alarmContent);
 
-                        log.info("处理告警, deviceCode:{}, alarmType:{}", alarm.getDeviceCode(), alarmType);
+                        log.info("处理告警, deviceCode:{}, channel:{}, alarmType:{}", 
+                                alarm.getDeviceCode(), channel, alarmType);
 
                         // 保存到数据库
                         com.ruoyi.common.core.domain.R<Long> result = service.remoteQsDeviceAlarmService.add(
@@ -326,20 +384,28 @@ public class DaHuaServiceImpl implements IDaHuaService {
 
                         if (com.ruoyi.common.core.domain.R.isSuccess(result)) {
                             Long alarmId = result.getData();
-                            log.info("告警记录保存成功, alarmId:{}", alarmId);
+                            log.info("告警记录保存成功, alarmId:{}, channel:{}", alarmId, channel);
                             
-                            // 添加抓图任务到队列（只有开始事件才会到这里）
+                            // 把报警ID存入Redis，供定时任务处理
+                            String redisKey = "dahua_alarm_pic_list:" + qsDevice.getDeviceCode();
+                            service.redisTemplate.opsForList().leftPush(redisKey, alarmId);
+                            service.redisTemplate.opsForList().trim(redisKey, 0, 49);
+                            service.redisTemplate.expire(redisKey, 30, java.util.concurrent.TimeUnit.MINUTES);
+                            log.info("报警ID已存入Redis, key:{}, alarmId:{}", redisKey, alarmId);
+                            
+                            // 同时也添加抓图任务到队列（双重保险）
                             AlarmCaptureTask captureTask = new AlarmCaptureTask(
                                     qsDevice.getId(),
                                     qsDevice.getDeviceCode(),
                                     qsDevice.getDeviceName(),
                                     alarmId,
-                                    0, // 默认通道0，后续可扩展
+                                    channel, // 使用设备配置的通道号
                                     ip
                             );
                             boolean offered = alarmCaptureQueue.offer(captureTask);
                             if (offered) {
-                                log.info("报警抓图任务已加入队列, alarmId:{}, deviceId:{}", alarmId, qsDevice.getId());
+                                log.info("报警抓图任务已加入队列, alarmId:{}, deviceId:{}, channel:{}", 
+                                        alarmId, qsDevice.getId(), channel);
                             } else {
                                 log.warn("报警抓图队列已满，任务被丢弃, alarmId:{}", alarmId);
                             }
@@ -425,6 +491,47 @@ public class DaHuaServiceImpl implements IDaHuaService {
                     return "alarm_out" + suffix;
                 default:
                     return "other_" + Integer.toHexString(lCommand) + suffix; // 其他告警，带上命令码
+            }
+        }
+
+        // 转换报警内容为中文
+        private String convertAlarmContent(int lCommand) {
+            switch (lCommand) {
+                case NetSDKLib.NET_ALARM_ALARM_EX: // 0x2101 外部报警
+                case 0x1100: // 外部报警输入
+                    return "外部报警触发";
+                case NetSDKLib.NET_MOTION_ALARM_EX: // 0x2102 动态检测报警
+                case 0x1000: // 动态检测报警
+                    return "检测到移动目标";
+                case NetSDKLib.NET_VIDEOLOST_ALARM_EX: // 0x2103 视频丢失报警
+                case 0x1001: // 视频丢失报警
+                    return "视频信号丢失";
+                case NetSDKLib.NET_SHELTER_ALARM_EX: // 0x2104 视频遮挡报警
+                case 0x1002: // 视频遮挡报警
+                    return "视频遮挡报警";
+                case NetSDKLib.NET_DISKFULL_ALARM_EX: // 0x2106 硬盘满报警
+                    return "硬盘存储空间不足";
+                case NetSDKLib.NET_DISKERROR_ALARM_EX: // 0x2107 坏硬盘报警
+                    return "硬盘错误报警";
+                case 0x1101: // 外部报警输出
+                    return "外部报警输出触发";
+                default:
+                    return "未知报警事件，命令码:0x" + Integer.toHexString(lCommand);
+            }
+        }
+
+        // 判断是否是关键的安全报警
+        private boolean isCriticalAlarm(int lCommand) {
+            switch (lCommand) {
+                case NetSDKLib.NET_ALARM_ALARM_EX: // 0x2101 外部报警
+                case 0x1100: // 外部报警输入
+                case NetSDKLib.NET_MOTION_ALARM_EX: // 0x2102 动态检测报警
+                case 0x1000: // 动态检测报警
+                case NetSDKLib.NET_SHELTER_ALARM_EX: // 0x2104 视频遮挡报警
+                case 0x1002: // 视频遮挡报警
+                    return true;
+                default:
+                    return false;
             }
         }
     }
@@ -1930,45 +2037,64 @@ public class DaHuaServiceImpl implements IDaHuaService {
                     log.info("图片保存成功, deviceId:{}, channelId:{}, filePath:{}, fileUrl:{}",
                             context.deviceId, context.channelId, localFilePath, fileUrl);
 
-                    // 构造抓图记录
-                    QsDeviceSnapshot snapshot = new QsDeviceSnapshot();
-                    snapshot.setDeviceId(context.deviceId);
-                    snapshot.setDeviceCode(context.deviceCode);
-                    snapshot.setDeviceName(context.deviceName);
-                    snapshot.setFileUrl(fileUrl);
-                    snapshot.setFilePath(localFilePath);
-                    snapshot.setFileSize((long) RevLen);
-                    snapshot.setFileName(fileName);
-                    snapshot.setFileType("jpg");
-                    snapshot.setSnapshotType(context.snapshotType);
-                    snapshot.setSdkType("dahua");
-                    snapshot.setChannel(context.channelId);
-                    snapshot.setCaptureTime(new Date());
+                    // 判断是否是报警抓图
+                    if (context.alarmId != null) {
+                        // 报警抓图：将图片信息存入Redis，由定时任务负责匹配
+                        try {
+                            // 创建一个包含图片信息的Map
+                            java.util.HashMap<String, Object> picInfo = new java.util.HashMap<>();
+                            picInfo.put("fileUrl", fileUrl);
+                            picInfo.put("deviceId", context.deviceCode);
+                            picInfo.put("deviceIdLong", context.deviceId);
+                            picInfo.put("createTime", new Date().getTime());
 
-                    // 保存到数据库
-                    com.ruoyi.common.core.domain.R<Long> result = service.remoteQsDeviceSnapshotService.add(
-                            snapshot, com.ruoyi.common.core.constant.SecurityConstants.INNER);
+                            // 存入全局图片队列
+                            String picQueueKey = "dahua_alarm_pic_queue:global";
+                            service.redisTemplate.opsForList().leftPush(picQueueKey, picInfo);
+                            service.redisTemplate.opsForList().trim(picQueueKey, 0, 99);
+                            service.redisTemplate.expire(picQueueKey, 30, java.util.concurrent.TimeUnit.MINUTES);
+                            log.info("图片信息已存入全局队列, key:{}, fileUrl:{}", picQueueKey, fileUrl);
 
-                    if (com.ruoyi.common.core.domain.R.isSuccess(result)) {
-                        context.snapshotId = result.getData();
-                        log.info("抓图记录保存成功, snapshotId:{}", context.snapshotId);
-                        
-                        // 如果是报警抓图，更新报警记录的imageUrl
-                        if (context.alarmId != null) {
-                            try {
-                                QsDeviceAlarm alarm = new QsDeviceAlarm();
-                                alarm.setId(context.alarmId);
-                                alarm.setImageUrl(fileUrl);
-                                service.remoteQsDeviceAlarmService.edit(alarm, 
-                                        com.ruoyi.common.core.constant.SecurityConstants.INNER);
-                                log.info("报警图片更新成功, alarmId:{}, imageUrl:{}", context.alarmId, fileUrl);
-                            } catch (Exception e) {
-                                log.error("更新报警图片失败, alarmId:{}", context.alarmId, e);
+                            // 如果有设备Code，也存入设备特定队列
+                            if (context.deviceCode != null && !context.deviceCode.isEmpty()) {
+                                String devicePicKey = "dahua_alarm_pic_queue:" + context.deviceCode;
+                                service.redisTemplate.opsForList().leftPush(devicePicKey, picInfo);
+                                service.redisTemplate.opsForList().trim(devicePicKey, 0, 49);
+                                service.redisTemplate.expire(devicePicKey, 30, java.util.concurrent.TimeUnit.MINUTES);
+                                log.info("图片信息已存入设备队列, key:{}, fileUrl:{}", devicePicKey, fileUrl);
                             }
+
+                            context.snapshotId = 0L;
+                        } catch (Exception e) {
+                            log.error("保存图片信息到Redis失败, alarmId:{}", context.alarmId, e);
+                            context.errorMsg = "保存图片信息到Redis失败: " + e.getMessage();
                         }
                     } else {
-                        context.errorMsg = "保存抓图记录失败: " + result.getMsg();
-                        log.error(context.errorMsg);
+                        // 普通抓图：保存到抓图数据库
+                        QsDeviceSnapshot snapshot = new QsDeviceSnapshot();
+                        snapshot.setDeviceId(context.deviceId);
+                        snapshot.setDeviceCode(context.deviceCode);
+                        snapshot.setDeviceName(context.deviceName);
+                        snapshot.setFileUrl(fileUrl);
+                        snapshot.setFilePath(localFilePath);
+                        snapshot.setFileSize((long) RevLen);
+                        snapshot.setFileName(fileName);
+                        snapshot.setFileType("jpg");
+                        snapshot.setSnapshotType(context.snapshotType);
+                        snapshot.setSdkType("dahua");
+                        snapshot.setChannel(context.channelId);
+                        snapshot.setCaptureTime(new Date());
+
+                        com.ruoyi.common.core.domain.R<Long> result = service.remoteQsDeviceSnapshotService.add(
+                                snapshot, com.ruoyi.common.core.constant.SecurityConstants.INNER);
+
+                        if (com.ruoyi.common.core.domain.R.isSuccess(result)) {
+                            context.snapshotId = result.getData();
+                            log.info("抓图记录保存成功, snapshotId:{}", context.snapshotId);
+                        } else {
+                            context.errorMsg = "保存抓图记录失败: " + result.getMsg();
+                            log.error(context.errorMsg);
+                        }
                     }
                 } else {
                     context.errorMsg = "抓图数据为空";
@@ -1984,13 +2110,33 @@ public class DaHuaServiceImpl implements IDaHuaService {
     }
 
     // 报警专用抓图方法
-    private Long captureAndSaveForAlarm(AlarmCaptureTask task) throws InterruptedException {
+    public Long captureAndSaveForAlarm(AlarmCaptureTask task) throws InterruptedException {
         log.info("开始报警抓图, deviceId:{}, alarmId:{}, channelId:{}", 
                 task.deviceId, task.alarmId, task.channelId);
 
-        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + task.ipAddress);
+        String ipAddress = task.ipAddress;
+        
+        // 如果IP为空，尝试从deviceId获取设备信息
+        if (ipAddress == null || ipAddress.isEmpty()) {
+            try {
+                R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(task.deviceId, SecurityConstants.INNER);
+                if (R.isSuccess(r) && r.getData() != null) {
+                    ipAddress = r.getData().getIpAddress();
+                    log.info("从deviceId获取设备IP成功, deviceId:{}, ip:{}", task.deviceId, ipAddress);
+                }
+            } catch (Exception e) {
+                log.error("获取设备信息失败, deviceId:{}", task.deviceId, e);
+            }
+        }
+        
+        if (ipAddress == null || ipAddress.isEmpty()) {
+            log.error("无法获取设备IP, deviceId:{}", task.deviceId);
+            throw new RuntimeException("无法获取设备IP");
+        }
+
+        NetSDKLib.LLong m_hLoginHandle = loginHandleHandleMap.get("login:handle:" + ipAddress);
         if (m_hLoginHandle == null || m_hLoginHandle.longValue() == 0) {
-            log.error("大华设备未登录, deviceId:{}, ip:{}", task.deviceId, task.ipAddress);
+            log.error("大华设备未登录, deviceId:{}, ip:{}", task.deviceId, ipAddress);
             throw new RuntimeException("大华设备未登录");
         }
 
@@ -2011,7 +2157,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
             NetSDKLib.SNAP_PARAMS snapParams = new NetSDKLib.SNAP_PARAMS();
             snapParams.Channel = task.channelId;
             snapParams.mode = 0; // 0: 远程抓图
-            snapParams.Quality = 1; // 图片质量 1-6, 3为中等
+            snapParams.Quality = 3; // 图片质量 1-6, 3为中等（降低要求更容易成功）
             snapParams.InterSnap = 0;
             snapParams.CmdSerial = cmdSerial;
 
@@ -2027,8 +2173,8 @@ public class DaHuaServiceImpl implements IDaHuaService {
                 throw new RuntimeException(errorMsg);
             }
 
-            // 等待抓图完成（最多10秒）
-            boolean completed = context.latch.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            // 等待抓图完成（最多30秒）
+            boolean completed = context.latch.await(30, java.util.concurrent.TimeUnit.SECONDS);
             if (!completed) {
                 log.warn("报警抓图超时, deviceId:{}, channelId:{}", task.deviceId, task.channelId);
                 throw new RuntimeException("抓图超时");

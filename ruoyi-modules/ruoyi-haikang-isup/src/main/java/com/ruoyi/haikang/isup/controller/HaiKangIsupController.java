@@ -232,12 +232,10 @@ public class HaiKangIsupController extends BaseController {
     /**
      * 获取海康视频参数
      */
-    @GetMapping("/getHaiKangIsupVideoParam/{deviceId}/{channelId}")
-    public R<HashMap<String, Object>> getHaiKangIsupVideoParam(@PathVariable("deviceId") Long deviceId, @PathVariable("channelId") Integer channelId, String streamType) {
+    @GetMapping("/getHaiKangIsupVideoParam/{deviceId}")
+    public R<HashMap<String, Object>> getHaiKangIsupVideoParam(@PathVariable("deviceId") Long deviceId, String streamType) {
+        Integer channelId = 1;
         log.info("获取海康ISUP视频参数 - deviceId:{}, channelId:{}, streamType:{}", deviceId, channelId, streamType);
-        if (channelId == null) {
-            return R.fail("channelId参数不能为空");
-        }
         return R.ok(haiKangIsupService.getHaiKangIsupVideoParam(deviceId, channelId, streamType));
     }
 
@@ -266,5 +264,70 @@ public class HaiKangIsupController extends BaseController {
     public R<HashMap<String, Object>> upgradeHaiKangIsupDevice(@RequestBody HaiKangIsupUpgradeRequest request) {
         log.info("海康ISUP设备升级 - request: {}", request);
         return R.ok(haiKangIsupService.upgradeHaiKangIsupDevice(request));
+    }
+
+    /**
+     * 获取设备配置信息
+     */
+    @GetMapping("/getHaiKangIsupDeviceConfig/{deviceId}")
+    public R<HashMap<String, Object>> getHaiKangIsupDeviceConfig(@PathVariable("deviceId") Long deviceId) {
+        log.info("获取海康ISUP设备配置 - deviceId: {}", deviceId);
+        return R.ok(haiKangIsupService.getHaiKangIsupDeviceConfig(deviceId));
+    }
+
+    /**
+     * 设置设备配置信息
+     */
+    @PostMapping("/setHaiKangIsupDeviceConfig/{deviceId}")
+    public R<HashMap<String, Object>> setHaiKangIsupDeviceConfig(@PathVariable("deviceId") Long deviceId, @RequestBody HashMap<String, Object> config) {
+        log.info("设置海康ISUP设备配置 - deviceId: {}, config: {}", deviceId, config);
+        return R.ok(haiKangIsupService.setHaiKangIsupDeviceConfig(deviceId, config));
+    }
+
+    /**
+     * 获取设备详细信息
+     */
+    @GetMapping("/getHaiKangIsupDeviceDetail/{deviceId}")
+    public R<HashMap<String, Object>> getHaiKangIsupDeviceDetail(@PathVariable("deviceId") Long deviceId) {
+        log.info("获取海康ISUP设备详细信息 - deviceId: {}", deviceId);
+        return R.ok(haiKangIsupService.getHaiKangIsupDeviceDetail(deviceId));
+    }
+
+    /**
+     * 获取设备版本信息
+     */
+    @GetMapping("/getHaiKangIsupVersionInfo/{deviceId}")
+    public R<HashMap<String, Object>> getHaiKangIsupVersionInfo(@PathVariable("deviceId") Long deviceId) {
+        log.info("获取海康ISUP设备版本信息 - deviceId: {}", deviceId);
+        return R.ok(haiKangIsupService.getHaiKangIsupVersionInfo(deviceId));
+    }
+
+
+
+    /**
+     * 获取移动侦测区域参数
+     */
+    @GetMapping("/getHaiKangIsupMotionArea/{deviceId}")
+    public R<HashMap<String, Object>> getHaiKangIsupMotionArea(@PathVariable("deviceId") Long deviceId, 
+                                                                  Integer channelId) {
+        if (channelId == null) {
+            channelId = 1;
+        }
+        log.info("获取海康ISUP移动侦测区域参数 - deviceId: {}, channelId: {}", deviceId, channelId);
+        return R.ok(haiKangIsupService.getHaiKangIsupMotionArea(deviceId, channelId));
+    }
+
+    /**
+     * 设置移动侦测区域参数
+     */
+    @PostMapping("/setHaiKangIsupMotionArea/{deviceId}")
+    public R<HashMap<String, Object>> setHaiKangIsupMotionArea(@PathVariable("deviceId") Long deviceId, 
+                                                                  Integer channelId,
+                                                                  @RequestBody HashMap<String, Object> motionAreaConfig) {
+        if (channelId == null) {
+            channelId = 1;
+        }
+        log.info("设置海康ISUP移动侦测区域参数 - deviceId: {}, channelId: {}", deviceId, channelId);
+        return R.ok(haiKangIsupService.setHaiKangIsupMotionArea(deviceId, channelId, motionAreaConfig));
     }
 }

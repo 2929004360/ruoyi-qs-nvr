@@ -153,4 +153,14 @@ public interface RemoteQsDeviceService {
      */
     @GetMapping("/api/device/getDeviceByGbCode/{gbCode}")
     public R<QsDevice> getDeviceByGbCode(@PathVariable String gbCode, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 根据 deviceCode 获取设备
+     *
+     * @param deviceCode 设备编号
+     * @param inner      请求来源
+     * @return
+     */
+    @GetMapping("/api/device/getDeviceByDeviceCode/{deviceCode}")
+    public R<QsDevice> getDeviceByDeviceCode(@PathVariable String deviceCode, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

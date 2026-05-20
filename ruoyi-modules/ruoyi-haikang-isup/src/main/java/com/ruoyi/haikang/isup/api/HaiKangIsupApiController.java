@@ -299,4 +299,24 @@ public class HaiKangIsupApiController {
         haiKangIsupService.setDevTime(deviceId, time);
         return R.ok();
     }
+
+    /**
+     * 设置海康设备移动侦测区域
+     *
+     * @param deviceId 设备id
+     * @param channelId 通道id
+     * @param motionAreaConfig 移动侦测区域配置
+     * @return 设置结果
+     */
+    @InnerAuth
+    @PostMapping("/setHaiKangIsupMotionArea/{deviceId}")
+    public R<HashMap<String, Object>> setHaiKangIsupMotionArea(
+            @PathVariable("deviceId") Long deviceId,
+            Integer channelId,
+            @RequestBody HashMap<String, Object> motionAreaConfig) {
+        if (channelId == null) {
+            channelId = 1;
+        }
+        return R.ok(haiKangIsupService.setHaiKangIsupMotionArea(deviceId, channelId, motionAreaConfig));
+    }
 }

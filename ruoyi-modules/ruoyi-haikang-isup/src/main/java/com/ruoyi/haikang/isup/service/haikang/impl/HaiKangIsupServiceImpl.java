@@ -918,6 +918,10 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
     }
 
     private boolean executeXmlCommand(Integer lUserID, String xmlContent) {
+        return executeXmlCommand(lUserID, xmlContent, null);
+    }
+
+    private boolean executeXmlCommand(Integer lUserID, String xmlContent, String inXmlContent) {
         HCISUPCMS.NET_EHOME_XML_CFG xmlCfg = new HCISUPCMS.NET_EHOME_XML_CFG();
         byte[] cmdBytes = xmlContent.getBytes();
         byte[] outBuffer = new byte[1024 * 10];
@@ -928,8 +932,16 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         xmlCfg.pCmdBuf.setByte(cmdBytes.length, (byte) 0);
         xmlCfg.dwCmdLen = cmdBytes.length;
         
-        xmlCfg.pInBuf = null;
-        xmlCfg.dwInSize = 0;
+        if (inXmlContent != null && !inXmlContent.isEmpty()) {
+            byte[] inBytes = inXmlContent.getBytes();
+            xmlCfg.pInBuf = new com.sun.jna.Memory(inBytes.length + 1);
+            xmlCfg.pInBuf.write(0, inBytes, 0, inBytes.length);
+            xmlCfg.pInBuf.setByte(inBytes.length, (byte) 0);
+            xmlCfg.dwInSize = inBytes.length;
+        } else {
+            xmlCfg.pInBuf = null;
+            xmlCfg.dwInSize = 0;
+        }
         
         xmlCfg.pOutBuf = new com.sun.jna.Memory(outBuffer.length);
         xmlCfg.dwOutSize = outBuffer.length;
@@ -945,6 +957,10 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
     }
 
     private String executeXmlGetCommand(Integer lUserID, String xmlContent) {
+        return executeXmlGetCommand(lUserID, xmlContent, null);
+    }
+
+    private String executeXmlGetCommand(Integer lUserID, String xmlContent, String inXmlContent) {
         HCISUPCMS.NET_EHOME_XML_CFG xmlCfg = new HCISUPCMS.NET_EHOME_XML_CFG();
         byte[] cmdBytes = xmlContent.getBytes();
         byte[] outBuffer = new byte[1024 * 10];
@@ -955,8 +971,16 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         xmlCfg.pCmdBuf.setByte(cmdBytes.length, (byte) 0);
         xmlCfg.dwCmdLen = cmdBytes.length;
         
-        xmlCfg.pInBuf = null;
-        xmlCfg.dwInSize = 0;
+        if (inXmlContent != null && !inXmlContent.isEmpty()) {
+            byte[] inBytes = inXmlContent.getBytes();
+            xmlCfg.pInBuf = new com.sun.jna.Memory(inBytes.length + 1);
+            xmlCfg.pInBuf.write(0, inBytes, 0, inBytes.length);
+            xmlCfg.pInBuf.setByte(inBytes.length, (byte) 0);
+            xmlCfg.dwInSize = inBytes.length;
+        } else {
+            xmlCfg.pInBuf = null;
+            xmlCfg.dwInSize = 0;
+        }
         
         xmlCfg.pOutBuf = new com.sun.jna.Memory(outBuffer.length);
         xmlCfg.dwOutSize = outBuffer.length;
@@ -1188,6 +1212,16 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
             result.put("diskNum", deviceInfo.getDwDiskNumber());
             result.put("alarmInPortNum", deviceInfo.getDwAlarmInPortNum());
             result.put("alarmOutPortNum", deviceInfo.getDwAlarmOutPortNum());
+            result.put("alarmInAmount", deviceInfo.getDwAlarmInAmount());
+            result.put("alarmOutAmount", deviceInfo.getDwAlarmOutAmount());
+            result.put("startChannel", deviceInfo.getDwStartChannel());
+            result.put("audioChanNum", deviceInfo.getDwAudioChanNum());
+            result.put("audioEncType", deviceInfo.getDwAudioEncType());
+            result.put("simCardSN", deviceInfo.getSSIMCardSN());
+            result.put("simCardPhoneNum", deviceInfo.getSSIMCardPhoneNum());
+            result.put("supportZeroChan", deviceInfo.getDwSupportZeroChan());
+            result.put("startZeroChan", deviceInfo.getDwStartZeroChan());
+            result.put("smartType", deviceInfo.getDwSmartType());
             result.put("success", true);
             log.info("获取海康ISUP设备信息成功, deviceId:{}, serialNumber:{}", deviceId, deviceInfo.getSSerialNumber());
         } catch (Exception e) {
@@ -2380,5 +2414,472 @@ public class HaiKangIsupServiceImpl implements IHaiKangIsupService {
         sb.append("  </Params>\n");
         sb.append("</PPVSPMessage>");
         return sb.toString();
+    }
+
+    /**
+     * 获取设备配置信息
+     */
+    @Override
+    public HashMap<String, Object> getHaiKangIsupDeviceConfig(Long deviceId) {
+        log.info("开始获取海康ISUP设备配置 - deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 获取设备名称配置
+            String deviceNameUrl = "GET /ISAPI/System/deviceInfo";
+            String deviceNameXml = cmsUtil.passThrough(lUserID, deviceNameUrl, null);
+            result.put("rawData", deviceNameXml);
+            log.info("设备信息XML：{}", deviceNameXml);
+
+            // 解析XML为实体对象
+            com.ruoyi.haikang.isup.xml.DeviceInfo deviceInfo = com.ruoyi.haikang.isup.utils.XmlParserUtils.parseXmlToObject(deviceNameXml, com.ruoyi.haikang.isup.xml.DeviceInfo.class);
+            if (deviceInfo != null) {
+                result.put("deviceInfo", deviceInfo);
+                result.put("deviceName", deviceInfo.getDeviceName());
+                result.put("deviceDescription", deviceInfo.getDeviceDescription());
+                result.put("deviceLocation", deviceInfo.getDeviceLocation());
+                result.put("systemContact", deviceInfo.getSystemContact());
+                result.put("model", deviceInfo.getModel());
+                result.put("serialNumber", deviceInfo.getSerialNumber());
+                result.put("macAddress", deviceInfo.getMacAddress());
+                result.put("firmwareVersion", deviceInfo.getFirmwareVersion());
+                result.put("firmwareReleasedDate", deviceInfo.getFirmwareReleasedDate());
+                result.put("encoderVersion", deviceInfo.getEncoderVersion());
+                result.put("encoderReleasedDate", deviceInfo.getEncoderReleasedDate());
+                result.put("bootVersion", deviceInfo.getBootVersion());
+                result.put("bootReleasedDate", deviceInfo.getBootReleasedDate());
+                result.put("hardwareVersion", deviceInfo.getHardwareVersion());
+                result.put("manufacturer", deviceInfo.getManufacturer());
+                result.put("deviceType", deviceInfo.getDeviceType());
+                result.put("deviceID", deviceInfo.getDeviceID());
+                result.put("telecontrolID", deviceInfo.getTelecontrolID());
+                result.put("supportBeep", deviceInfo.getSupportBeep());
+                result.put("supportVideoLoss", deviceInfo.getSupportVideoLoss());
+                result.put("firmwareVersionInfo", deviceInfo.getFirmwareVersionInfo());
+                result.put("subSerialNumber", deviceInfo.getSubSerialNumber());
+                result.put("oemCode", deviceInfo.getOemCode());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP设备配置成功");
+        } catch (Exception e) {
+            log.error("获取海康ISUP设备配置异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 设置设备配置信息
+     */
+    @Override
+    public HashMap<String, Object> setHaiKangIsupDeviceConfig(Long deviceId, HashMap<String, Object> config) {
+        log.info("开始设置海康ISUP设备配置 - deviceId:{}, config:{}", deviceId, config);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 构建设备配置XML
+            StringBuilder sb = new StringBuilder();
+            sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n");
+            sb.append("<DeviceInfo version=\"2.0\" xmlns=\"http://www.isapi.org/ver20/XMLSchema\">\n");
+            
+            String deviceName = (String) config.get("deviceName");
+            if (deviceName != null && !deviceName.isEmpty()) {
+                sb.append("  <deviceName>").append(deviceName).append("</deviceName>\n");
+            }
+            
+            String deviceDescription = (String) config.get("deviceDescription");
+            if (deviceDescription != null) {
+                sb.append("  <deviceDescription>").append(deviceDescription).append("</deviceDescription>\n");
+            }
+            
+            String deviceLocation = (String) config.get("deviceLocation");
+            if (deviceLocation != null) {
+                sb.append("  <deviceLocation>").append(deviceLocation).append("</deviceLocation>\n");
+            }
+            
+            String systemContact = (String) config.get("systemContact");
+            if (systemContact != null) {
+                sb.append("  <systemContact>").append(systemContact).append("</systemContact>\n");
+            }
+            
+            sb.append("</DeviceInfo>");
+            String xmlContent = sb.toString();
+            log.info("设置设备配置XML: {}", xmlContent);
+
+            String resultXml = cmsUtil.passThrough(lUserID, "PUT /ISAPI/System/deviceInfo", xmlContent);
+            result.put("result", resultXml);
+            log.info("设置设备配置结果: {}", resultXml);
+
+            result.put("success", true);
+            result.put("message", "设备配置设置成功");
+            log.info("设置海康ISUP设备配置成功");
+        } catch (Exception e) {
+            log.error("设置海康ISUP设备配置异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取设备详细信息（含序列号、类型等）
+     */
+    @Override
+    public HashMap<String, Object> getHaiKangIsupDeviceDetail(Long deviceId) {
+        log.info("开始获取海康ISUP设备详细信息 - deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 获取设备详细信息
+            String url = "GET /ISAPI/System/deviceInfo";
+            String xmlData = cmsUtil.passThrough(lUserID, url, null);
+            result.put("rawData", xmlData);
+            log.info("设备详细信息XML：{}", xmlData);
+
+            // 解析XML为实体对象
+            com.ruoyi.haikang.isup.xml.DeviceInfo deviceInfo = com.ruoyi.haikang.isup.utils.XmlParserUtils.parseXmlToObject(xmlData, com.ruoyi.haikang.isup.xml.DeviceInfo.class);
+            if (deviceInfo != null) {
+                result.put("deviceInfo", deviceInfo);
+                result.put("deviceName", deviceInfo.getDeviceName());
+                result.put("deviceID", deviceInfo.getDeviceID());
+                result.put("deviceDescription", deviceInfo.getDeviceDescription());
+                result.put("deviceLocation", deviceInfo.getDeviceLocation());
+                result.put("model", deviceInfo.getModel());
+                result.put("serialNumber", deviceInfo.getSerialNumber());
+                result.put("macAddress", deviceInfo.getMacAddress());
+                result.put("firmwareVersion", deviceInfo.getFirmwareVersion());
+                result.put("encoderVersion", deviceInfo.getEncoderVersion());
+                result.put("hardwareVersion", deviceInfo.getHardwareVersion());
+                result.put("deviceType", deviceInfo.getDeviceType());
+                result.put("manufacturer", deviceInfo.getManufacturer());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP设备详细信息成功");
+        } catch (Exception e) {
+            log.error("获取海康ISUP设备详细信息异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取设备版本信息
+     */
+    @Override
+    public HashMap<String, Object> getHaiKangIsupVersionInfo(Long deviceId) {
+        log.info("开始获取海康ISUP设备版本信息 - deviceId:{}", deviceId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 获取版本信息
+            String url = "GET /ISAPI/System/deviceInfo";
+            String xmlData = cmsUtil.passThrough(lUserID, url, null);
+            result.put("rawData", xmlData);
+            log.info("版本信息XML：{}", xmlData);
+
+            // 解析XML为实体对象
+            com.ruoyi.haikang.isup.xml.DeviceInfo deviceInfo = com.ruoyi.haikang.isup.utils.XmlParserUtils.parseXmlToObject(xmlData, com.ruoyi.haikang.isup.xml.DeviceInfo.class);
+            if (deviceInfo != null) {
+                result.put("deviceInfo", deviceInfo);
+                result.put("softwareVersion", deviceInfo.getFirmwareVersion());
+                result.put("encodeVersion", deviceInfo.getEncoderVersion());
+                result.put("panelVersion", deviceInfo.getBootVersion());
+                result.put("hardwareVersion", deviceInfo.getHardwareVersion());
+            }
+
+            result.put("success", true);
+            log.info("获取海康ISUP设备版本信息成功");
+        } catch (Exception e) {
+            log.error("获取海康ISUP设备版本信息异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+
+
+    /**
+     * 获取移动侦测区域参数
+     */
+    @Override
+    public HashMap<String, Object> getHaiKangIsupMotionArea(Long deviceId, Integer channelId) {
+        log.info("开始获取海康ISUP移动侦测区域参数 - deviceId:{}, channelId:{}", deviceId, channelId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 构建命令 XML
+            String cmdXml = "GETDEVICECONFIG";
+            
+            // 构建输入参数 XML
+            StringBuilder inXmlSb = new StringBuilder();
+            inXmlSb.append("<Params>\n");
+            inXmlSb.append("  <ConfigCmd>GetMotionArea</ConfigCmd>\n");
+            inXmlSb.append("  <ConfigParam1>").append(channelId).append("</ConfigParam1>\n");
+            inXmlSb.append("</Params>");
+            String inXml = inXmlSb.toString();
+            
+            log.info("获取移动侦测区域的命令：{}", cmdXml);
+            log.info("获取移动侦测区域的输入参数：{}", inXml);
+
+            // 使用 executeXmlGetCommand 获取移动侦测区域参数
+            String xmlData = executeXmlGetCommand(lUserID, cmdXml, inXml);
+            result.put("rawData", xmlData);
+            log.info("移动侦测区域参数XML：{}", xmlData);
+
+            if (xmlData == null || xmlData.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "获取移动侦测区域参数失败");
+                log.info("获取移动侦测区域参数失败");
+            } else if (xmlData.contains("<Status>4</Status>") || xmlData.contains("<Status>error</Status>")) {
+                result.put("success", false);
+                result.put("message", "设备不支持移动侦测区域参数");
+                log.info("设备不支持移动侦测区域参数");
+            } else {
+                result.put("success", true);
+                // 解析 XML 提取具体参数
+                parseMotionAreaXml(xmlData, result);
+                log.info("获取海康ISUP移动侦测区域参数成功");
+            }
+        } catch (Exception e) {
+            log.error("获取海康ISUP移动侦测区域参数异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 解析移动侦测区域 XML
+     */
+    private void parseMotionAreaXml(String xml, HashMap<String, Object> result) {
+        try {
+            // 提取行数
+            Integer row = extractIntFromXml(xml, "<Row>", "</Row>");
+            if (row != null) {
+                result.put("row", row);
+            }
+            
+            // 提取列数
+            Integer blockPerRow = extractIntFromXml(xml, "<BlockPerRow>", "</BlockPerRow>");
+            if (blockPerRow != null) {
+                result.put("blockPerRow", blockPerRow);
+            }
+            
+            // 提取图片宽度
+            Integer pictureWidth = extractIntFromXml(xml, "<PictureWidth>", "</PictureWidth>");
+            if (pictureWidth != null) {
+                result.put("pictureWidth", pictureWidth);
+            }
+            
+            // 提取图片高度
+            Integer pictureHeight = extractIntFromXml(xml, "<PictureHeight>", "</PictureHeight>");
+            if (pictureHeight != null) {
+                result.put("pictureHeight", pictureHeight);
+            }
+            
+            // 提取 Mask 数组
+            java.util.List<String> maskList = new java.util.ArrayList<>();
+            int maskStart = 0;
+            while (true) {
+                int maskTagStart = xml.indexOf("<Mask>", maskStart);
+                if (maskTagStart == -1) {
+                    break;
+                }
+                int maskTagEnd = xml.indexOf("</Mask>", maskTagStart);
+                if (maskTagEnd == -1) {
+                    break;
+                }
+                String mask = xml.substring(maskTagStart + "<Mask>".length(), maskTagEnd).trim();
+                maskList.add(mask);
+                maskStart = maskTagEnd + "</Mask>".length();
+            }
+            if (!maskList.isEmpty()) {
+                result.put("mask", maskList);
+            }
+            
+            log.info("解析移动侦测区域 XML 成功，row={}, blockPerRow={}, maskCount={}", 
+                    row, blockPerRow, maskList.size());
+        } catch (Exception e) {
+            log.error("解析移动侦测区域 XML 失败", e);
+        }
+    }
+
+    /**
+     * 从 XML 中提取整数值
+     */
+    private Integer extractIntFromXml(String xml, String startTag, String endTag) {
+        try {
+            int start = xml.indexOf(startTag);
+            if (start == -1) {
+                return null;
+            }
+            int end = xml.indexOf(endTag, start);
+            if (end == -1) {
+                return null;
+            }
+            String value = xml.substring(start + startTag.length(), end).trim();
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            log.warn("从 XML 中提取整数失败，startTag={}", startTag, e);
+            return null;
+        }
+    }
+
+    public HashMap<String, Object> setHaiKangIsupMotionArea(Long deviceId, Integer channelId, HashMap<String, Object> motionAreaConfig) {
+        log.info("开始设置海康ISUP移动侦测区域参数 - deviceId:{}, channelId:{}", deviceId, channelId);
+        HashMap<String, Object> result = new HashMap<>();
+        result.put("success", false);
+        try {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(deviceId, SecurityConstants.INNER);
+            if (R.isError(r)) {
+                result.put("message", "获取设备信息失败：" + r.getMsg());
+                return result;
+            }
+            QsDevice device = r.getData();
+            Integer lUserID = FRegisterCallBack.lUserIDMap.get(device.getIpAddress());
+            if (lUserID == null || lUserID < 0) {
+                result.put("message", "设备未登录");
+                return result;
+            }
+
+            // 构建命令 XML
+            String cmdXml = "SETDEVICECONFIG";
+            
+            // 构建输入参数 XML
+            StringBuilder inXmlSb = new StringBuilder();
+            inXmlSb.append("<Params>\n");
+            inXmlSb.append("  <ConfigCmd>SetMotionArea</ConfigCmd>\n");
+            inXmlSb.append("  <ConfigParam1>").append(channelId).append("</ConfigParam1>\n");
+            inXmlSb.append("  <ConfigXML>\n");
+            inXmlSb.append("    <MOTIONAREACFG>\n");
+            inXmlSb.append("      <MOTIONAREACFG>\n");
+            
+            // 行数
+            Object rowObj = motionAreaConfig.get("row");
+            Integer row = (rowObj instanceof Integer) ? (Integer) rowObj : 
+                          (rowObj instanceof String ? Integer.parseInt((String) rowObj) : 18);
+            inXmlSb.append("        <Row>").append(row).append("</Row>\n");
+            
+            // 列数
+            Object blockPerRowObj = motionAreaConfig.get("blockPerRow");
+            Integer blockPerRow = (blockPerRowObj instanceof Integer) ? (Integer) blockPerRowObj : 
+                                  (blockPerRowObj instanceof String ? Integer.parseInt((String) blockPerRowObj) : 22);
+            inXmlSb.append("        <BlockPerRow>").append(blockPerRow).append("</BlockPerRow>\n");
+            
+            // 图片宽度（设置为0）
+            inXmlSb.append("        <PictureWidth>0</PictureWidth>\n");
+            // 图片高度（设置为0）
+            inXmlSb.append("        <PictureHeight>0</PictureHeight>\n");
+            
+            // 区域数组
+            inXmlSb.append("        <AREAS>\n");
+            Object maskListObj = motionAreaConfig.get("maskList");
+            if (maskListObj instanceof java.util.List) {
+                java.util.List<?> maskList = (java.util.List<?>) maskListObj;
+                for (Object maskObj : maskList) {
+                    if (maskObj instanceof String) {
+                        inXmlSb.append("          <Mask>").append(maskObj).append("</Mask>\n");
+                    }
+                }
+            } else if (maskListObj instanceof java.util.Map) {
+                java.util.Map<?, ?> maskMap = (java.util.Map<?, ?>) maskListObj;
+                if (maskMap.containsKey("mask")) {
+                    Object masksObj = maskMap.get("mask");
+                    if (masksObj instanceof java.util.List) {
+                        java.util.List<?> masks = (java.util.List<?>) masksObj;
+                        for (Object maskObj : masks) {
+                            if (maskObj instanceof String) {
+                                inXmlSb.append("          <Mask>").append(maskObj).append("</Mask>\n");
+                            }
+                        }
+                    }
+                }
+            }
+            inXmlSb.append("        </AREAS>\n");
+            inXmlSb.append("      </MOTIONAREACFG>\n");
+            inXmlSb.append("    </MOTIONAREACFG>\n");
+            inXmlSb.append("  </ConfigXML>\n");
+            inXmlSb.append("</Params>");
+            String inXml = inXmlSb.toString();
+            
+            log.info("设置移动侦测区域的命令：{}", cmdXml);
+            log.info("设置移动侦测区域的输入参数：{}", inXml);
+
+            // 使用 executeXmlCommand 设置移动侦测区域参数
+            boolean success = executeXmlCommand(lUserID, cmdXml, inXml);
+            if (success) {
+                result.put("success", true);
+                result.put("message", "设置移动侦测区域参数成功");
+                log.info("设置海康ISUP移动侦测区域参数成功");
+            } else {
+                result.put("success", false);
+                result.put("message", "设置移动侦测区域参数失败");
+                log.info("设置海康ISUP移动侦测区域参数失败");
+            }
+        } catch (Exception e) {
+            log.error("设置海康ISUP移动侦测区域参数异常", e);
+            result.put("message", "异常：" + e.getMessage());
+        }
+        return result;
     }
 }

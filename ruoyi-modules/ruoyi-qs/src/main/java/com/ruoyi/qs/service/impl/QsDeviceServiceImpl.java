@@ -1644,4 +1644,9 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     public QsDevice getDeviceByGbCode(String gbCode) {
         return qsDeviceMapper.getDeviceByGbCode(gbCode);
     }
+
+    @Override
+    public QsDevice getDeviceByDeviceCode(String deviceCode) {
+        return qsDeviceMapper.getDeviceByDeviceCode(deviceCode);
+    }
 }

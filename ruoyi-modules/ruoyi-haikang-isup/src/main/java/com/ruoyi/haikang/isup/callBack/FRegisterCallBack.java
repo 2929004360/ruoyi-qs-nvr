@@ -5,6 +5,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.haikang.isup.config.HaikangIsupConfig;
 import com.ruoyi.haikang.isup.handler.PreviewStreamHandler;
 import com.ruoyi.haikang.isup.manager.StreamManager;
+import com.ruoyi.haikang.isup.service.haikang.alarm.AlarmService;
+import com.ruoyi.haikang.isup.service.haikang.alarm.HCISUPAlarm;
 import com.ruoyi.haikang.isup.service.haikang.cms.CmsService;
 import com.ruoyi.haikang.isup.service.haikang.cms.HCISUPCMS;
 import com.ruoyi.haikang.isup.service.haikang.stream.StreamService;
@@ -136,9 +138,17 @@ public class FRegisterCallBack implements HCISUPCMS.DEVICE_REGISTER_CB {
                 struSessionKey.write();
                 Pointer pSessionKey = struSessionKey.getPointer();
                 CmsService.hCEhomeCMS.NET_ECMS_SetDeviceSessionKey(pSessionKey);
+                
+                // 对于支持ISUP5.0的设备，报警模块也需要先认证，因此必须设置设备SessionKey
+                if (AlarmService.hcEHomeAlarm != null) {
+                    boolean setResult = AlarmService.hcEHomeAlarm.NET_EALARM_SetDeviceSessionKey(pSessionKey);
+                    log.info("Ehome5.0设备Sessionkey设置到报警模块, DeviceID: {}, Result: {}", 
+                            new String(strDevRegInfo.struRegInfo.byDeviceID).trim(), setResult);
+                } else {
+                    log.warn("报警服务SDK未初始化，无法设置SessionKey");
+                }
+                
                 log.info("Ehome5.0设备Sessionkey回调 Device session key, DeviceID is: {}", new String(strDevRegInfo.struRegInfo.byDeviceID).trim());
-
-//                AlarmService.hcEHomeAlarm.NET_EALARM_SetDeviceSessionKey(pSessionKey);
                 break;
             }
 

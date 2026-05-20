@@ -368,4 +368,12 @@ public interface QsDeviceMapper {
      * @return
      */
     QsDevice getDeviceByGbCode(String gbCode);
+
+    /**
+     * 根据 deviceCode 查询设备
+     *
+     * @param deviceCode 设备编号
+     * @return
+     */
+    QsDevice getDeviceByDeviceCode(String deviceCode);
 }

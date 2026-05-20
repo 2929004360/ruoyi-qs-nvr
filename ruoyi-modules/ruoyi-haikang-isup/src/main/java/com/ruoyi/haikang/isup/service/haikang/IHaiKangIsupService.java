@@ -299,4 +299,58 @@ public interface IHaiKangIsupService {
      * @return 升级结果
      */
     HashMap<String, Object> upgradeHaiKangIsupDevice(HaiKangIsupUpgradeRequest request);
+
+    /**
+     * 获取设备配置信息
+     *
+     * @param deviceId 设备ID
+     * @return 设备配置信息
+     */
+    HashMap<String, Object> getHaiKangIsupDeviceConfig(Long deviceId);
+
+    /**
+     * 设置设备配置信息
+     *
+     * @param deviceId 设备ID
+     * @param config 配置参数
+     * @return 设置结果
+     */
+    HashMap<String, Object> setHaiKangIsupDeviceConfig(Long deviceId, HashMap<String, Object> config);
+
+    /**
+     * 获取设备详细信息（含序列号、类型等）
+     *
+     * @param deviceId 设备ID
+     * @return 设备详细信息
+     */
+    HashMap<String, Object> getHaiKangIsupDeviceDetail(Long deviceId);
+
+    /**
+     * 获取设备版本信息
+     *
+     * @param deviceId 设备ID
+     * @return 版本信息
+     */
+    HashMap<String, Object> getHaiKangIsupVersionInfo(Long deviceId);
+
+
+
+    /**
+     * 获取移动侦测区域参数
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @return 移动侦测区域参数
+     */
+    HashMap<String, Object> getHaiKangIsupMotionArea(Long deviceId, Integer channelId);
+
+    /**
+     * 设置移动侦测区域参数
+     *
+     * @param deviceId 设备ID
+     * @param channelId 通道ID
+     * @param motionAreaConfig 移动侦测区域配置
+     * @return 设置结果
+     */
+    HashMap<String, Object> setHaiKangIsupMotionArea(Long deviceId, Integer channelId, HashMap<String, Object> motionAreaConfig);
 }

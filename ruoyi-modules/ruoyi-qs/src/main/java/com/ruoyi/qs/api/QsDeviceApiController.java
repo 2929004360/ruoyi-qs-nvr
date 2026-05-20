@@ -175,4 +175,20 @@ public class QsDeviceApiController {
         }
         return R.ok(qsDevice);
     }
+
+    /**
+     * 根据 deviceCode 查询设备
+     *
+     * @param deviceCode 设备编号
+     * @return
+     */
+    @InnerAuth
+    @GetMapping("/getDeviceByDeviceCode/{deviceCode}")
+    public R<QsDevice> getDeviceByDeviceCode(@PathVariable String deviceCode) {
+        QsDevice qsDevice = qsDeviceService.getDeviceByDeviceCode(deviceCode);
+        if (qsDevice == null){
+            return R.fail("设备不存在");
+        }
+        return R.ok(qsDevice);
+    }
 }

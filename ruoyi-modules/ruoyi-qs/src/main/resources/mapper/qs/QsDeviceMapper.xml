@@ -959,4 +959,9 @@
         <include refid="selectQsDeviceVo"/>
         WHERE gb_code = #{gbCode}
     </select>
+
+    <select id="getDeviceByDeviceCode" parameterType="String" resultMap="QsDeviceResult">
+        <include refid="selectQsDeviceVo"/>
+        WHERE device_code = #{deviceCode}
+    </select>
 </mapper>
