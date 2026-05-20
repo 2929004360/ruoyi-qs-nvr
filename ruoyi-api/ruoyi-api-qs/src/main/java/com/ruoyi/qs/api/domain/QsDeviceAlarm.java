@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Date;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -58,4 +59,9 @@ public class QsDeviceAlarm extends BaseEntity {
 
     @Excel(name = "备注")
     private String remark;
+
+    /**
+     * 批量处理用的id数组
+     */
+    private Long[] ids;
 }

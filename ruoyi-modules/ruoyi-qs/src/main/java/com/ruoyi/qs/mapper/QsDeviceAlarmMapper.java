@@ -2,6 +2,7 @@
 package com.ruoyi.qs.mapper;
 
 import com.ruoyi.qs.api.domain.QsDeviceAlarm;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -59,4 +60,14 @@ public interface QsDeviceAlarmMapper {
      * @return 结果
      */
     public int deleteQsDeviceAlarmByIds(Long[] ids);
+
+    /**
+     * 批量处理设备告警
+     *
+     * @param ids 需要处理的数据主键集合
+     * @param handler 处理人
+     * @param handleTime 处理时间
+     * @return 结果
+     */
+    public int batchHandleQsDeviceAlarm(@Param("ids") Long[] ids, @Param("handler") String handler, @Param("handleTime") java.util.Date handleTime);
 }

@@ -96,4 +96,16 @@ public class QsDeviceAlarmServiceImpl implements IQsDeviceAlarmService {
     public int deleteQsDeviceAlarmById(Long id) {
         return qsDeviceAlarmMapper.deleteQsDeviceAlarmById(id);
     }
+
+    /**
+     * 批量处理设备告警
+     *
+     * @param ids 需要处理的设备告警主键集合
+     * @param handler 处理人
+     * @return 结果
+     */
+    @Override
+    public int batchHandleQsDeviceAlarm(Long[] ids, String handler) {
+        return qsDeviceAlarmMapper.batchHandleQsDeviceAlarm(ids, handler, DateUtils.getNowDate());
+    }
 }

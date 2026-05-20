@@ -148,4 +148,17 @@
             #{id}
         </foreach>
     </delete>
+
+    <update id="batchHandleQsDeviceAlarm">
+        update qs_device_alarm
+        set handled = 1,
+            handler = #{handler},
+            handle_time = #{handleTime},
+            update_by = #{handler},
+            update_time = #{handleTime}
+        where id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 </mapper>

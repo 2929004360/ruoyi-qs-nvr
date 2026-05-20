@@ -10,6 +10,7 @@ import com.ruoyi.common.security.annotation.RequiresPermissions;
 import com.ruoyi.qs.api.domain.QsDeviceAlarm;
 import com.ruoyi.qs.service.IQsDeviceAlarmService;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +22,7 @@ import java.util.List;
  * @author ruoyi
  * @date 2026-05-18
  */
+@Slf4j
 @RestController
 @RequestMapping("/alarm")
 public class QsDeviceAlarmController extends BaseController {
@@ -87,5 +89,32 @@ public class QsDeviceAlarmController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(qsDeviceAlarmService.deleteQsDeviceAlarmByIds(ids));
+    }
+
+    /**
+     * 批量处理设备告警
+     */
+    @RequiresPermissions("qs:alarm:edit")
+    @Log(title = "设备告警", businessType = BusinessType.UPDATE)
+    @PutMapping("/batchHandle")
+    public AjaxResult batchHandle(@RequestBody QsDeviceAlarm qsDeviceAlarm) {
+        log.info("=== 批量处理告警请求 ===");
+        log.info("请求参数: {}", qsDeviceAlarm);
+        // 从请求中获取 ids 和 handler
+        Long[] ids = qsDeviceAlarm.getIds();
+        String handler = qsDeviceAlarm.getHandler();
+        if (ids == null || ids.length == 0) {
+            return error("请选择要处理的告警");
+        }
+        if (handler == null || handler.isEmpty()) {
+            try {
+                handler = com.ruoyi.common.security.utils.SecurityUtils.getUsername();
+            } catch (Exception e) {
+                handler = "system";
+            }
+        }
+        int result = qsDeviceAlarmService.batchHandleQsDeviceAlarm(ids, handler);
+        log.info("批量处理结果: {}", result);
+        return toAjax(result);
     }
 }

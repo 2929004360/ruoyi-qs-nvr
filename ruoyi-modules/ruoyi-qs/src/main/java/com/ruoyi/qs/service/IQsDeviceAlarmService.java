@@ -58,4 +58,13 @@ public interface IQsDeviceAlarmService {
      * @return 结果
      */
     public int deleteQsDeviceAlarmById(Long id);
+
+    /**
+     * 批量处理设备告警
+     *
+     * @param ids 需要处理的设备告警主键集合
+     * @param handler 处理人
+     * @return 结果
+     */
+    public int batchHandleQsDeviceAlarm(Long[] ids, String handler);
 }
