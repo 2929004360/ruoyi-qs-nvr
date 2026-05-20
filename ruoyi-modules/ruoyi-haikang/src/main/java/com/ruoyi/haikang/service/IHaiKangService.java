@@ -366,4 +366,20 @@ public interface IHaiKangService {
      * @return 视频参数
      */
     HashMap<String, Object> getHaiKangVideoParam(Long deviceId, int channelId, String streamType);
+
+    /**
+     * 报警布防
+     *
+     * @param ip 设备IP
+     * @return 布防句柄，失败返回-1
+     */
+    int setupAlarm(String ip);
+
+    /**
+     * 报警撤防
+     *
+     * @param ip 设备IP
+     * @return 是否成功
+     */
+    boolean closeAlarm(String ip);
 }

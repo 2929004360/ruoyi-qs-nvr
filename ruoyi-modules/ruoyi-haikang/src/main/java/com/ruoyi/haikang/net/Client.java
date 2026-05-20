@@ -1,5 +1,7 @@
 package com.ruoyi.haikang.net;
 
+import com.ruoyi.haikang.callback.FMSGCallBack_V31;
+import com.ruoyi.haikang.config.HaikangConfig;
 import com.ruoyi.haikang.service.IHaiKangService;
 import com.ruoyi.haikang.service.impl.HaiKangServiceImpl;
 import com.ruoyi.haikang.utils.OsSelect;
@@ -25,9 +27,14 @@ public class Client {
 
     public FExceptionCallBack_Imp fExceptionCallBack;
 
+    public FMSGCallBack_V31 fMSGCallBack;
+
     @Autowired
     @Lazy
     private IHaiKangService haiKangService;
+
+    @Autowired
+    private HaikangConfig haikangConfig;
 
     public class FExceptionCallBack_Imp implements HCNetSDK.FExceptionCallBack {
         public void invoke(int dwType, int lUserID, int lHandle, Pointer pUser) {
@@ -132,6 +139,21 @@ public class Client {
             return;
         }
         log.info("设置异常消息回调成功");
+
+        //报警消息回调
+        if (Boolean.TRUE.equals(haikangConfig.getEnableAlarmListen())) {
+            if (fMSGCallBack == null) {
+                fMSGCallBack = new FMSGCallBack_V31();
+            }
+            if (!hCNetSDK.NET_DVR_SetDVRMessageCallBack_V31(fMSGCallBack, pUser)) {
+                log.warn("设置报警消息回调失败, 错误码:{}", hCNetSDK.NET_DVR_GetLastError());
+            } else {
+                log.info("设置报警消息回调成功");
+            }
+        } else {
+            log.info("报警监听已禁用，跳过设置报警消息回调");
+        }
+
         //启动SDK写日志
         hCNetSDK.NET_DVR_SetLogToFile(3, "./haikangSdkLog", false);
     }

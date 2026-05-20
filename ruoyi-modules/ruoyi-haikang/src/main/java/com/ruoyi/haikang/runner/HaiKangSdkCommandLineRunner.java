@@ -4,6 +4,7 @@ import com.ruoyi.common.core.constant.Constants;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.enums.LiveStreamType;
+import com.ruoyi.haikang.config.HaikangConfig;
 import com.ruoyi.haikang.net.Client;
 import com.ruoyi.haikang.service.IHaiKangService;
 import com.ruoyi.haikang.service.impl.HaiKangServiceImpl;
@@ -38,6 +39,9 @@ public class HaiKangSdkCommandLineRunner implements CommandLineRunner, Disposabl
     @Autowired
     private IHaiKangService haiKangService;
 
+    @Autowired
+    private HaikangConfig haikangConfig;
+
     @Override
     public void run(String... args) {
         log.info("=========================  开启海康sdk服务  =========================");
@@ -59,6 +63,14 @@ public class HaiKangSdkCommandLineRunner implements CommandLineRunner, Disposabl
                         device.getUserName(),
                         device.getPassword());
             }
+            // 保存设备IP到QsDevice的映射
+            HaiKangServiceImpl.getQsDeviceMap().put(device.getIpAddress(), device);
+            // 对已登录设备进行报警布防（根据配置决定）
+            if (Boolean.TRUE.equals(haikangConfig.getEnableAlarmListen())) {
+                haiKangService.setupAlarm(device.getIpAddress());
+            } else {
+                log.info("报警监听已禁用，跳过设备 {} 的报警布防", device.getIpAddress());
+            }
         }
     }
 
@@ -66,9 +78,18 @@ public class HaiKangSdkCommandLineRunner implements CommandLineRunner, Disposabl
     public void destroy() {
         log.info("=========================  停止海康sdk服务  =========================");
 
+        // 先对所有设备撤防（根据配置决定）
+        if (Boolean.TRUE.equals(haikangConfig.getEnableAlarmListen())) {
+            HaiKangServiceImpl.getAlarmHandleMap().forEach((k, v) -> {
+                haiKangService.closeAlarm(k);
+            });
+        }
+
+        // 再登出所有设备
         HaiKangServiceImpl.userIdMap.forEach((k, v) -> {
             haiKangService.logoutDevice(k);
         });
+        
         client.hCNetSDK.NET_DVR_Cleanup();
     }
 }

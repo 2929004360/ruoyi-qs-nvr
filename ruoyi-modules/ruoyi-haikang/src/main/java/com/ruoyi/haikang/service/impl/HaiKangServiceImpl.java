@@ -9,6 +9,7 @@ import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.haikang.api.domain.HaikangDeviceInfo;
 import com.ruoyi.haikang.callback.FRealDataForRtpOverTcpCallback;
 import com.ruoyi.haikang.api.domain.PresetInfo;
+import com.ruoyi.haikang.config.HaikangConfig;
 import com.ruoyi.haikang.enums.HCPlayControlEnum;
 import com.ruoyi.haikang.manager.StreamManager;
 import com.ruoyi.haikang.net.Client;
@@ -75,6 +76,18 @@ public class HaiKangServiceImpl implements IHaiKangService {
      * 海康登录用户ID
      */
     public static ConcurrentHashMap<String, Integer> userIdMap = new ConcurrentHashMap<String, Integer>();
+    
+    /**
+     * 设备IP到QsDevice的映射
+     */
+    public static ConcurrentHashMap<String, QsDevice> qsDeviceMap = new ConcurrentHashMap<String, QsDevice>();
+    
+    /**
+     * 获取qsDeviceMap
+     */
+    public static ConcurrentHashMap<String, QsDevice> getQsDeviceMap() {
+        return qsDeviceMap;
+    }
 
     @Autowired
     private RemoteQsDeviceService remoteQsDeviceService;
@@ -84,6 +97,9 @@ public class HaiKangServiceImpl implements IHaiKangService {
 
     @Autowired
     private RemoteQsDeviceSnapshotService remoteQsDeviceSnapshotService;
+
+    @Autowired
+    private HaikangConfig haikangConfig;
 
     /**
      * 登录设备，支持 V40 和 V30 版本，功能一致。
@@ -141,6 +157,14 @@ public class HaiKangServiceImpl implements IHaiKangService {
         userIdMap.put(ip, userId);
         deviceInfoMap.put(ip, deviceInfo);
         log.info("设备信息已保存, IP:{}, userId:{}", ip, userId);
+        
+        // 登录成功后自动布防（根据配置决定）
+        if (Boolean.TRUE.equals(haikangConfig.getEnableAlarmListen())) {
+            setupAlarm(ip);
+        } else {
+            log.info("报警监听已禁用，跳过设备 {} 的自动布防", ip);
+        }
+        
         return userId;
     }
 
@@ -163,6 +187,11 @@ public class HaiKangServiceImpl implements IHaiKangService {
             try {
                 log.info("开始登出海康设备, IP:{}", ip);
                 
+                // 先撤防（根据配置决定）
+                if (Boolean.TRUE.equals(haikangConfig.getEnableAlarmListen())) {
+                    closeAlarm(ip);
+                }
+                
                 // 清理设备相关的流媒体资源
                 cleanDeviceStreamResources(ip);
                 
@@ -176,6 +205,7 @@ public class HaiKangServiceImpl implements IHaiKangService {
             } finally {
                 userIdMap.remove(ip);
                 deviceInfoMap.remove(ip);
+                qsDeviceMap.remove(ip);
                 log.info("设备信息已从缓存中移除, IP:{}", ip);
             }
         } else {
@@ -2822,6 +2852,74 @@ public class HaiKangServiceImpl implements IHaiKangService {
     private String generateFileName(Long deviceId, int channelId) {
         String timeStr = new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date());
         return "haikang_" + deviceId + "_" + channelId + "_" + timeStr + ".jpg";
+    }
+
+    /**
+     * 报警布防句柄映射
+     */
+    private static ConcurrentHashMap<String, Integer> alarmHandleMap = new ConcurrentHashMap<>();
+
+    @Override
+    public int setupAlarm(String ip) {
+        log.info("开始报警布防, IP:{}", ip);
+        Integer lUserID = userIdMap.get(ip);
+        if (lUserID == null || lUserID < 0) {
+            log.error("设备未登录, IP:{}", ip);
+            return -1;
+        }
+
+        // 检查是否已布防
+        if (alarmHandleMap.containsKey(ip)) {
+            log.info("设备已布防, IP:{}, 句柄:{}", ip, alarmHandleMap.get(ip));
+            return alarmHandleMap.get(ip);
+        }
+
+        // 使用 NET_DVR_SetupAlarmChan_V41 进行布防
+        HCNetSDK.NET_DVR_SETUPALARM_PARAM setupAlarmParam = new HCNetSDK.NET_DVR_SETUPALARM_PARAM();
+        setupAlarmParam.dwSize = setupAlarmParam.size();
+        setupAlarmParam.byLevel = 1; // 布防优先级，0-低，1-中，2-高
+        setupAlarmParam.byAlarmInfoType = 1; // 报警信息类型，0-老报警信息，1-新报警信息
+        setupAlarmParam.byFaceAlarmDetection = 0; // 人脸检测报警，0-不订阅，1-订阅
+        setupAlarmParam.write();
+
+        int lAlarmHandle = client.hCNetSDK.NET_DVR_SetupAlarmChan_V41(lUserID, setupAlarmParam);
+        if (lAlarmHandle < 0) {
+            int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+            log.error("报警布防失败, IP:{}, 错误码:{}, 错误信息:{}", ip, errorCode, getErrorMessage(errorCode));
+            return -1;
+        }
+
+        alarmHandleMap.put(ip, lAlarmHandle);
+        log.info("报警布防成功, IP:{}, 句柄:{}", ip, lAlarmHandle);
+        return lAlarmHandle;
+    }
+
+    @Override
+    public boolean closeAlarm(String ip) {
+        log.info("开始报警撤防, IP:{}", ip);
+        Integer lAlarmHandle = alarmHandleMap.get(ip);
+        if (lAlarmHandle == null || lAlarmHandle < 0) {
+            log.warn("设备未布防, IP:{}", ip);
+            return true;
+        }
+
+        boolean success = client.hCNetSDK.NET_DVR_CloseAlarmChan_V30(lAlarmHandle);
+        if (success) {
+            alarmHandleMap.remove(ip);
+            log.info("报警撤防成功, IP:{}", ip);
+        } else {
+            int errorCode = client.hCNetSDK.NET_DVR_GetLastError();
+            log.error("报警撤防失败, IP:{}, 错误码:{}, 错误信息:{}", ip, errorCode, getErrorMessage(errorCode));
+        }
+
+        return success;
+    }
+
+    /**
+     * 获取所有布防的设备
+     */
+    public static ConcurrentHashMap<String, Integer> getAlarmHandleMap() {
+        return alarmHandleMap;
     }
 
 }
