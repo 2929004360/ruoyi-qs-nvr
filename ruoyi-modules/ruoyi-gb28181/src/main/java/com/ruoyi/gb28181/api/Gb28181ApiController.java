@@ -809,4 +809,25 @@ public class Gb28181ApiController {
         });
         return result;
     }
+
+    /**
+     * 远程重启设备
+     *
+     * @param gbDeviceId  设备国标编号
+     */
+    @PostMapping("/reboot/{gbDeviceId}")
+    public R<Void> rebootDevice(@PathVariable String gbDeviceId) {
+        try {
+            Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+            if (device == null) {
+                return R.fail("设备不存在: " + gbDeviceId);
+            }
+            sipCommander.rebootDevice(device);
+            return R.ok();
+        } catch (Exception e) {
+            log.error("[远程重启设备] 失败: {}", e.getMessage(), e);
+            return R.fail("远程重启设备失败: " + e.getMessage());
+        }
+    }
+
 }

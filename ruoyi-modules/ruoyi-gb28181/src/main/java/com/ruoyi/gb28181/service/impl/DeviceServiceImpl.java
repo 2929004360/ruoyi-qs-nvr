@@ -494,4 +494,39 @@ public class DeviceServiceImpl implements IDeviceService {
             throw new ServiceException("命令发送失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 刷新设备状态和通道
+     *
+     * @param device 设备
+     */
+    @Override
+    public void refreshDevice(Device device) {
+        log.info("[刷新设备] 开始刷新：{}", device.getDeviceId());
+        
+        try {
+            // 1. 发送设备状态查询
+            log.info("[刷新设备] 查询设备状态：{}", device.getDeviceId());
+            commander.deviceStatusQuery(device, (code, msg, data) -> {
+                log.info("[刷新设备] 设备状态查询结果：code={}, msg={}", code, msg);
+            });
+            
+            // 2. 发送设备信息查询
+            log.info("[刷新设备] 查询设备信息：{}", device.getDeviceId());
+            commander.deviceInfoQuery(device, null);
+            
+            // 3. 发送设备配置查询
+            log.info("[刷新设备] 查询设备配置：{}", device.getDeviceId());
+            commander.deviceConfigQuery(device, null, "BasicParam", null);
+            
+            // 4. 同步通道
+            log.info("[刷新设备] 同步通道：{}", device.getDeviceId());
+            sync(device);
+            
+            log.info("[刷新设备] 刷新完成：{}", device.getDeviceId());
+        } catch (InvalidArgumentException | SipException | ParseException e) {
+            log.error("[刷新设备] 刷新失败：{}", e.getMessage(), e);
+            throw new ServiceException("刷新失败: " + e.getMessage());
+        }
+    }
 }

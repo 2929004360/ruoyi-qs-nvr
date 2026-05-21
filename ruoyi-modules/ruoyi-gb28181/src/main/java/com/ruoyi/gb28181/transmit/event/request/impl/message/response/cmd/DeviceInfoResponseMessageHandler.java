@@ -1,11 +1,11 @@
 package com.ruoyi.gb28181.transmit.event.request.impl.message.response.cmd;
 
 import com.ruoyi.gb28181.api.domain.Device;
-import com.ruoyi.gb28181.service.IDeviceService;
+import com.ruoyi.gb28181.api.domain.DeviceInfo;
+import com.ruoyi.gb28181.api.utils.XmlUtil;
 import com.ruoyi.gb28181.transmit.event.request.SIPRequestProcessorParent;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.IMessageHandler;
 import com.ruoyi.gb28181.transmit.event.request.impl.message.response.ResponseMessageHandler;
-import com.ruoyi.gb28181.api.utils.XmlUtil;
 import gov.nist.javax.sip.message.SIPRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.dom4j.DocumentException;
@@ -13,16 +13,17 @@ import org.dom4j.Element;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ObjectUtils;
 
 import javax.sip.InvalidArgumentException;
 import javax.sip.RequestEvent;
 import javax.sip.SipException;
 import javax.sip.message.Response;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * @author lin
+ * DeviceInfo 应答消息处理
  */
 @Slf4j
 @Component
@@ -33,10 +34,6 @@ public class DeviceInfoResponseMessageHandler extends SIPRequestProcessorParent 
     @Autowired
     private ResponseMessageHandler responseMessageHandler;
 
-
-    @Autowired
-    private IDeviceService deviceService;
-
     @Override
     public void afterPropertiesSet() throws Exception {
         responseMessageHandler.addHandler(cmdType, this);
@@ -44,10 +41,9 @@ public class DeviceInfoResponseMessageHandler extends SIPRequestProcessorParent 
 
     @Override
     public void handForDevice(RequestEvent evt, Device device, Element rootElement) {
-        log.debug("接收到DeviceInfo应答消息");
-        // 检查设备是否存在， 不存在则不回复
-        if (device == null || !device.isOnLine()) {
-            log.warn("[接收到DeviceInfo应答消息,但是设备已经离线]：" + (device != null ? device.getDeviceId() : ""));
+        log.info("接收到DeviceInfo应答消息, 设备: {}", device);
+        if (device == null) {
+            log.warn("[接收到DeviceInfo应答消息,但是设备不存在]");
             return;
         }
         SIPRequest request = (SIPRequest) evt.getRequest();
@@ -55,7 +51,7 @@ public class DeviceInfoResponseMessageHandler extends SIPRequestProcessorParent 
             rootElement = getRootElement(evt, device.getCharset());
 
             if (rootElement == null) {
-                log.warn("[ 接收到DeviceInfo应答消息 ] content cannot be null, {}", evt.getRequest());
+                log.warn("[接收到DeviceInfo应答消息] content cannot be null, {}", evt.getRequest());
                 try {
                     responseAck((SIPRequest) evt.getRequest(), Response.BAD_REQUEST);
                 } catch (SipException | InvalidArgumentException | ParseException e) {
@@ -63,16 +59,47 @@ public class DeviceInfoResponseMessageHandler extends SIPRequestProcessorParent 
                 }
                 return;
             }
-            device.setName(XmlUtil.getText(rootElement, "DeviceName"));
 
-            device.setManufacturer(XmlUtil.getText(rootElement, "Manufacturer"));
-            device.setModel(XmlUtil.getText(rootElement, "Model"));
-            device.setFirmware(XmlUtil.getText(rootElement, "Firmware"));
-            if (ObjectUtils.isEmpty(device.getStreamMode())) {
-                device.setStreamMode("TCP-PASSIVE");
+            // 解析 DeviceInfo 对象
+            DeviceInfo deviceInfo = new DeviceInfo();
+            deviceInfo.setCmdType(XmlUtil.getText(rootElement, "CmdType"));
+            deviceInfo.setSn(XmlUtil.getText(rootElement, "SN"));
+            deviceInfo.setDeviceId(XmlUtil.getText(rootElement, "DeviceID"));
+            deviceInfo.setDeviceName(XmlUtil.getText(rootElement, "DeviceName"));
+            deviceInfo.setResult(XmlUtil.getText(rootElement, "Result"));
+            deviceInfo.setManufacturer(XmlUtil.getText(rootElement, "Manufacturer"));
+            deviceInfo.setModel(XmlUtil.getText(rootElement, "Model"));
+            deviceInfo.setFirmware(XmlUtil.getText(rootElement, "Firmware"));
+            deviceInfo.setDeviceType(XmlUtil.getText(rootElement, "DeviceType"));
+            
+            String channelStr = XmlUtil.getText(rootElement, "Channel");
+            if (channelStr != null && !channelStr.isEmpty()) {
+                deviceInfo.setChannel(Integer.parseInt(channelStr));
             }
-            deviceService.updateDevice(device);
-            responseMessageHandler.handMessageEvent(rootElement, device);
+            
+            String maxCameraStr = XmlUtil.getText(rootElement, "MaxCamera");
+            if (maxCameraStr != null && !maxCameraStr.isEmpty()) {
+                deviceInfo.setMaxCamera(Integer.parseInt(maxCameraStr));
+                // 如果 channel 为空，用 maxCamera 填充
+                if (deviceInfo.getChannel() == null) {
+                    deviceInfo.setChannel(deviceInfo.getMaxCamera());
+                }
+            }
+            
+            String maxAlarmStr = XmlUtil.getText(rootElement, "MaxAlarm");
+            if (maxAlarmStr != null && !maxAlarmStr.isEmpty()) {
+                deviceInfo.setMaxAlarm(Integer.parseInt(maxAlarmStr));
+            }
+
+            // 解析 ExtraInfo
+            List<String> extraInfoList = new ArrayList<>();
+            List<Element> extraInfoElements = rootElement.elements("ExtraInfo");
+            for (Element extraInfoElement : extraInfoElements) {
+                extraInfoList.add(extraInfoElement.getText());
+            }
+            deviceInfo.setExtraInfo(extraInfoList);
+
+            responseMessageHandler.handMessageEvent(rootElement, deviceInfo);
 
         } catch (DocumentException e) {
             throw new RuntimeException(e);

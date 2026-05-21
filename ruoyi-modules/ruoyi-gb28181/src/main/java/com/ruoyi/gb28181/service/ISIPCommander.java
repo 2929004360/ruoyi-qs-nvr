@@ -4,6 +4,7 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceStatus;
 import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 
 import javax.sip.InvalidArgumentException;
@@ -44,7 +45,7 @@ public interface ISIPCommander {
      * @param device
      * @param callback
      */
-    void deviceStatusQuery(Device device, ErrorCallback<String> callback) throws InvalidArgumentException, SipException, ParseException;
+    void deviceStatusQuery(Device device, ErrorCallback<DeviceStatus> callback) throws InvalidArgumentException, SipException, ParseException;
 
     /**
      * 请求预览视频流
@@ -114,5 +115,28 @@ public interface ISIPCommander {
      * @throws ParseException
      */
     void recordInfoQuery(Device device, String channelId, String startTime, String endTime, int sn, Integer secrecy, String type, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent) throws InvalidArgumentException, SipException, ParseException;
+
+    /**
+     * 远程重启设备
+     *
+     * @param device  设备
+     * @throws InvalidArgumentException
+     * @throws SipException
+     * @throws ParseException
+     */
+    void rebootDevice(Device device) throws InvalidArgumentException, SipException, ParseException;
+
+    /**
+     * 录像控制
+     *
+     * @param device       设备
+     * @param channelId    通道国标编号
+     * @param recordCmd    录像命令：0-停止录像，1-开始录像，2-定时录像
+     * @param streamNumber 码流类型：0-主码流，1-子码流1，2-子码流2，以此类推，缺省为0
+     * @throws InvalidArgumentException
+     * @throws SipException
+     * @throws ParseException
+     */
+    void recordCmd(Device device, String channelId, String recordCmd, Integer streamNumber) throws InvalidArgumentException, SipException, ParseException;
 
 }

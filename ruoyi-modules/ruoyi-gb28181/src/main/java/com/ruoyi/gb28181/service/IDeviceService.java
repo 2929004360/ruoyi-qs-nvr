@@ -114,4 +114,11 @@ public interface IDeviceService {
      * @param callback  回调
      */
     void queryRecord(Device device, DeviceChannel channel, String startTime, String endTime, ErrorCallback<RecordInfo> callback);
+
+    /**
+     * 刷新设备状态和通道
+     *
+     * @param device 设备
+     */
+    void refreshDevice(Device device);
 }
