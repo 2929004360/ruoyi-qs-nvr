@@ -1846,7 +1846,7 @@ public class HaiKangServiceImpl implements IHaiKangService {
             snapshot.setFileType("jpg");
             snapshot.setSnapshotType(snapshotType);
             snapshot.setSdkType("hik");
-            snapshot.setChannel(successChannelId);
+            snapshot.setChannel(Long.valueOf(successChannelId));
             snapshot.setCaptureTime(new Date());
 
             // 保存到数据库

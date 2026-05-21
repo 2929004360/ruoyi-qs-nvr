@@ -138,7 +138,7 @@ public class PSS_Storage_Callback implements HCISUPSS.EHomeSSStorageCallBack {
             snapshot.setFileType("jpg");
             snapshot.setSnapshotType(snapshotType);
             snapshot.setSdkType("hik_isup");
-            snapshot.setChannel(channelId);
+            snapshot.setChannel(Long.valueOf(channelId));
             snapshot.setCaptureTime(new Date());
             
             R<Long> result = remoteQsDeviceSnapshotService.add(snapshot, SecurityConstants.INNER);

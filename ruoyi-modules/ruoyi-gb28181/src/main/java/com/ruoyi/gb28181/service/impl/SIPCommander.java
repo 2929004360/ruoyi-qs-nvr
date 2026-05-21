@@ -7,6 +7,8 @@ import com.ruoyi.gb28181.api.bean.Preset;
 import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.common.InviteSessionType;
 import com.ruoyi.gb28181.api.domain.Device;
+import com.ruoyi.gb28181.api.domain.DeviceConfig;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.gb28181.api.domain.DeviceStatus;
 import com.ruoyi.gb28181.api.domain.SsrcTransaction;
 import com.ruoyi.gb28181.api.utils.DateUtil;
@@ -123,20 +125,185 @@ public class SIPCommander implements ISIPCommander {
         int sn = (int) ((Math.random() * 9 + 1) * 100000);
         StringBuffer cmdXml = new StringBuffer(200);
         String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
         cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
         cmdXml.append("<Query>\r\n");
         cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
         cmdXml.append("<SN>" + sn + "</SN>\r\n");
-        if (ObjectUtils.isEmpty(channelId)) {
-            cmdXml.append("<DeviceID>" + device.getDeviceId() + "</DeviceID>\r\n");
-        } else {
-            cmdXml.append("<DeviceID>" + channelId + "</DeviceID>\r\n");
-        }
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
         cmdXml.append("<ConfigType>" + configType + "</ConfigType>\r\n");
         cmdXml.append("</Query>\r\n");
 
-        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", channelId, 1000L, callback);
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
         messageSubscribe.addSubscribe(messageEvent);
+        log.info("[设备配置查询] 设备编号: {}, SN: {}, 配置类型: {}, 目标ID: {}", device.getDeviceId(), sn, configType, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 设备配置命令
+     *
+     * @param device     视频设备
+     * @param channelId  通道编码（可选）
+     * @param deviceConfig 设备配置
+     * @param callback 回调
+     */
+    @Override
+    public void deviceConfigCmd(Device device, String channelId, com.ruoyi.gb28181.api.domain.DeviceConfig deviceConfig, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceConfig";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(500);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        
+        // 添加各种配置类型
+        if (deviceConfig.getBasicParam() != null) {
+            appendJsonObjectToXml(cmdXml, "BasicParam", deviceConfig.getBasicParam());
+        }
+        if (deviceConfig.getVideoParamOpt() != null) {
+            appendJsonObjectToXml(cmdXml, "VideoParamOpt", deviceConfig.getVideoParamOpt());
+        }
+        if (deviceConfig.getSvacEncodeConfig() != null) {
+            appendJsonObjectToXml(cmdXml, "SVACEncodeConfig", deviceConfig.getSvacEncodeConfig());
+        }
+        if (deviceConfig.getSvacDecodeConfig() != null) {
+            appendJsonObjectToXml(cmdXml, "SVACDecodeConfig", deviceConfig.getSvacDecodeConfig());
+        }
+        if (deviceConfig.getVideoParamAttribute() != null) {
+            appendJsonObjectToXml(cmdXml, "VideoParamAttribute", deviceConfig.getVideoParamAttribute());
+        }
+        if (deviceConfig.getVideoRecordPlan() != null) {
+            appendJsonObjectToXml(cmdXml, "VideoRecordPlan", deviceConfig.getVideoRecordPlan());
+        }
+        if (deviceConfig.getVideoAlarmRecord() != null) {
+            appendJsonObjectToXml(cmdXml, "VideoAlarmRecord", deviceConfig.getVideoAlarmRecord());
+        }
+        if (deviceConfig.getPictureMask() != null) {
+            appendJsonObjectToXml(cmdXml, "PictureMask", deviceConfig.getPictureMask());
+        }
+        if (deviceConfig.getFrameMirror() != null) {
+            appendJsonObjectToXml(cmdXml, "FrameMirror", deviceConfig.getFrameMirror());
+        }
+        if (deviceConfig.getAlarmReport() != null) {
+            appendJsonObjectToXml(cmdXml, "AlarmReport", deviceConfig.getAlarmReport());
+        }
+        if (deviceConfig.getOsdConfig() != null) {
+            appendJsonObjectToXml(cmdXml, "OSDConfig", deviceConfig.getOsdConfig());
+        }
+        if (deviceConfig.getSnapshot() != null) {
+            appendJsonObjectToXml(cmdXml, "Snapshot", deviceConfig.getSnapshot());
+        }
+        
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[设备配置命令] 设备编号: {}, SN: {}, 目标ID: {}", device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+    
+    /**
+     * 将 JSONObject 转换为 XML 格式并追加到 StringBuffer 中
+     */
+    private void appendJsonObjectToXml(StringBuffer sb, String tagName, com.alibaba.fastjson2.JSONObject jsonObj) {
+        sb.append("<").append(tagName).append(">\r\n");
+        for (String key : jsonObj.keySet()) {
+            Object value = jsonObj.get(key);
+            if (value instanceof com.alibaba.fastjson2.JSONObject) {
+                appendJsonObjectToXml(sb, key, (com.alibaba.fastjson2.JSONObject) value);
+            } else {
+                sb.append("<").append(key).append(">").append(value != null ? value.toString() : "").append("</").append(key).append(">\r\n");
+            }
+        }
+        sb.append("</").append(tagName).append(">\r\n");
+    }
+
+    /**
+     * 看守位信息查询
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void homePositionQuery(Device device, String channelId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "HomePositionQuery";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"").append(charset).append("\"?>\r\n");
+        cmdXml.append("<Query>\r\n");
+        cmdXml.append("<CmdType>").append(cmdType).append("</CmdType>\r\n");
+        cmdXml.append("<SN>").append(sn).append("</SN>\r\n");
+        cmdXml.append("<DeviceID>").append(targetId).append("</DeviceID>\r\n");
+        cmdXml.append("</Query>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[看守位查询] 设备编号: {}, SN: {}, 目标ID: {}", device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 看守位设置
+     *
+     * @param device       设备
+     * @param channelId    通道国标编号（可选）
+     * @param deviceConfig 看守位配置
+     * @param callback     回调
+     */
+    @Override
+    public void homePositionCmd(Device device, String channelId, com.ruoyi.gb28181.api.domain.DeviceConfig deviceConfig, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "HomePosition";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(500);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"").append(charset).append("\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>").append(cmdType).append("</CmdType>\r\n");
+        cmdXml.append("<SN>").append(sn).append("</SN>\r\n");
+        cmdXml.append("<DeviceID>").append(targetId).append("</DeviceID>\r\n");
+        
+        // 添加看守位配置
+        if (deviceConfig.getHomePosition() != null) {
+            appendJsonObjectToXml(cmdXml, "HomePosition", deviceConfig.getHomePosition());
+        }
+        
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[看守位设置] 设备编号: {}, SN: {}, 目标ID: {}", device.getDeviceId(), sn, targetId);
 
         Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
         sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
@@ -666,4 +833,539 @@ public class SIPCommander implements ISIPCommander {
         log.info("[录像控制] 设备编号: {}, 通道编号: {}, 录像命令: {}, 码流类型: {}, SN: {}", device.getDeviceId(), channelId, recordCmd, streamNumber, sn);
     }
 
+    /**
+     * 巡航轨迹列表查询
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void cruiseTrackListQuery(Device device, String channelId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "CruiseTrackListQuery";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Query>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("</Query>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[巡航轨迹列表查询] 设备编号: {}, SN: {}, 目标ID: {}", device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 巡航轨迹查询
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param number     轨迹编号：0-第一条轨迹，1-第二条轨迹
+     * @param callback   回调
+     */
+    @Override
+    public void cruiseTrackQuery(Device device, String channelId, Integer number, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "CruiseTrackQuery";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Query>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<Number>" + number + "</Number>\r\n");
+        cmdXml.append("</Query>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[巡航轨迹查询] 设备编号: {}, SN: {}, 目标ID: {}, 轨迹编号: {}", device.getDeviceId(), sn, targetId, number);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * PTZ精准状态查询
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void ptzPositionQuery(Device device, String channelId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "PTZPosition";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Query>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("</Query>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[PTZ精准状态查询] 设备编号: {}, SN: {}, 目标ID: {}", device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 存储卡状态查询
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void sdCardStatusQuery(Device device, String channelId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "SDCardStatus";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Query>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("</Query>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[存储卡状态查询] 设备编号: {}, SN: {}, 目标ID: {}", device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 报警复位控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param alarmMethod  报警方式（可选），0-全部，1-电话报警，2-设备报警，3-短信报警，4-GPS报警，5-视频报警，6-设备故障报警，7-其他报警
+     * @param alarmType  报警类型（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void alarmResetControl(Device device, String channelId, String alarmMethod, String alarmType, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<AlarmCmd>ResetAlarm</AlarmCmd>\r\n");
+        if (!ObjectUtils.isEmpty(alarmMethod) || !ObjectUtils.isEmpty(alarmType)) {
+            cmdXml.append("<Info>\r\n");
+            if (!ObjectUtils.isEmpty(alarmMethod)) {
+                cmdXml.append("<AlarmMethod>" + alarmMethod + "</AlarmMethod>\r\n");
+            }
+            if (!ObjectUtils.isEmpty(alarmType)) {
+                cmdXml.append("<AlarmType>" + alarmType + "</AlarmType>\r\n");
+            }
+            cmdXml.append("</Info>\r\n");
+        }
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[报警复位控制] 设备编号: {}, SN: {}, 目标 ID: {}, 报警方式: {}, 报警类型: {}", device.getDeviceId(), sn, targetId, alarmMethod, alarmType);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 强制关键帧控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void iFrameControl(Device device, String channelId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<IFrameCmd>Send</IFrameCmd>\r\n");
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[强制关键帧控制] 设备编号: {}, SN: {}, 目标 ID: {}", device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 看守位控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param deviceConfig 设备配置，包含看守位配置
+     * @param callback   回调
+     */
+    @Override
+    public void homePositionControl(Device device, String channelId, DeviceConfig deviceConfig, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        if (deviceConfig != null && deviceConfig.getHomePosition() != null) {
+            JSONObject homePosition = deviceConfig.getHomePosition();
+            cmdXml.append("<HomePosition>\r\n");
+            if (homePosition.containsKey("Enabled")) {
+                cmdXml.append("<Enabled>" + homePosition.getInteger("Enabled") + "</Enabled>\r\n");
+            }
+            if (homePosition.containsKey("ResetTime")) {
+                cmdXml.append("<ResetTime>" + homePosition.getInteger("ResetTime") + "</ResetTime>\r\n");
+            }
+            if (homePosition.containsKey("PresetIndex")) {
+                cmdXml.append("<PresetIndex>" + homePosition.getInteger("PresetIndex") + "</PresetIndex>\r\n");
+            }
+            cmdXml.append("</HomePosition>\r\n");
+        }
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[看守位控制] 设备编号: {}, SN: {}, 目标 ID: {}, 配置: {}", device.getDeviceId(), sn, targetId, deviceConfig != null ? deviceConfig.getHomePosition() : null);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * PTZ精准控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param ptzPreciseCtrl PTZ精准控制参数
+     * @param callback   回调
+     */
+    @Override
+    public void ptzPreciseControl(Device device, String channelId, JSONObject ptzPreciseCtrl, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        if (ptzPreciseCtrl != null) {
+            cmdXml.append("<PTZPreciseCtrl>\r\n");
+            if (ptzPreciseCtrl.containsKey("Pan")) {
+                cmdXml.append("<Pan>" + ptzPreciseCtrl.getDouble("Pan") + "</Pan>\r\n");
+            }
+            if (ptzPreciseCtrl.containsKey("Tilt")) {
+                cmdXml.append("<Tilt>" + ptzPreciseCtrl.getDouble("Tilt") + "</Tilt>\r\n");
+            }
+            if (ptzPreciseCtrl.containsKey("Zoom")) {
+                cmdXml.append("<Zoom>" + ptzPreciseCtrl.getDouble("Zoom") + "</Zoom>\r\n");
+            }
+            cmdXml.append("</PTZPreciseCtrl>\r\n");
+        }
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[PTZ精准控制] 设备编号: {}, SN: {}, 目标 ID: {}, 参数: {}", device.getDeviceId(), sn, targetId, ptzPreciseCtrl);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 设备软件升级控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param firmware   设备固件版本
+     * @param fileURL    升级文件的完整路径
+     * @param manufacturer 设备厂商
+     * @param sessionID  会话ID
+     * @param callback   回调
+     */
+    @Override
+    public void deviceUpgradeControl(Device device, String channelId, String firmware, String fileURL, String manufacturer, String sessionID, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<DeviceUpgrade>\r\n");
+        cmdXml.append("<Firmware>" + firmware + "</Firmware>\r\n");
+        cmdXml.append("<FileURL>" + fileURL + "</FileURL>\r\n");
+        cmdXml.append("<Manufacturer>" + manufacturer + "</Manufacturer>\r\n");
+        cmdXml.append("<SessionID>" + sessionID + "</SessionID>\r\n");
+        cmdXml.append("</DeviceUpgrade>\r\n");
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[设备软件升级控制] 设备编号: {}, SN: {}, 目标 ID: {}, 固件版本: {}, 文件URL: {}, 厂商: {}, 会话ID: {}", 
+            device.getDeviceId(), sn, targetId, firmware, fileURL, manufacturer, sessionID);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 存储卡格式化控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param sdCardId   SD卡编号（0表示所有存储卡）
+     * @param callback   回调
+     */
+    @Override
+    public void formatSDCardControl(Device device, String channelId, Integer sdCardId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<FormatSDCard>" + sdCardId + "</FormatSDCard>\r\n");
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10 * 1000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[存储卡格式化控制] 设备编号: {}, SN: {}, 目标 ID: {}, SD卡编号: {}", 
+            device.getDeviceId(), sn, targetId, sdCardId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 目标跟踪控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选，指球机通道）
+     * @param targetTrack 跟踪类型：Auto/Manual/Stop
+     * @param deviceId2  目标设备编码（可选，指全景相机中的全景通道ID）
+     * @param targetArea 目标区域（可选，手动跟踪时需要）
+     * @param callback   回调
+     */
+    @Override
+    public void targetTrackControl(Device device, String channelId, String targetTrack, String deviceId2, JSONObject targetArea, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(500);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<TargetTrack>" + targetTrack + "</TargetTrack>\r\n");
+        if (!ObjectUtils.isEmpty(deviceId2)) {
+            cmdXml.append("<DeviceID2>" + deviceId2 + "</DeviceID2>\r\n");
+        }
+        if (targetArea != null) {
+            cmdXml.append("<TargetArea>\r\n");
+            if (targetArea.containsKey("Length")) {
+                cmdXml.append("<Length>" + targetArea.getInteger("Length") + "</Length>\r\n");
+            }
+            if (targetArea.containsKey("Width")) {
+                cmdXml.append("<Width>" + targetArea.getInteger("Width") + "</Width>\r\n");
+            }
+            if (targetArea.containsKey("MidPoineX")) {
+                cmdXml.append("<MidPoineX>" + targetArea.getInteger("MidPoineX") + "</MidPoineX>\r\n");
+            }
+            if (targetArea.containsKey("MidPoineY")) {
+                cmdXml.append("<MidPoineY>" + targetArea.getInteger("MidPoineY") + "</MidPoineY>\r\n");
+            }
+            if (targetArea.containsKey("LengthX")) {
+                cmdXml.append("<LengthX>" + targetArea.getInteger("LengthX") + "</LengthX>\r\n");
+            }
+            if (targetArea.containsKey("LengthY")) {
+                cmdXml.append("<LengthY>" + targetArea.getInteger("LengthY") + "</LengthY>\r\n");
+            }
+            cmdXml.append("</TargetArea>\r\n");
+        }
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10 * 1000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[目标跟踪控制] 设备编号: {}, SN: {}, 目标 ID: {}, 跟踪类型: {}, 全景通道 ID: {}, 目标区域: {}", 
+            device.getDeviceId(), sn, targetId, targetTrack, deviceId2, targetArea);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 设备抓图控制
+     *
+     * @param device     设备
+     * @param channelId  通道国标编号（可选）
+     * @param callback   回调
+     */
+    @Override
+    public void pictureCaptureControl(Device device, String channelId, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = ObjectUtils.isEmpty(channelId) ? device.getDeviceId() : channelId;
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<Picture>0</Picture>\r\n");
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10 * 1000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[设备抓图控制] 设备编号: {}, SN: {}, 目标 ID: {}", 
+            device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
+    /**
+     * 设备校时控制
+     *
+     * @param device   设备
+     * @param callback 回调
+     */
+    @Override
+    public void timeCheckCmd(Device device, ErrorCallback<Object> callback) throws InvalidArgumentException, SipException, ParseException {
+        String cmdType = "DeviceControl";
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        StringBuffer cmdXml = new StringBuffer(400);
+        String charset = device.getCharset();
+        String targetId = device.getDeviceId();
+        cmdXml.append("<?xml version=\"1.0\" encoding=\"" + charset + "\"?>\r\n");
+        cmdXml.append("<Control>\r\n");
+        cmdXml.append("<CmdType>" + cmdType + "</CmdType>\r\n");
+        cmdXml.append("<SN>" + sn + "</SN>\r\n");
+        cmdXml.append("<DeviceID>" + targetId + "</DeviceID>\r\n");
+        cmdXml.append("<TimeCheck>0</TimeCheck>\r\n");
+        cmdXml.append("</Control>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", targetId, 10 * 1000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[设备校时控制] 设备编号: {}, SN: {}, 目标 ID: {}", 
+            device.getDeviceId(), sn, targetId);
+
+        Request request = headerProvider.createMessageRequest(device, cmdXml.toString(), null, SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
+            if (callback != null) {
+                callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
+            }
+        });
+    }
+
 }
+

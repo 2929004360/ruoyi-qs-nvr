@@ -48,7 +48,7 @@ public class QsDeviceSnapshot extends BaseEntity {
     private String sdkType;
 
     @Excel(name = "通道号", cellType = ColumnType.NUMERIC)
-    private Integer channel;
+    private Long channel;
 
     @Excel(name = "抓图时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date captureTime;

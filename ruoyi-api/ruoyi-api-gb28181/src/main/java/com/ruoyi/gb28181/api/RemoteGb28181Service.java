@@ -8,6 +8,8 @@ import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.domain.CatalogRequest;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.DeviceConfig;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import com.ruoyi.gb28181.api.factory.RemoteGb28181FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -454,4 +456,212 @@ public interface RemoteGb28181Service {
      */
     @PostMapping("/api/gb28181/platform/cascade/catalog/{platformId}")
     R<Void> pushCatalog(@PathVariable Long platformId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 查询设备配置
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param configType 配置类型，多个用/分隔
+     * @param inner
+     * @return 设备配置
+     */
+    @GetMapping("/api/gb28181/config/{gbDeviceId}")
+    R<Object> queryDeviceConfig(@PathVariable String gbDeviceId, @RequestParam String configType, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 修改设备配置
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param deviceConfig 设备配置
+     * @param inner
+     * @return 操作结果
+     */
+    @PostMapping("/api/gb28181/config/{gbDeviceId}")
+    R<Object> updateDeviceConfig(@PathVariable String gbDeviceId, @RequestBody DeviceConfig deviceConfig, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 查询看守位
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param inner
+     * @return 看守位信息
+     */
+    @GetMapping("/api/gb28181/homePosition/{gbDeviceId}")
+    R<Object> queryHomePosition(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 设置看守位
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param deviceConfig 看守位配置
+     * @param inner
+     * @return 操作结果
+     */
+    @PostMapping("/api/gb28181/homePosition/{gbDeviceId}")
+    R<Object> updateHomePosition(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody DeviceConfig deviceConfig, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 查询巡航轨迹列表
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param inner
+     * @return 巡航轨迹列表
+     */
+    @GetMapping("/api/gb28181/cruiseTrackList/{gbDeviceId}")
+    R<Object> queryCruiseTrackList(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 查询巡航轨迹
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param number 轨迹编号：0-第一条轨迹，1-第二条轨迹
+     * @param inner
+     * @return 巡航轨迹信息
+     */
+    @GetMapping("/api/gb28181/cruiseTrack/{gbDeviceId}")
+    R<Object> queryCruiseTrack(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestParam Integer number, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * PTZ精准状态查询
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param inner
+     * @return PTZ精准状态信息
+     */
+    @GetMapping("/api/gb28181/ptzPosition/{gbDeviceId}")
+    R<Object> queryPTZPosition(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 存储卡状态查询
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param inner
+     * @return 存储卡状态信息
+     */
+    @GetMapping("/api/gb28181/sdCardStatus/{gbDeviceId}")
+    R<Object> querySDCardStatus(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 报警复位控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param alarmMethod 报警方式（可选），0-全部，1-电话报警，2-设备报警，3-短信报警，4-GPS报警，5-视频报警，6-设备故障报警，7-其他报警
+     * @param alarmType 报警类型（可选）
+     * @param inner
+     * @return 报警复位控制结果
+     */
+    @PostMapping("/api/gb28181/alarmReset/{gbDeviceId}")
+    R<Object> alarmResetControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestParam(required = false) String alarmMethod, @RequestParam(required = false) String alarmType, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 强制关键帧控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param inner
+     * @return 强制关键帧控制结果
+     */
+    @PostMapping("/api/gb28181/iFrame/{gbDeviceId}")
+    R<Object> iFrameControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 看守位控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param deviceConfig 设备配置，包含看守位配置
+     * @param inner
+     * @return 看守位控制结果
+     */
+    @PostMapping("/api/gb28181/homePosition/{gbDeviceId}")
+    R<Object> homePositionControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody DeviceConfig deviceConfig, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * PTZ精准控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param ptzPreciseCtrl PTZ精准控制参数
+     * @param inner
+     * @return PTZ精准控制结果
+     */
+    @PostMapping("/api/gb28181/ptzPrecise/{gbDeviceId}")
+    R<Object> ptzPreciseControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody JSONObject ptzPreciseCtrl, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 设备软件升级控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param firmware 设备固件版本
+     * @param fileURL 升级文件的完整路径
+     * @param manufacturer 设备厂商
+     * @param sessionID 会话ID
+     * @param inner
+     * @return 设备软件升级控制结果
+     */
+    @PostMapping("/api/gb28181/deviceUpgrade/{gbDeviceId}")
+    R<Object> deviceUpgradeControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam String firmware, @RequestParam String fileURL, @RequestParam String manufacturer,
+        @RequestParam String sessionID, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 存储卡格式化控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param sdCardId SD卡编号（0表示所有存储卡）
+     * @param inner
+     * @return 存储卡格式化控制结果
+     */
+    @PostMapping("/api/gb28181/formatSDCard/{gbDeviceId}")
+    R<Object> formatSDCardControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam Integer sdCardId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 目标跟踪控制
+     *
+     * @param gbDeviceId 设备国标编号（球机通道）
+     * @param channelId 通道国标编号（可选，指球机通道）
+     * @param targetTrack 跟踪类型：Auto/Manual/Stop
+     * @param deviceId2 目标设备编码（可选，指全景相机中的全景通道ID）
+     * @param targetArea 目标区域（可选，手动跟踪时需要）
+     * @param inner
+     * @return 目标跟踪控制结果
+     */
+    @PostMapping("/api/gb28181/targetTrack/{gbDeviceId}")
+    R<Object> targetTrackControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam String targetTrack, @RequestParam(required = false) String deviceId2,
+        @RequestBody(required = false) JSONObject targetArea, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+     /**
+     * 抓图控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param snapshotType 抓图类型（可选）
+     * @param inner
+     * @return 抓图记录ID
+     */
+    @PostMapping("/api/gb28181/captureAndSave/{gbDeviceId}")
+    R<Long> captureAndSave(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam(required = false) String snapshotType, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 设备校时控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param inner
+     * @return 校时结果
+     */
+    @PostMapping("/api/gb28181/timeCheck/{gbDeviceId}")
+    R<Object> timeCheckCmd(@PathVariable String gbDeviceId, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
 }

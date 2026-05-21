@@ -65,6 +65,30 @@ public class ConfigDownloadResponseMessageHandler extends SIPRequestProcessorPar
         if (json.get("SVACDecodeConfig") != null) {
             jsonObject.put("SVACDecodeConfig", json.getJSONObject("SVACDecodeConfig"));
         }
+        if (json.get("VideoParamAttribute") != null) {
+            jsonObject.put("VideoParamAttribute", json.getJSONObject("VideoParamAttribute"));
+        }
+        if (json.get("VideoRecordPlan") != null) {
+            jsonObject.put("VideoRecordPlan", json.getJSONObject("VideoRecordPlan"));
+        }
+        if (json.get("VideoAlarmRecord") != null) {
+            jsonObject.put("VideoAlarmRecord", json.getJSONObject("VideoAlarmRecord"));
+        }
+        if (json.get("PictureMask") != null) {
+            jsonObject.put("PictureMask", json.getJSONObject("PictureMask"));
+        }
+        if (json.get("FrameMirror") != null) {
+            jsonObject.put("FrameMirror", json.getJSONObject("FrameMirror"));
+        }
+        if (json.get("AlarmReport") != null) {
+            jsonObject.put("AlarmReport", json.getJSONObject("AlarmReport"));
+        }
+        if (json.get("OSDConfig") != null) {
+            jsonObject.put("OSDConfig", json.getJSONObject("OSDConfig"));
+        }
+        if (json.get("Snapshot") != null) {
+            jsonObject.put("Snapshot", json.getJSONObject("Snapshot"));
+        }
 
         responseMessageHandler.handMessageEvent(element, jsonObject);
 

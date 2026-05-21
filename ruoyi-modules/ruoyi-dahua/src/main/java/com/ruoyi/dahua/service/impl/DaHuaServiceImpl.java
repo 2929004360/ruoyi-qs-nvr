@@ -2082,7 +2082,7 @@ public class DaHuaServiceImpl implements IDaHuaService {
                         snapshot.setFileType("jpg");
                         snapshot.setSnapshotType(context.snapshotType);
                         snapshot.setSdkType("dahua");
-                        snapshot.setChannel(context.channelId);
+                        snapshot.setChannel(Long.valueOf(context.channelId));
                         snapshot.setCaptureTime(new Date());
 
                         com.ruoyi.common.core.domain.R<Long> result = service.remoteQsDeviceSnapshotService.add(

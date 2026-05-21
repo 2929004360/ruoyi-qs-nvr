@@ -1,12 +1,16 @@
 package com.ruoyi.gb28181.controller;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.web.domain.AjaxResult;
 import com.ruoyi.gb28181.api.bean.RecordInfo;
+import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.DeviceConfig;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.gb28181.api.domain.DeviceInfo;
 import com.ruoyi.gb28181.api.domain.DeviceStatus;
 import com.ruoyi.gb28181.api.utils.DateUtil;
@@ -230,6 +234,74 @@ public class Gb28181Controller {
     }
 
     /**
+     * 查询设备配置
+     *
+     * @param deviceId   设备国标编号
+     * @param configType 配置类型，多个用/分隔
+     * @return 操作结果
+     */
+    @GetMapping("/config/{deviceId}")
+    public DeferredResult<AjaxResult> queryDeviceConfig(@PathVariable String deviceId, @RequestParam String configType) throws InvalidArgumentException, ParseException, SipException {
+        log.info("[设备配置查询API] 开始查询, 设备 ID: {}, 配置类型: {}", deviceId, configType);
+        Device device = deviceService.getDeviceByDeviceId(deviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[设备配置查询] 开始调用 SIP 命令, 设备 ID: {}, 配置类型: {}", device.getDeviceId(), configType);
+        sipCommander.deviceConfigQuery(device, null, configType, (code, msg, data) -> {
+            log.info("[设备配置查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+            if (code == ErrorCode.SUCCESS.getCode()) {
+                deferredResult.setResult(AjaxResult.success(data));
+            } else {
+                deferredResult.setResult(AjaxResult.error(msg));
+            }
+        });
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[设备配置查询] 超时, 设备 ID: {}, 配置类型: {}", deviceId, configType);
+            deferredResult.setResult(AjaxResult.error("获取设备配置超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 修改设备配置
+     *
+     * @param deviceId 设备国标编号
+     * @param deviceConfig 设备配置
+     * @return 操作结果
+     */
+    @PostMapping("/config/{deviceId}")
+    public DeferredResult<AjaxResult> updateDeviceConfig(@PathVariable String deviceId, @RequestBody DeviceConfig deviceConfig) throws InvalidArgumentException, ParseException, SipException {
+        log.info("[设备配置修改API] 开始修改, 设备 ID: {}", deviceId);
+        Device device = deviceService.getDeviceByDeviceId(deviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[设备配置修改] 开始调用 SIP 命令, 设备 ID: {}", device.getDeviceId());
+        sipCommander.deviceConfigCmd(device, null, deviceConfig, (code, msg, data) -> {
+            log.info("[设备配置修改] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+            if (code == ErrorCode.SUCCESS.getCode()) {
+                deferredResult.setResult(AjaxResult.success(data));
+            } else {
+                deferredResult.setResult(AjaxResult.error(msg));
+            }
+        });
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[设备配置修改] 超时, 设备 ID: {}", deviceId);
+            deferredResult.setResult(AjaxResult.error("修改设备配置超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
      * 查询目录
      */
     @GetMapping("/catalog/{deviceId}")
@@ -328,6 +400,541 @@ public class Gb28181Controller {
             log.error("[目录订阅API] 取消订阅失败: {}", qsDeviceId, e);
             return AjaxResult.error("取消目录订阅失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 查询看守位
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @return 看守位信息
+     */
+    @GetMapping("/homePosition/{gbDeviceId}")
+    public DeferredResult<AjaxResult> queryHomePosition(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId) {
+        log.info("[看守位查询API] 开始查询, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[看守位查询] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}", device.getDeviceId(), channelId);
+        try {
+            sipCommander.homePositionQuery(device, channelId, (code, msg, data) -> {
+                log.info("[看守位查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[看守位查询] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("看守位查询失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[看守位查询] 超时, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+            deferredResult.setResult(AjaxResult.error("获取看守位超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 设置看守位
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param deviceConfig 看守位配置
+     * @return 操作结果
+     */
+    @PostMapping("/homePosition/{gbDeviceId}")
+    public DeferredResult<AjaxResult> updateHomePosition(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody DeviceConfig deviceConfig) {
+        log.info("[看守位设置API] 开始设置, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[看守位设置] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}", device.getDeviceId(), channelId);
+        try {
+            sipCommander.homePositionCmd(device, channelId, deviceConfig, (code, msg, data) -> {
+                log.info("[看守位设置] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[看守位设置] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("看守位设置失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[看守位设置] 超时, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+            deferredResult.setResult(AjaxResult.error("设置看守位超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 查询巡航轨迹列表
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @return 巡航轨迹列表
+     */
+    @GetMapping("/cruiseTrackList/{gbDeviceId}")
+    public DeferredResult<AjaxResult> queryCruiseTrackList(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId) {
+        log.info("[巡航轨迹列表查询API] 开始查询, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[巡航轨迹列表查询] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}", device.getDeviceId(), channelId);
+        try {
+            sipCommander.cruiseTrackListQuery(device, channelId, (code, msg, data) -> {
+                log.info("[巡航轨迹列表查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[巡航轨迹列表查询] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("巡航轨迹列表查询失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[巡航轨迹列表查询] 超时, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+            deferredResult.setResult(AjaxResult.error("查询巡航轨迹列表超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 查询巡航轨迹
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param number 轨迹编号：0-第一条轨迹，1-第二条轨迹
+     * @return 巡航轨迹信息
+     */
+    @GetMapping("/cruiseTrack/{gbDeviceId}")
+    public DeferredResult<AjaxResult> queryCruiseTrack(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestParam Integer number) {
+        log.info("[巡航轨迹查询API] 开始查询, 设备 ID: {}, 通道 ID: {}, 轨迹编号: {}", gbDeviceId, channelId, number);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[巡航轨迹查询] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, 轨迹编号: {}", device.getDeviceId(), channelId, number);
+        try {
+            sipCommander.cruiseTrackQuery(device, channelId, number, (code, msg, data) -> {
+                log.info("[巡航轨迹查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[巡航轨迹查询] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("巡航轨迹查询失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[巡航轨迹查询] 超时, 设备 ID: {}, 通道 ID: {}, 轨迹编号: {}", gbDeviceId, channelId, number);
+            deferredResult.setResult(AjaxResult.error("查询巡航轨迹超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * PTZ精准状态查询
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @return PTZ精准状态信息
+     */
+    @GetMapping("/ptzPosition/{gbDeviceId}")
+    public DeferredResult<AjaxResult> queryPTZPosition(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId) {
+        log.info("[PTZ精准状态查询API] 开始查询, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[PTZ精准状态查询] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}", device.getDeviceId(), channelId);
+        try {
+            sipCommander.ptzPositionQuery(device, channelId, (code, msg, data) -> {
+                log.info("[PTZ精准状态查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[PTZ精准状态查询] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("PTZ精准状态查询失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[PTZ精准状态查询] 超时, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+            deferredResult.setResult(AjaxResult.error("查询PTZ精准状态超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 存储卡状态查询
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @return 存储卡状态信息
+     */
+    @GetMapping("/sdCardStatus/{gbDeviceId}")
+    public DeferredResult<AjaxResult> querySDCardStatus(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId) {
+        log.info("[存储卡状态查询API] 开始查询, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[存储卡状态查询] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}", device.getDeviceId(), channelId);
+        try {
+            sipCommander.sdCardStatusQuery(device, channelId, (code, msg, data) -> {
+                log.info("[存储卡状态查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[存储卡状态查询] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("存储卡状态查询失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[存储卡状态查询] 超时, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+            deferredResult.setResult(AjaxResult.error("查询存储卡状态超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 报警复位控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param alarmMethod 报警方式（可选），0-全部，1-电话报警，2-设备报警，3-短信报警，4-GPS报警，5-视频报警，6-设备故障报警，7-其他报警
+     * @param alarmType 报警类型（可选）
+     * @return 报警复位控制结果
+     */
+    @PostMapping("/alarmReset/{gbDeviceId}")
+    public DeferredResult<AjaxResult> alarmResetControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestParam(required = false) String alarmMethod, @RequestParam(required = false) String alarmType) {
+        log.info("[报警复位控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 报警方式: {}, 报警类型: {}", gbDeviceId, channelId, alarmMethod, alarmType);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[报警复位控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, 报警方式: {}, 报警类型: {}", device.getDeviceId(), channelId, alarmMethod, alarmType);
+        try {
+            sipCommander.alarmResetControl(device, channelId, alarmMethod, alarmType, (code, msg, data) -> {
+                log.info("[报警复位控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[报警复位控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("报警复位控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[报警复位控制] 超时, 设备 ID: {}, 通道 ID: {}, 报警方式: {}, 报警类型: {}", gbDeviceId, channelId, alarmMethod, alarmType);
+            deferredResult.setResult(AjaxResult.error("报警复位控制超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 强制关键帧控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @return 强制关键帧控制结果
+     */
+    @PostMapping("/iFrame/{gbDeviceId}")
+    public DeferredResult<AjaxResult> iFrameControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId) {
+        log.info("[强制关键帧控制API] 开始控制, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[强制关键帧控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}", device.getDeviceId(), channelId);
+        try {
+            sipCommander.iFrameControl(device, channelId, (code, msg, data) -> {
+                log.info("[强制关键帧控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[强制关键帧控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("强制关键帧控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[强制关键帧控制] 超时, 设备 ID: {}, 通道 ID: {}", gbDeviceId, channelId);
+            deferredResult.setResult(AjaxResult.error("强制关键帧控制超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 看守位控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param deviceConfig 设备配置，包含看守位配置
+     * @return 看守位控制结果
+     */
+    @PostMapping("/homePosition/{gbDeviceId}")
+    public DeferredResult<AjaxResult> homePositionControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody DeviceConfig deviceConfig) {
+        log.info("[看守位控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 配置: {}", gbDeviceId, channelId, deviceConfig != null ? deviceConfig.getHomePosition() : null);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[看守位控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, 配置: {}", device.getDeviceId(), channelId, deviceConfig != null ? deviceConfig.getHomePosition() : null);
+        try {
+            sipCommander.homePositionControl(device, channelId, deviceConfig, (code, msg, data) -> {
+                log.info("[看守位控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[看守位控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("看守位控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[看守位控制] 超时, 设备 ID: {}, 通道 ID: {}, 配置: {}", gbDeviceId, channelId, deviceConfig != null ? deviceConfig.getHomePosition() : null);
+            deferredResult.setResult(AjaxResult.error("看守位控制超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * PTZ精准控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param ptzPreciseCtrl PTZ精准控制参数
+     * @return PTZ精准控制结果
+     */
+    @PostMapping("/ptzPrecise/{gbDeviceId}")
+    public DeferredResult<AjaxResult> ptzPreciseControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody JSONObject ptzPreciseCtrl) {
+        log.info("[PTZ精准控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 参数: {}", gbDeviceId, channelId, ptzPreciseCtrl);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[PTZ精准控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, 参数: {}", device.getDeviceId(), channelId, ptzPreciseCtrl);
+        try {
+            sipCommander.ptzPreciseControl(device, channelId, ptzPreciseCtrl, (code, msg, data) -> {
+                log.info("[PTZ精准控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[PTZ精准控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("PTZ精准控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[PTZ精准控制] 超时, 设备 ID: {}, 通道 ID: {}, 参数: {}", gbDeviceId, channelId, ptzPreciseCtrl);
+            deferredResult.setResult(AjaxResult.error("PTZ精准控制超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 设备软件升级控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param firmware 设备固件版本
+     * @param fileURL 升级文件的完整路径
+     * @param manufacturer 设备厂商
+     * @param sessionID 会话ID
+     * @return 设备软件升级控制结果
+     */
+    @PostMapping("/deviceUpgrade/{gbDeviceId}")
+    public DeferredResult<AjaxResult> deviceUpgradeControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam String firmware, @RequestParam String fileURL, @RequestParam String manufacturer,
+        @RequestParam String sessionID) {
+        log.info("[设备软件升级控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 固件版本: {}, 文件URL: {}, 厂商: {}, 会话ID: {}", 
+            gbDeviceId, channelId, firmware, fileURL, manufacturer, sessionID);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[设备软件升级控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, 固件版本: {}, 文件URL: {}, 厂商: {}, 会话ID: {}", 
+            device.getDeviceId(), channelId, firmware, fileURL, manufacturer, sessionID);
+        try {
+            sipCommander.deviceUpgradeControl(device, channelId, firmware, fileURL, manufacturer, sessionID, (code, msg, data) -> {
+                log.info("[设备软件升级控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[设备软件升级控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("设备软件升级控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[设备软件升级控制] 超时, 设备 ID: {}, 通道 ID: {}, 固件版本: {}, 文件URL: {}, 厂商: {}, 会话ID: {}", 
+                gbDeviceId, channelId, firmware, fileURL, manufacturer, sessionID);
+            deferredResult.setResult(AjaxResult.error("设备软件升级控制超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 存储卡格式化控制
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId 通道国标编号（可选）
+     * @param sdCardId SD卡编号（0表示所有存储卡）
+     * @return 存储卡格式化控制结果
+     */
+    @PostMapping("/formatSDCard/{gbDeviceId}")
+    public DeferredResult<AjaxResult> formatSDCardControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam Integer sdCardId) {
+        log.info("[存储卡格式化控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, SD卡编号: {}", 
+            gbDeviceId, channelId, sdCardId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[存储卡格式化控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, SD卡编号: {}", 
+            device.getDeviceId(), channelId, sdCardId);
+        try {
+            sipCommander.formatSDCardControl(device, channelId, sdCardId, (code, msg, data) -> {
+                log.info("[存储卡格式化控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[存储卡格式化控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("存储卡格式化控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[存储卡格式化控制] 超时, 设备 ID: {}, 通道 ID: {}, SD卡编号: {}", 
+                gbDeviceId, channelId, sdCardId);
+            deferredResult.setResult(AjaxResult.error("存储卡格式化控制超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 目标跟踪控制
+     *
+     * @param gbDeviceId 设备国标编号（球机通道）
+     * @param channelId 通道国标编号（可选，指球机通道）
+     * @param targetTrack 跟踪类型：Auto/Manual/Stop
+     * @param deviceId2 目标设备编码（可选，指全景相机中的全景通道ID）
+     * @param targetArea 目标区域（可选，手动跟踪时需要）
+     * @return 目标跟踪控制结果
+     */
+    @PostMapping("/targetTrack/{gbDeviceId}")
+    public DeferredResult<AjaxResult> targetTrackControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId,
+        @RequestParam String targetTrack, @RequestParam(required = false) String deviceId2,
+        @RequestBody(required = false) JSONObject targetArea) {
+        log.info("[目标跟踪控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 跟踪类型: {}, 全景通道 ID: {}, 目标区域: {}", 
+            gbDeviceId, channelId, targetTrack, deviceId2, targetArea);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[目标跟踪控制] 开始调用 SIP 命令, 设备 ID: {}, 通道 ID: {}, 跟踪类型: {}, 全景通道 ID: {}, 目标区域: {}", 
+            device.getDeviceId(), channelId, targetTrack, deviceId2, targetArea);
+        try {
+            sipCommander.targetTrackControl(device, channelId, targetTrack, deviceId2, targetArea, (code, msg, data) -> {
+                log.info("[目标跟踪控制] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+                if (code == ErrorCode.SUCCESS.getCode()) {
+                    deferredResult.setResult(AjaxResult.success(data));
+                } else {
+                    deferredResult.setResult(AjaxResult.error(msg));
+                }
+            });
+        } catch (Exception e) {
+            log.error("[目标跟踪控制] 失败: {}", e.getMessage(), e);
+            deferredResult.setResult(AjaxResult.error("目标跟踪控制失败: " + e.getMessage()));
+        }
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[目标跟踪控制] 超时, 设备 ID: {}, 通道 ID: {}, 跟踪类型: {}, 全景通道 ID: {}, 目标区域: {}", 
+                gbDeviceId, channelId, targetTrack, deviceId2, targetArea);
+            deferredResult.setResult(AjaxResult.error("目标跟踪控制超时"));
+        });
+        return deferredResult;
     }
 
 }

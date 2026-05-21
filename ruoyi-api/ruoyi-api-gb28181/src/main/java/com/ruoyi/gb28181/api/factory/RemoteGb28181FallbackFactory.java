@@ -6,6 +6,8 @@ import com.ruoyi.gb28181.api.RemoteGb28181Service;
 import com.ruoyi.gb28181.api.domain.CatalogRequest;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceChannel;
+import com.ruoyi.gb28181.api.domain.DeviceConfig;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.gb28181.api.domain.Gb28181Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,6 +212,93 @@ public class RemoteGb28181FallbackFactory implements FallbackFactory<RemoteGb281
             public R<Void> pushCatalog(Long platformId, String inner) {
                 return R.fail("gb28181 平台级联推送目录失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Object> queryDeviceConfig(String gbDeviceId, String configType, String inner) {
+                return R.fail("gb28181 查询设备配置失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> updateDeviceConfig(String gbDeviceId, DeviceConfig deviceConfig, String inner) {
+                return R.fail("gb28181 修改设备配置失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> queryHomePosition(String gbDeviceId, String channelId, String inner) {
+                return R.fail("gb28181 查询看守位失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> updateHomePosition(String gbDeviceId, String channelId, DeviceConfig deviceConfig, String inner) {
+                return R.fail("gb28181 设置看守位失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> queryCruiseTrackList(String gbDeviceId, String channelId, String inner) {
+                return R.fail("gb28181 查询巡航轨迹列表失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> queryCruiseTrack(String gbDeviceId, String channelId, Integer number, String inner) {
+                return R.fail("gb28181 查询巡航轨迹失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> queryPTZPosition(String gbDeviceId, String channelId, String inner) {
+                return R.fail("gb28181 PTZ精准状态查询失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> querySDCardStatus(String gbDeviceId, String channelId, String inner) {
+                return R.fail("gb28181 存储卡状态查询失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> alarmResetControl(String gbDeviceId, String channelId, String alarmMethod, String alarmType, String inner) {
+                return R.fail("gb28181 报警复位控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> iFrameControl(String gbDeviceId, String channelId, String inner) {
+                return R.fail("gb28181 强制关键帧控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> homePositionControl(String gbDeviceId, String channelId, DeviceConfig deviceConfig, String inner) {
+                return R.fail("gb28181 看守位控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> ptzPreciseControl(String gbDeviceId, String channelId, JSONObject ptzPreciseCtrl, String inner) {
+                return R.fail("gb28181 PTZ精准控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> deviceUpgradeControl(String gbDeviceId, String channelId, String firmware, String fileURL, String manufacturer, String sessionID, String inner) {
+                return R.fail("gb28181 设备软件升级控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> formatSDCardControl(String gbDeviceId, String channelId, Integer sdCardId, String inner) {
+                return R.fail("gb28181 存储卡格式化控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> targetTrackControl(String gbDeviceId, String channelId, String targetTrack, String deviceId2, JSONObject targetArea, String inner) {
+                return R.fail("gb28181 目标跟踪控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Long> captureAndSave(String gbDeviceId, String channelId, String snapshotType, String inner) {
+                return R.fail("gb28181 抓图控制失败:" + throwable.getMessage());
+            }
+
+            @Override
+            public R<Object> timeCheckCmd(String gbDeviceId, String inner) {
+                return R.fail("gb28181 设备校时控制失败:" + throwable.getMessage());
+            }
+
+            
         };
     }
 }
