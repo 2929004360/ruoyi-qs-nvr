@@ -265,4 +265,13 @@ public class QsDevice extends BaseEntity
 
     /** 是否支持对讲 1支持,0不支持 */
     private Integer enableBroadcast;
+
+    /** 目录订阅状态 0=未订阅，1=订阅 */
+    private Integer subscribeCatalogStatus;
+
+    /** 报警订阅状态 0=未订阅，1=订阅 */
+    private Integer subscribeAlarmStatus;
+
+    /** 订阅时间 */
+    private String subscribeTime;
 }

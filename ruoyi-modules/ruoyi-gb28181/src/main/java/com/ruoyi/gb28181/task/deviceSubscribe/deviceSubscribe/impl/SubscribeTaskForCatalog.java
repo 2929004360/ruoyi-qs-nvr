@@ -12,11 +12,12 @@ public class SubscribeTaskForCatalog extends SubscribeTask {
     public static final String name = "catalog";
 
     public static SubscribeTask getInstance(Device device, SubscribeCallback callback, SipTransactionInfo transactionInfo) {
-        if (device.getSubscribeCycleForCatalog() <= 0) {
-            return null;
+        int subscribeCycle = device.getSubscribeCycleForCatalog();
+        if (subscribeCycle <= 0) {
+            subscribeCycle = 3600;
         }
         SubscribeTaskForCatalog subscribeTaskForCatalog = new SubscribeTaskForCatalog();
-        subscribeTaskForCatalog.setDelayTime((device.getSubscribeCycleForCatalog() * 1000L - 500L) + System.currentTimeMillis());
+        subscribeTaskForCatalog.setDelayTime((subscribeCycle * 1000L - 500L) + System.currentTimeMillis());
         subscribeTaskForCatalog.setDeviceId(device.getDeviceId());
         subscribeTaskForCatalog.setCallback(callback);
         subscribeTaskForCatalog.setTransactionInfo(transactionInfo);

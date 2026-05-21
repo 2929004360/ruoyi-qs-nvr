@@ -84,6 +84,9 @@
         <result property="gpsDirection" column="gps_direction"/>
         <result property="gpsTime" column="gps_time"/>
         <result property="enableBroadcast" column="enable_broadcast"/>
+        <result property="subscribeCatalogStatus" column="subscribe_catalog_status"/>
+        <result property="subscribeAlarmStatus" column="subscribe_alarm_status"/>
+        <result property="subscribeTime" column="subscribe_time"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -235,6 +238,9 @@
                gps_direction,
                gps_time,
                enable_broadcast,
+               subscribe_catalog_status,
+               subscribe_alarm_status,
+               subscribe_time,
                create_by,
                create_time,
                update_by,
@@ -349,6 +355,9 @@
             <if test="gpsDirection != null">gps_direction,</if>
             <if test="gpsTime != null">gps_time,</if>
             <if test="enableBroadcast != null">enable_broadcast,</if>
+            <if test="subscribeCatalogStatus != null">subscribe_catalog_status,</if>
+            <if test="subscribeAlarmStatus != null">subscribe_alarm_status,</if>
+            <if test="subscribeTime != null">subscribe_time,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -434,6 +443,9 @@
             <if test="gpsDirection != null">#{gpsDirection},</if>
             <if test="gpsTime != null">#{gpsTime},</if>
             <if test="enableBroadcast != null">#{enableBroadcast},</if>
+            <if test="subscribeCatalogStatus != null">#{subscribeCatalogStatus},</if>
+            <if test="subscribeAlarmStatus != null">#{subscribeAlarmStatus},</if>
+            <if test="subscribeTime != null">#{subscribeTime},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -523,6 +535,9 @@
             <if test="gpsDirection != null">gps_direction = #{gpsDirection},</if>
             <if test="gpsTime != null">gps_time = #{gpsTime},</if>
             <if test="enableBroadcast != null">enable_broadcast = #{enableBroadcast},</if>
+            <if test="subscribeCatalogStatus != null">subscribe_catalog_status = #{subscribeCatalogStatus},</if>
+            <if test="subscribeAlarmStatus != null">subscribe_alarm_status = #{subscribeAlarmStatus},</if>
+            <if test="subscribeTime != null">subscribe_time = #{subscribeTime},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -670,11 +685,20 @@
     <update id="removeParentIdByDeviceIds">
         UPDATE qs_device
         SET gb_parent_id = null,
-        gb_business_group_id = null
+            gb_business_group_id = null
         WHERE id IN
         <foreach collection="deviceIdsForClear" item="item" open="(" separator="," close=")">
             #{item}
         </foreach>
+    </update>
+
+    <update id="updateSubscribeStatusById">
+        UPDATE qs_device
+        SET subscribe_catalog_status = #{subscribeCatalogStatus},
+            subscribe_alarm_status = #{subscribeAlarmStatus},
+            subscribe_time = #{subscribeTime},
+            update_time = sysdate()
+        WHERE id = #{id}
     </update>
 
     <select id="fetchAllQsDeviceStreamUrls" resultMap="QsDeviceResult">

@@ -4,6 +4,7 @@ import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import com.ruoyi.gb28181.api.bean.Preset;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.common.InviteSessionType;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceStatus;
@@ -147,7 +148,7 @@ public class SIPCommander implements ISIPCommander {
     }
 
     @Override
-    public void catalogQuery(Device device, int sn, ErrorCallback<String> callback) throws SipException, InvalidArgumentException, ParseException {
+    public void catalogQuery(Device device, int sn, String startTime, String endTime, ErrorCallback<Object> callback) throws SipException, InvalidArgumentException, ParseException {
         String cmdType = "Catalog";
 
         StringBuffer catalogXml = new StringBuffer(200);
@@ -157,15 +158,55 @@ public class SIPCommander implements ISIPCommander {
         catalogXml.append("  <CmdType>" + cmdType + "</CmdType>\r\n");
         catalogXml.append("  <SN>" + sn + "</SN>\r\n");
         catalogXml.append("  <DeviceID>" + device.getDeviceId() + "</DeviceID>\r\n");
+        if (startTime != null && !startTime.isEmpty()) {
+            catalogXml.append("  <StartTime>" + DateUtil.yyyy_MM_dd_HH_mm_ssToISO8601(startTime) + "</StartTime>\r\n");
+        }
+        if (endTime != null && !endTime.isEmpty()) {
+            catalogXml.append("  <EndTime>" + DateUtil.yyyy_MM_dd_HH_mm_ssToISO8601(endTime) + "</EndTime>\r\n");
+        }
         catalogXml.append("</Query>\r\n");
+
+        MessageEvent<Object> messageEvent = MessageEvent.getInstance(cmdType, sn + "", device.getDeviceId(), 4000L, callback);
+        messageSubscribe.addSubscribe(messageEvent);
+        log.info("[目录查询] 设备编号: {}, SN: {}, startTime: {}, endTime: {}", device.getDeviceId(), sn, startTime, endTime);
 
         Request request = headerProvider.createMessageRequest(device, catalogXml.toString(), SipUtils.getNewViaTag(), SipUtils.getNewFromTag(), null, sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport()));
 
         sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, eventResult -> {
+            messageSubscribe.removeSubscribe(messageEvent.getKey());
             if (callback != null) {
                 callback.run(ErrorCode.ERROR100.getCode(), "失败，" + eventResult.msg, null);
             }
         });
+    }
+
+    @Override
+    public void catalogSubscribe(Device device, SipTransactionInfo sipTransactionInfo, Integer expires, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent) throws SipException, InvalidArgumentException, ParseException, PeerUnavailableException {
+        // 构建目录订阅XML
+        StringBuffer subscribeXml = new StringBuffer(200);
+        String charset = device.getCharset();
+        subscribeXml.append("<?xml version=\"1.0\" encoding=\"").append(charset).append("\"?>\r\n");
+        subscribeXml.append("<Query>\r\n");
+        subscribeXml.append("<CmdType>Catalog</CmdType>\r\n");
+        subscribeXml.append("<SN>").append((int) ((Math.random() * 9 + 1) * 100000)).append("</SN>\r\n");
+        subscribeXml.append("<DeviceID>").append(device.getDeviceId()).append("</DeviceID>\r\n");
+        subscribeXml.append("</Query>\r\n");
+
+        log.info("[目录订阅] 设备编号: {}, 过期时间: {}秒", device.getDeviceId(), expires);
+
+        // 创建SUBSCRIBE请求
+        CallIdHeader callIdHeader = sipSender.getNewCallIdHeader(sipLayer.getLocalIp(device.getLocalIp()), device.getTransport());
+        Request request = headerProvider.createSubscribeRequest(
+            device, 
+            subscribeXml.toString(), 
+            sipTransactionInfo, 
+            expires, 
+            "Catalog", 
+            callIdHeader
+        );
+
+        // 发送请求
+        sipSender.transmitRequest(sipLayer.getLocalIp(device.getLocalIp()), request, errorEvent, okEvent);
     }
 
     /**

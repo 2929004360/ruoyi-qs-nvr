@@ -113,16 +113,16 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
 
                 sn = Integer.parseInt(snElement.getText());
                 int sumNum = Integer.parseInt(sumNumElement.getText());
+                log.info("[收到通道]设备:{}, sumNum:{}", take.getDevice().getDeviceId(), sumNum);
 
+                List<DeviceChannel> channelList = new ArrayList<>();
                 if (sumNum == 0) {
                     log.info("[收到通道]设备:{}的: 0个", take.getDevice().getDeviceId());
                     // 数据已经完整接收
                     deviceChannelService.cleanChannelsForDevice(take.getDevice().getId());
-                    return;
                 } else {
                     Iterator<Element> deviceListIterator = deviceListElement.elementIterator();
                     if (deviceListIterator != null) {
-                        List<DeviceChannel> channelList = new ArrayList<>();
                         List<QsRegion> regionList = new ArrayList<>();
                         List<QsGroup> groupList = new ArrayList<>();
                         // 遍历DeviceList
@@ -197,6 +197,9 @@ public class CatalogResponseMessageHandler extends SIPRequestProcessorParent imp
                         log.info("[收到通道]设备: {} -> {}个，{}/{}", take.getDevice().getDeviceId(), channelList.size(), sn, sumNum);
                     }
                 }
+
+                // 调用 handMessageEvent 触发回调
+                responseMessageHandler.handMessageEvent(rootElement, channelList);
             } catch (Exception e) {
                 log.warn("[收到通道] 发现未处理的异常, \r\n{}", evt.getRequest());
                 log.error("[收到通道] 异常内容： ", e);

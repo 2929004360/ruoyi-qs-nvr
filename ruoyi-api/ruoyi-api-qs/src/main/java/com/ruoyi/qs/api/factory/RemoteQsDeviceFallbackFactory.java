@@ -98,6 +98,11 @@ public class RemoteQsDeviceFallbackFactory implements FallbackFactory<RemoteQsDe
             public R<QsDevice> getDeviceByDeviceCode(String deviceCode, String inner) {
                 return R.fail("根据 deviceCode 获取设备失败:" + throwable.getMessage());
             }
+
+            @Override
+            public R<Boolean> updateSubscribeStatus(Long id, Integer subscribeCatalogStatus, Integer subscribeAlarmStatus, String subscribeTime, String inner) {
+                return R.fail("更新订阅状态失败:" + throwable.getMessage());
+            }
         };
     }
 }

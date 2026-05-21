@@ -376,4 +376,20 @@ public interface QsDeviceMapper {
      * @return
      */
     QsDevice getDeviceByDeviceCode(String deviceCode);
+
+    /**
+     * 根据 id 更新订阅状态
+     *
+     * @param id                   设备主键ID
+     * @param subscribeCatalogStatus 目录订阅状态
+     * @param subscribeAlarmStatus   报警订阅状态
+     * @param subscribeTime          订阅时间
+     * @return
+     */
+    int updateSubscribeStatusById(
+            @Param("id") Long id,
+            @Param("subscribeCatalogStatus") Integer subscribeCatalogStatus,
+            @Param("subscribeAlarmStatus") Integer subscribeAlarmStatus,
+            @Param("subscribeTime") String subscribeTime
+    );
 }

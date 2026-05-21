@@ -1649,4 +1649,20 @@ public class QsDeviceServiceImpl implements IQsDeviceService {
     public QsDevice getDeviceByDeviceCode(String deviceCode) {
         return qsDeviceMapper.getDeviceByDeviceCode(deviceCode);
     }
+
+    @Override
+    public Boolean updateSubscribeStatusById(
+            Long id,
+            Integer subscribeCatalogStatus,
+            Integer subscribeAlarmStatus,
+            String subscribeTime
+    ) {
+        int result = qsDeviceMapper.updateSubscribeStatusById(
+                id,
+                subscribeCatalogStatus,
+                subscribeAlarmStatus,
+                subscribeTime
+        );
+        return result > 0;
+    }
 }

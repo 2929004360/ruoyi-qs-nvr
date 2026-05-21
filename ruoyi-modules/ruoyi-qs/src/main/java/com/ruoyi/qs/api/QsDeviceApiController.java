@@ -186,9 +186,35 @@ public class QsDeviceApiController {
     @GetMapping("/getDeviceByDeviceCode/{deviceCode}")
     public R<QsDevice> getDeviceByDeviceCode(@PathVariable String deviceCode) {
         QsDevice qsDevice = qsDeviceService.getDeviceByDeviceCode(deviceCode);
-        if (qsDevice == null){
+        if (qsDevice == null) {
             return R.fail("设备不存在");
         }
         return R.ok(qsDevice);
+    }
+
+    /**
+     * 根据 id 更新订阅状态
+     *
+     * @param id                   设备主键ID
+     * @param subscribeCatalogStatus 目录订阅状态
+     * @param subscribeAlarmStatus   报警订阅状态
+     * @param subscribeTime          订阅时间
+     * @return
+     */
+    @InnerAuth
+    @PostMapping("/updateSubscribeStatus/{id}")
+    public R<Boolean> updateSubscribeStatus(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer subscribeCatalogStatus,
+            @RequestParam(required = false) Integer subscribeAlarmStatus,
+            @RequestParam(required = false) String subscribeTime
+    ) {
+        Boolean result = qsDeviceService.updateSubscribeStatusById(
+                id,
+                subscribeCatalogStatus,
+                subscribeAlarmStatus,
+                subscribeTime
+        );
+        return R.ok(result);
     }
 }

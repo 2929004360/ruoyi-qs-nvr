@@ -1,5 +1,6 @@
 package com.ruoyi.gb28181.controller;
 
+import com.ruoyi.common.core.constant.SecurityConstants;
 import com.ruoyi.common.core.domain.R;
 import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.common.core.web.domain.AjaxResult;
@@ -13,6 +14,7 @@ import com.ruoyi.gb28181.common.ErrorCode;
 import com.ruoyi.gb28181.config.UserSetting;
 import com.ruoyi.gb28181.service.IDeviceService;
 import com.ruoyi.gb28181.service.ISIPCommander;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
 import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +39,9 @@ public class Gb28181Controller {
 
     @Autowired
     private ISIPCommander sipCommander;
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
 
     /**
      * 获取所有国标设备
@@ -222,6 +227,107 @@ public class Gb28181Controller {
             deferredResult.setResult(AjaxResult.error("获取设备信息超时"));
         });
         return deferredResult;
+    }
+
+    /**
+     * 查询目录
+     */
+    @GetMapping("/catalog/{deviceId}")
+    public DeferredResult<AjaxResult> queryCatalog(
+            @PathVariable String deviceId,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("目录查询 API调用，deviceId：%s，startTime：%s， endTime：%s", deviceId, startTime, endTime));
+        }
+        Device device = deviceService.getDeviceByDeviceId(deviceId);
+        if (device == null) {
+            DeferredResult<AjaxResult> errorResult = new DeferredResult<>();
+            errorResult.setResult(AjaxResult.error("设备不存在"));
+            return errorResult;
+        }
+        DeferredResult<AjaxResult> deferredResult = new DeferredResult<>(10 * 1000L);
+        log.info("[目录查询] 开始调用 SIP 命令, 设备 ID: {}, startTime: {}, endTime: {}", deviceId, startTime, endTime);
+        deviceService.queryCatalog(device, startTime, endTime, (code, msg, data) -> {
+            log.info("[目录查询] 收到回调, code: {}, msg: {}, data: {}", code, msg, data);
+            if (code == ErrorCode.SUCCESS.getCode()) {
+                deferredResult.setResult(AjaxResult.success(data));
+            } else {
+                deferredResult.setResult(AjaxResult.error(msg));
+            }
+        });
+
+        deferredResult.onTimeout(() -> {
+            log.warn("[目录查询] 超时, {}", deviceId);
+            deferredResult.setResult(AjaxResult.error("目录查询超时"));
+        });
+        return deferredResult;
+    }
+
+    /**
+     * 目录订阅
+     *
+     * @param qsDeviceId QsDevice主键ID
+     * @return 操作结果
+     */
+    @GetMapping("/subscribe/catalog/{qsDeviceId}")
+    public AjaxResult subscribeCatalog(@PathVariable Long qsDeviceId) {
+        log.info("[目录订阅API] 开始订阅设备, QsDeviceId: {}", qsDeviceId);
+        try {
+            // 先通过 QsDeviceId 查询 QsDevice 获取 gbDeviceId
+            com.ruoyi.qs.api.domain.QsDevice qsDevice = remoteQsDeviceService.getQsDeviceInfo(
+                    qsDeviceId,
+                    SecurityConstants.INNER
+            ).getData();
+            if (qsDevice == null || qsDevice.getGbDeviceId() == null) {
+                return AjaxResult.error("设备不存在或未配置国标设备ID: " + qsDeviceId);
+            }
+            
+            // 通过 gbDeviceId 获取 GB28181 设备
+            Device device = deviceService.getDeviceByDeviceId(qsDevice.getGbDeviceId());
+            if (device == null) {
+                return AjaxResult.error("国标设备不存在: " + qsDevice.getGbDeviceId());
+            }
+
+            deviceService.subscribeCatalog(device, qsDeviceId);
+            return AjaxResult.success("目录订阅请求已发送");
+        } catch (Exception e) {
+            log.error("[目录订阅API] 订阅失败: {}", qsDeviceId, e);
+            return AjaxResult.error("目录订阅失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 取消目录订阅
+     *
+     * @param qsDeviceId QsDevice主键ID
+     * @return 操作结果
+     */
+    @GetMapping("/unsubscribe/catalog/{qsDeviceId}")
+    public AjaxResult unsubscribeCatalog(@PathVariable Long qsDeviceId) {
+        log.info("[目录订阅API] 取消订阅设备, QsDeviceId: {}", qsDeviceId);
+        try {
+            // 先通过 QsDeviceId 查询 QsDevice 获取 gbDeviceId
+            com.ruoyi.qs.api.domain.QsDevice qsDevice = remoteQsDeviceService.getQsDeviceInfo(
+                    qsDeviceId,
+                    SecurityConstants.INNER
+            ).getData();
+            if (qsDevice == null || qsDevice.getGbDeviceId() == null) {
+                return AjaxResult.error("设备不存在或未配置国标设备ID: " + qsDeviceId);
+            }
+            
+            // 通过 gbDeviceId 获取 GB28181 设备
+            Device device = deviceService.getDeviceByDeviceId(qsDevice.getGbDeviceId());
+            if (device == null) {
+                return AjaxResult.error("国标设备不存在: " + qsDevice.getGbDeviceId());
+            }
+
+            deviceService.unsubscribeCatalog(device, qsDeviceId);
+            return AjaxResult.success("取消目录订阅请求已发送");
+        } catch (Exception e) {
+            log.error("[目录订阅API] 取消订阅失败: {}", qsDeviceId, e);
+            return AjaxResult.error("取消目录订阅失败: " + e.getMessage());
+        }
     }
 
 }

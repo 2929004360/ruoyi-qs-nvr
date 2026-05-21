@@ -20,6 +20,7 @@ import com.ruoyi.gb28181.service.ISIPCommander;
 import com.ruoyi.gb28181.session.SipInviteSessionManager;
 import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTask;
 import com.ruoyi.gb28181.task.deviceStatus.DeviceStatusTaskRunner;
+import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.SubscribeTask;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.SubscribeTaskRunner;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForCatalog;
 import com.ruoyi.gb28181.task.deviceSubscribe.deviceSubscribe.impl.SubscribeTaskForMobilPosition;
@@ -34,7 +35,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.sip.InvalidArgumentException;
+import javax.sip.PeerUnavailableException;
+import javax.sip.ResponseEvent;
 import javax.sip.SipException;
+import javax.sip.header.EventHeader;
 import java.text.ParseException;
 import java.util.List;
 import java.util.Map;
@@ -191,6 +195,12 @@ public class DeviceServiceImpl implements IDeviceService {
         } catch (Exception e) {
             log.error("[同步设备状态] 设备上线，同步到 QS 模块失败：{}", device.getDeviceId(), e);
         }
+
+        // 启动目录订阅
+        if (device.getSubscribeCycleForCatalog() > 0) {
+            log.info("[目录订阅] 设备上线，自动启动目录订阅: {}", device.getDeviceId());
+            subscribeCatalog(device,null);
+        }
     }
 
     @Override
@@ -327,11 +337,30 @@ public class DeviceServiceImpl implements IDeviceService {
     public void sync(Device device) {
         int sn = (int) ((Math.random() * 9 + 1) * 100000);
         try {
-            commander.catalogQuery(device, sn, ((code, msg, data) -> {
-//                log.info("[获取通道]失败, deviceId： {}", device.getDeviceId());
+            commander.catalogQuery(device, sn, null, null, ((code, msg, data) -> {
+                log.info("[获取通道]结果: deviceId={}, code={}, msg={}", device.getDeviceId(), code, msg);
             }));
         } catch (SipException | InvalidArgumentException | ParseException e) {
             log.error("[获取通道]失败,信令发送失败, deviceId： {}", device.getDeviceId());
+        }
+    }
+
+    /**
+     * 查询目录
+     *
+     * @param device    设备
+     * @param startTime 起始时间（可选）
+     * @param endTime   结束时间（可选）
+     * @param callback  回调
+     */
+    public void queryCatalog(Device device, String startTime, String endTime, ErrorCallback<Object> callback) {
+        int sn = (int) ((Math.random() * 9 + 1) * 100000);
+        try {
+            commander.catalogQuery(device, sn, startTime, endTime, callback);
+        } catch (SipException | InvalidArgumentException | ParseException e) {
+            log.error("[目录查询]失败,信令发送失败, deviceId： {}", device.getDeviceId());
+            callback.run(ErrorCode.ERROR100.getCode(), "命令发送失败: " + e.getMessage(), null);
+            throw new ServiceException("命令发送失败: " + e.getMessage());
         }
     }
 
@@ -527,6 +556,165 @@ public class DeviceServiceImpl implements IDeviceService {
         } catch (InvalidArgumentException | SipException | ParseException e) {
             log.error("[刷新设备] 刷新失败：{}", e.getMessage(), e);
             throw new ServiceException("刷新失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void subscribeCatalog(Device device, Long qsDeviceId) {
+        // 使用默认订阅周期 3600 秒（1小时），如果未配置或配置为 0
+        int subscribeCycle = device.getSubscribeCycleForCatalog();
+        if (subscribeCycle <= 0) {
+            subscribeCycle = 3600;
+            log.warn("[目录订阅] 设备 {} 未配置订阅周期，使用默认值 3600 秒", device.getDeviceId());
+        }
+
+        log.info("[目录订阅] 开始订阅设备: {}, 订阅周期: {}秒", device.getDeviceId(), subscribeCycle);
+
+        // 判断是否是续订：如果有事务信息，且在运行任务，说明是续订
+        boolean isRenew = device.getSipTransactionInfo() != null 
+                && device.getSipTransactionInfo().getCallId() != null
+                && subscribeTaskRunner.containsKey(SubscribeTaskForCatalog.getKey(device));
+
+        try {
+            // 发送目录订阅请求 - 只有续订时才传入事务信息
+            commander.catalogSubscribe(
+                device,
+                isRenew ? device.getSipTransactionInfo() : null, // 第一次订阅传 null，续订传事务信息
+                subscribeCycle,
+                eventResult -> {
+                    // 成功回调
+                    log.info("[目录订阅] 订阅成功: {}", device.getDeviceId());
+                    
+                    // 从响应中获取新的事务信息
+                    gov.nist.javax.sip.message.SIPResponse response = null;
+                    if (eventResult.event instanceof ResponseEvent) {
+                        response = (gov.nist.javax.sip.message.SIPResponse) ((ResponseEvent) eventResult.event).getResponse();
+                    }
+                    if (response != null) {
+                        SipTransactionInfo newTransactionInfo = new SipTransactionInfo();
+                        newTransactionInfo.setCallId(response.getCallIdHeader().getCallId());
+                        newTransactionInfo.setFromTag(response.getFromHeader().getTag());
+                        newTransactionInfo.setToTag(response.getToHeader().getTag());
+                        EventHeader eventHeader = (EventHeader) response.getHeader("Event");
+                        if (eventHeader != null) {
+                            newTransactionInfo.setEventId(eventHeader.getEventId());
+                        }
+                        
+                        // 更新设备的事务信息
+                        device.setSipTransactionInfo(newTransactionInfo);
+                        redisCatchStorage.updateDevice(device);
+                        
+                        // 更新 QsDevice 的订阅状态
+                        if (qsDeviceId != null) {
+                            String nowTime = DateUtil.getNow();
+                            try {
+                                remoteQsDeviceService.updateSubscribeStatus(
+                                        qsDeviceId,
+                                        1, // 设置目录订阅状态为已订阅
+                                        null, // 报警订阅状态保持不变
+                                        nowTime,
+                                        SecurityConstants.INNER
+                                );
+                                log.info("[目录订阅] 已更新设备订阅状态: {}, QsDeviceId: {}", device.getDeviceId(), qsDeviceId);
+                            } catch (Exception e) {
+                                log.error("[目录订阅] 更新设备订阅状态失败: {}", device.getDeviceId(), e);
+                            }
+                        }
+                        
+                        // 添加自动续期任务，始终执行自动续期
+                        SubscribeTask subscribeTask = SubscribeTaskForCatalog.getInstance(
+                                device,
+                                (deviceId, transInfo) -> subscribeCatalog(device,null),
+                                newTransactionInfo
+                        );
+                        if (subscribeTask != null) {
+                            subscribeTaskRunner.addSubscribe(subscribeTask);
+                            log.info("[目录订阅] 订阅任务已添加: {}", device.getDeviceId());
+                        }
+                    }
+                },
+                eventResult -> {
+                    // 失败回调
+                    log.error("[目录订阅] 订阅失败: {}, 原因: {}", device.getDeviceId(), eventResult.msg);
+                    
+                    // 如果是第一次订阅失败，尝试清除事务信息重试
+                    if (!isRenew) {
+                        log.warn("[目录订阅] 第一次订阅失败，清除旧事务信息后重试: {}", device.getDeviceId());
+                        device.setSipTransactionInfo(null);
+                        redisCatchStorage.updateDevice(device);
+                    }
+                }
+            );
+        } catch (InvalidArgumentException | SipException | ParseException e) {
+            log.error("[目录订阅] 发送订阅请求失败: {}", device.getDeviceId(), e);
+            throw new ServiceException("目录订阅失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void unsubscribeCatalog(Device device, Long qsDeviceId) {
+        log.info("[目录订阅] 取消订阅设备: {}", device.getDeviceId());
+
+        // 移除订阅任务
+        if (subscribeTaskRunner.containsKey(SubscribeTaskForCatalog.getKey(device))) {
+            subscribeTaskRunner.removeSubscribe(SubscribeTaskForCatalog.getKey(device));
+            log.info("[目录订阅] 订阅任务已移除: {}", device.getDeviceId());
+        }
+
+        // 更新 QsDevice 的订阅状态
+        if (qsDeviceId != null) {
+            try {
+                remoteQsDeviceService.updateSubscribeStatus(
+                        qsDeviceId,
+                        0, // 设置目录订阅状态为未订阅
+                        null, // 报警订阅状态保持不变
+                        null, // 订阅时间保持不变
+                        SecurityConstants.INNER
+                );
+                log.info("[目录订阅] 已更新设备订阅状态为未订阅: {}, QsDeviceId: {}", device.getDeviceId(), qsDeviceId);
+            } catch (Exception e) {
+                log.error("[目录订阅] 更新设备订阅状态失败: {}", device.getDeviceId(), e);
+            }
+        } else {
+            try {
+                // 先通过 gbDeviceId 查找 QsDevice
+                com.ruoyi.qs.api.domain.QsDevice qsDevice = remoteQsDeviceService.getDeviceByGbCode(
+                        device.getDeviceId(),
+                        SecurityConstants.INNER
+                ).getData();
+                if (qsDevice != null) {
+                    remoteQsDeviceService.updateSubscribeStatus(
+                            qsDevice.getId(),
+                            0, // 设置目录订阅状态为未订阅
+                            null, // 报警订阅状态保持不变
+                            null, // 订阅时间保持不变
+                            SecurityConstants.INNER
+                    );
+                    log.info("[目录订阅] 已更新设备订阅状态为未订阅: {}", device.getDeviceId());
+                } else {
+                    log.warn("[目录订阅] 未找到对应的 QsDevice: {}", device.getDeviceId());
+                }
+            } catch (Exception e) {
+                log.error("[目录订阅] 更新设备订阅状态失败: {}", device.getDeviceId(), e);
+            }
+        }
+
+        // 发送取消订阅请求（expires=0）
+        try {
+            // 取消订阅时不传事务信息，避免 481 错误
+            commander.catalogSubscribe(
+                    device,
+                    null,
+                    0,
+                    eventResult -> {
+                        log.info("[目录订阅] 取消订阅成功: {}", device.getDeviceId());
+                    },
+                    eventResult -> {
+                        log.warn("[目录订阅] 取消订阅失败: {}, 原因: {}", device.getDeviceId(), eventResult.msg);
+                    }
+            );
+        } catch (InvalidArgumentException | SipException | ParseException e) {
+            log.error("[目录订阅] 发送取消订阅请求失败: {}", device.getDeviceId(), e);
         }
     }
 }

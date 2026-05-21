@@ -3,11 +3,13 @@ package com.ruoyi.gb28181.service;
 import com.ruoyi.common.core.domain.RtpServerParam;
 import com.ruoyi.gb28181.api.bean.ErrorCallback;
 import com.ruoyi.gb28181.api.bean.Preset;
+import com.ruoyi.gb28181.api.bean.SipTransactionInfo;
 import com.ruoyi.gb28181.api.domain.Device;
 import com.ruoyi.gb28181.api.domain.DeviceStatus;
 import com.ruoyi.gb28181.transmit.event.SipSubscribe;
 
 import javax.sip.InvalidArgumentException;
+import javax.sip.PeerUnavailableException;
 import javax.sip.SipException;
 import java.text.ParseException;
 import java.util.List;
@@ -35,9 +37,24 @@ public interface ISIPCommander {
     /**
      * 查询目录列表
      *
-     * @param device 视频设备
+     * @param device    视频设备
+     * @param sn        命令序列号
+     * @param startTime 起始时间（可选）
+     * @param endTime   结束时间（可选）
+     * @param callback  回调
      */
-    void catalogQuery(Device device, int sn, ErrorCallback<String> callback) throws SipException, InvalidArgumentException, ParseException;
+    void catalogQuery(Device device, int sn, String startTime, String endTime, ErrorCallback<Object> callback) throws SipException, InvalidArgumentException, ParseException;
+
+    /**
+     * 目录订阅
+     *
+     * @param device            视频设备
+     * @param sipTransactionInfo sip事务信息
+     * @param expires           过期时间（秒）
+     * @param okEvent           成功回调
+     * @param errorEvent        失败回调
+     */
+    void catalogSubscribe(Device device, SipTransactionInfo sipTransactionInfo, Integer expires, SipSubscribe.Event okEvent, SipSubscribe.Event errorEvent) throws SipException, InvalidArgumentException, ParseException, PeerUnavailableException;
 
     /**
      * 查询设备状态

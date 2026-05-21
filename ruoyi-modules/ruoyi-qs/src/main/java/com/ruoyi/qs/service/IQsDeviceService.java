@@ -458,4 +458,20 @@ public interface IQsDeviceService {
      * @return
      */
     QsDevice getDeviceByDeviceCode(String deviceCode);
+
+    /**
+     * 根据 id 更新订阅状态
+     *
+     * @param id                   设备主键ID
+     * @param subscribeCatalogStatus 目录订阅状态
+     * @param subscribeAlarmStatus   报警订阅状态
+     * @param subscribeTime          订阅时间
+     * @return
+     */
+    Boolean updateSubscribeStatusById(
+            Long id,
+            Integer subscribeCatalogStatus,
+            Integer subscribeAlarmStatus,
+            String subscribeTime
+    );
 }

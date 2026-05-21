@@ -145,7 +145,7 @@ public interface RemoteQsDeviceService {
     public R<Boolean> updateDeviceStatusByJtMobileNo(@PathVariable String jtMobileNo, @PathVariable String deviceStatus, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 
     /**
-     * 根据 gbDeviceId 获取设备
+     * 根据 gbCode 获取设备
      *
      * @param gbCode 国标设备编号
      * @param inner  请求来源
@@ -163,4 +163,23 @@ public interface RemoteQsDeviceService {
      */
     @GetMapping("/api/device/getDeviceByDeviceCode/{deviceCode}")
     public R<QsDevice> getDeviceByDeviceCode(@PathVariable String deviceCode, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 根据 id 更新订阅状态
+     *
+     * @param id                   设备主键ID
+     * @param subscribeCatalogStatus 目录订阅状态
+     * @param subscribeAlarmStatus   报警订阅状态
+     * @param subscribeTime          订阅时间
+     * @param inner                  请求来源
+     * @return
+     */
+    @PostMapping("/api/device/updateSubscribeStatus/{id}")
+    public R<Boolean> updateSubscribeStatus(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer subscribeCatalogStatus,
+            @RequestParam(required = false) Integer subscribeAlarmStatus,
+            @RequestParam(required = false) String subscribeTime,
+            @RequestHeader(SecurityConstants.FROM_SOURCE) String inner
+    );
 }

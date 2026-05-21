@@ -121,4 +121,30 @@ public interface IDeviceService {
      * @param device 设备
      */
     void refreshDevice(Device device);
+
+    /**
+     * 查询目录
+     *
+     * @param device    设备
+     * @param startTime 起始时间（可选）
+     * @param endTime   结束时间（可选）
+     * @param callback  回调
+     */
+    void queryCatalog(Device device, String startTime, String endTime, ErrorCallback<Object> callback);
+
+    /**
+     * 目录订阅
+     *
+     * @param device 设备
+     * @param qsDeviceId QsDevice主键ID
+     */
+    void subscribeCatalog(Device device, Long qsDeviceId);
+
+    /**
+     * 取消目录订阅
+     *
+     * @param device 设备
+     * @param qsDeviceId QsDevice主键ID
+     */
+    void unsubscribeCatalog(Device device, Long qsDeviceId);
 }
