@@ -561,6 +561,62 @@ public class Gb28181Controller {
     }
 
     /**
+     * 开始巡航
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId  通道国标编号（可选）
+     * @param cruiseId   巡航组号(0-255)
+     * @return 操作结果
+     */
+    @GetMapping("/cruise/start/{gbDeviceId}")
+    public AjaxResult startCruise(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestParam Integer cruiseId) {
+        log.info("[开始巡航API] 开始, 设备 ID: {}, 通道 ID: {}, 巡航组号: {}", gbDeviceId, channelId, cruiseId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            return AjaxResult.error("设备不存在");
+        }
+        if (cruiseId == null || cruiseId < 0 || cruiseId > 255) {
+            return AjaxResult.error("巡航组号必须为0-255之间的数字");
+        }
+        try {
+            sipCommander.frontEndCmd(device, channelId, 0x88, cruiseId, 0, 0);
+            log.info("[开始巡航] 成功, 设备 ID: {}, 通道 ID: {}, 巡航组号: {}", gbDeviceId, channelId, cruiseId);
+            return AjaxResult.success("开始巡航成功");
+        } catch (Exception e) {
+            log.error("[开始巡航] 失败: {}", e.getMessage(), e);
+            return AjaxResult.error("开始巡航失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 停止巡航
+     *
+     * @param gbDeviceId 设备国标编号
+     * @param channelId  通道国标编号（可选）
+     * @param cruiseId   巡航组号(0-255)
+     * @return 操作结果
+     */
+    @GetMapping("/cruise/stop/{gbDeviceId}")
+    public AjaxResult stopCruise(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestParam Integer cruiseId) {
+        log.info("[停止巡航API] 开始, 设备 ID: {}, 通道 ID: {}, 巡航组号: {}", gbDeviceId, channelId, cruiseId);
+        Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
+        if (device == null) {
+            return AjaxResult.error("设备不存在");
+        }
+        if (cruiseId == null || cruiseId < 0 || cruiseId > 255) {
+            return AjaxResult.error("巡航组号必须为0-255之间的数字");
+        }
+        try {
+            sipCommander.frontEndCmd(device, channelId, 0, 0, 0, 0);
+            log.info("[停止巡航] 成功, 设备 ID: {}, 通道 ID: {}, 巡航组号: {}", gbDeviceId, channelId, cruiseId);
+            return AjaxResult.success("停止巡航成功");
+        } catch (Exception e) {
+            log.error("[停止巡航] 失败: {}", e.getMessage(), e);
+            return AjaxResult.error("停止巡航失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * PTZ精准状态查询
      *
      * @param gbDeviceId 设备国标编号
@@ -726,7 +782,7 @@ public class Gb28181Controller {
      * @param deviceConfig 设备配置，包含看守位配置
      * @return 看守位控制结果
      */
-    @PostMapping("/homePosition/{gbDeviceId}")
+    @PostMapping("/homePosition/control/{gbDeviceId}")
     public DeferredResult<AjaxResult> homePositionControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody DeviceConfig deviceConfig) {
         log.info("[看守位控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 配置: {}", gbDeviceId, channelId, deviceConfig != null ? deviceConfig.getHomePosition() : null);
         Device device = deviceService.getDeviceByDeviceId(gbDeviceId);

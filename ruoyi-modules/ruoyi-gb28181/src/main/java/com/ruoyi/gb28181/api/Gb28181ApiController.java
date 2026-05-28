@@ -1260,7 +1260,7 @@ public class Gb28181ApiController {
      * @param deviceConfig 设备配置，包含看守位配置
      * @return 看守位控制结果
      */
-    @PostMapping("/homePosition/{gbDeviceId}")
+    @PostMapping("/homePosition/control/{gbDeviceId}")
     public DeferredResult<R<Object>> homePositionControl(@PathVariable String gbDeviceId, @RequestParam(required = false) String channelId, @RequestBody DeviceConfig deviceConfig) {
         log.info("[看守位控制API] 开始控制, 设备 ID: {}, 通道 ID: {}, 配置: {}", gbDeviceId, channelId, deviceConfig != null ? deviceConfig.getHomePosition() : null);
         Device device = deviceService.getDeviceByDeviceId(gbDeviceId);
