@@ -123,4 +123,26 @@ public interface RemoteZlmService {
      */
     @GetMapping("/api/zlm/stopPlayback")
     R<Void> stopPlayback(@RequestParam Long deviceId, @RequestParam String deviceType, @RequestParam String stream, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 从流中获取截图
+     *
+     * @param app 应用名
+     * @param stream 流名
+     * @param inner
+     * @return 截图文件路径
+     */
+    @PostMapping("/api/zlm/getSnap")
+    R<String> getSnap(@RequestParam String app, @RequestParam String stream, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
+
+    /**
+     * 新的抓图接口，每次生成不同的文件名
+     *
+     * @param app 应用名
+     * @param stream 流名
+     * @param inner
+     * @return 截图文件路径
+     */
+    @PostMapping("/api/zlm/snap")
+    R<String> snap(@RequestParam String app, @RequestParam String stream, @RequestHeader(SecurityConstants.FROM_SOURCE) String inner);
 }

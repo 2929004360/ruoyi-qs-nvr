@@ -866,6 +866,28 @@ public class MediaServerServiceImpl implements IMediaServerService {
     }
 
     /**
+     * 新的抓图接口，每次生成不同的文件名
+     *
+     * @param mediaServer media
+     * @param app         app
+     * @param stream      流id
+     */
+    @Override
+    public String snap(ZlmMediaServer mediaServer, String app, String stream) {
+        String fileName = app + "-" + stream + "-" + System.currentTimeMillis() + ".jpg";
+        log.info("[请求抓图]: " + fileName);
+
+        IMediaNodeServerService mediaNodeServerService = nodeServerServiceMap.get(mediaServer.getType());
+        if (mediaNodeServerService == null) {
+            log.info("[snap] 失败, mediaServer的类型： {}，未找到对应的实现类", mediaServer.getType());
+            throw new RuntimeException("[snap] 失败, mediaServer的类型： " + mediaServer.getType() + "，未找到对应的实现类");
+        }
+        String filePath = fileDomain + filePrefix + "/snap/" + fileName;
+        mediaNodeServerService.getSnap(mediaServer, app, stream, 15, 1, this.filePath + "/snap", fileName);
+        return filePath;
+    }
+
+    /**
      * 获取截图
      *
      * @param mediaServer

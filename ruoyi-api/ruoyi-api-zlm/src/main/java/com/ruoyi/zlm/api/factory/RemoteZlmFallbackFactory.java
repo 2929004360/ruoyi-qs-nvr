@@ -78,7 +78,17 @@ public class RemoteZlmFallbackFactory implements FallbackFactory<RemoteZlmServic
 
             @Override
             public R<Void> stopPlayback(Long deviceId, String deviceType, String stream, String inner) {
-                return R.fail("zlm接口服务调用失败，stopPlayback: " + throwable.getMessage());
+                return R.fail("zlm接口服务调用失败, stopPlayback: " + throwable.getMessage());
+            }
+
+            @Override
+            public R<String> getSnap(String app, String stream, String inner) {
+                return R.fail("zlm接口服务调用失败, getSnap: " + throwable.getMessage());
+            }
+
+            @Override
+            public R<String> snap(String app, String stream, String inner) {
+                return R.fail("zlm接口服务调用失败, snap: " + throwable.getMessage());
             }
         };
     }

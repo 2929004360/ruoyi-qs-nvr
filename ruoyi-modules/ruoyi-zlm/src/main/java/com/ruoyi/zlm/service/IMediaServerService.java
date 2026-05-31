@@ -146,6 +146,16 @@ public interface IMediaServerService {
     String getSnap(ZlmMediaServer mediaServer, Snap snap);
 
     /**
+     * 抓图接口，每次生成不同的文件名
+     *
+     * @param mediaServer media
+     * @param app         app
+     * @param stream      流id
+     * @return
+     */
+    String snap(ZlmMediaServer mediaServer, String app, String stream);
+
+    /**
      * 创建RTP服务器
      *
      * @param mediaServer  zlm服务实例

@@ -1204,4 +1204,38 @@ public class ZlmController {
         return AjaxResult.success(json);
     }
 
+    /**
+     * 内部接口：从流中获取截图
+     *
+     * @param app 应用名
+     * @param stream 流名
+     * @return 截图文件路径
+     */
+    @PostMapping("/api/zlm/getSnap")
+    public R<String> getSnapInternal(@RequestParam String app, @RequestParam String stream) {
+        ZlmMediaServer mediaServer = mediaServerService.getMediaServerForMinimumLoad(null);
+        if (mediaServer == null) {
+            throw new RuntimeException("无可用的流媒体服务器");
+        }
+        String filePath = mediaServerService.snapOnPlay(mediaServer, app, stream);
+        return R.ok(filePath);
+    }
+
+    /**
+     * 新的抓图接口，每次生成不同的文件名
+     *
+     * @param app    app
+     * @param stream stream
+     * @return
+     */
+    @PostMapping("/api/zlm/snap")
+    public R<String> snap(@RequestParam String app, @RequestParam String stream) {
+        ZlmMediaServer mediaServer = mediaServerService.getMediaServerForMinimumLoad(null);
+        if (mediaServer == null) {
+            throw new RuntimeException("无可用的流媒体服务器");
+        }
+        String filePath = mediaServerService.snap(mediaServer, app, stream);
+        return R.ok(filePath);
+    }
+
 }
