@@ -1,6 +1,7 @@
 package com.ruoyi.onvif;
 
 import com.ruoyi.onvif.listeners.*;
+import com.ruoyi.onvif.listeners.StorageInfoListener;
 import com.ruoyi.onvif.models.OnvifDevice;
 import com.ruoyi.onvif.models.OnvifMediaProfile;
 import com.ruoyi.onvif.requests.*;
@@ -139,6 +140,116 @@ public class OnvifManager implements OnvifResponseListener {
             return;
         }
         OnvifRequest request = new RemovePresetRequest(profileToken, presetToken, listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取存储配置
+     */
+    public void getStorageConfigurations(OnvifDevice device, StorageInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetStorageConfigurationsRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取存储能力
+     */
+    public void getStorageCapabilities(OnvifDevice device, StorageInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetStorageCapabilitiesRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取存储状态
+     */
+    public void getStorageState(OnvifDevice device, StorageInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetStorageStateRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取网络接口配置
+     */
+    public void getNetworkInterfaces(OnvifDevice device, NetworkInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetNetworkInterfacesRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取网络协议配置
+     */
+    public void getNetworkProtocols(OnvifDevice device, NetworkInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetNetworkProtocolsRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取视频源配置
+     */
+    public void getVideoSourceConfigs(OnvifDevice device, MediaInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetVideoSourceConfigsRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取视频编码器配置
+     */
+    public void getVideoEncoderConfigs(OnvifDevice device, MediaInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetVideoEncoderConfigsRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取音频源配置
+     */
+    public void getAudioSourceConfigs(OnvifDevice device, MediaInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetAudioSourceConfigsRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取音频编码器配置
+     */
+    public void getAudioEncoderConfigs(OnvifDevice device, MediaInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetAudioEncoderConfigsRequest(listener);
+        executor.sendRequest(device, request);
+    }
+
+    /**
+     * 获取视频输出配置
+     */
+    public void getVideoOutputConfigs(OnvifDevice device, MediaInfoListener listener) {
+        if (destroyed.get() || device == null || listener == null) {
+            return;
+        }
+        OnvifRequest request = new GetVideoOutputConfigsRequest(listener);
         executor.sendRequest(device, request);
     }
 

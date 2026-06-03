@@ -16,7 +16,17 @@ public enum OnvifType {
     SET_PRESET("http://www.onvif.org/ver20/ptz/wsdl"),
     GOTO_PRESET("http://www.onvif.org/ver20/ptz/wsdl"),
     REMOVE_PRESET("http://www.onvif.org/ver20/ptz/wsdl"),
-    FIND_RECORDINGS("http://www.onvif.org/ver10/search/wsdl");
+    FIND_RECORDINGS("http://www.onvif.org/ver10/search/wsdl"),
+    GET_STORAGE_CONFIGURATIONS("http://www.onvif.org/ver10/device/wsdl"),
+    GET_STORAGE_CAPABILITIES("http://www.onvif.org/ver10/device/wsdl"),
+    GET_STORAGE_STATE("http://www.onvif.org/ver10/device/wsdl"),
+    GET_NETWORK_INTERFACES("http://www.onvif.org/ver10/device/wsdl"),
+    GET_NETWORK_PROTOCOLS("http://www.onvif.org/ver10/device/wsdl"),
+    GET_VIDEO_SOURCE_CONFIGS("http://www.onvif.org/ver10/media/wsdl"),
+    GET_VIDEO_ENCODER_CONFIGS("http://www.onvif.org/ver10/media/wsdl"),
+    GET_AUDIO_SOURCE_CONFIGS("http://www.onvif.org/ver10/media/wsdl"),
+    GET_AUDIO_ENCODER_CONFIGS("http://www.onvif.org/ver10/media/wsdl"),
+    GET_VIDEO_OUTPUT_CONFIGS("http://www.onvif.org/ver10/media/wsdl");
 
     public final String namespace;
 

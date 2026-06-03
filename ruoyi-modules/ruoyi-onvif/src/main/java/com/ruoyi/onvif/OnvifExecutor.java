@@ -3,10 +3,7 @@ package com.ruoyi.onvif;
 import com.ruoyi.onvif.listeners.OnvifResponseListener;
 import com.ruoyi.onvif.models.OnvifDevice;
 import com.ruoyi.onvif.models.OnvifServices;
-import com.ruoyi.onvif.parsers.GetDeviceInformationParser;
-import com.ruoyi.onvif.parsers.GetMediaProfilesParser;
-import com.ruoyi.onvif.parsers.GetMediaStreamParser;
-import com.ruoyi.onvif.parsers.GetServicesParser;
+import com.ruoyi.onvif.parsers.*;
 import com.ruoyi.onvif.requests.*;
 import com.ruoyi.onvif.responses.OnvifResponse;
 import com.burgstaller.okhttp.AuthenticationCacheInterceptor;
@@ -156,30 +153,108 @@ public class OnvifExecutor {
             return;
         }
         
-        switch (response.request().getType()) {
-            case GET_SERVICES:
-                OnvifServices path = new GetServicesParser().parse(response);
-                device.setPath(path);
-                ((GetServicesRequest) response.request()).getListener().onServicesReceived(device, path);
-                break;
-            case GET_DEVICE_INFORMATION:
-                ((GetDeviceInformationRequest) response.request()).getListener().onDeviceInformationReceived(device,
-                        new GetDeviceInformationParser().parse(response));
-                break;
-            case GET_MEDIA_PROFILES:
-                ((GetMediaProfilesRequest) response.request()).getListener().onMediaProfilesReceived(device,
-                        new GetMediaProfilesParser().parse(response));
-                break;
-            case GET_STREAM_URI:
-                GetMediaStreamRequest streamRequest = (GetMediaStreamRequest) response.request();
-                streamRequest.getListener().onMediaStreamURIReceived(device, streamRequest.getMediaProfile(),
-                        new GetMediaStreamParser().parse(response));
-                break;
-            default:
-                if (onvifResponseListener != null) {
-                    onvifResponseListener.onResponse(device, response);
-                }
-                break;
+        try {
+            switch (response.request().getType()) {
+                case GET_SERVICES:
+                    OnvifServices path = new GetServicesParser().parse(response);
+                    device.setPath(path);
+                    ((GetServicesRequest) response.request()).getListener().onServicesReceived(device, path);
+                    break;
+                case GET_DEVICE_INFORMATION:
+                    ((GetDeviceInformationRequest) response.request()).getListener().onDeviceInformationReceived(device,
+                            new GetDeviceInformationParser().parse(response));
+                    break;
+                case GET_MEDIA_PROFILES:
+                    ((GetMediaProfilesRequest) response.request()).getListener().onMediaProfilesReceived(device,
+                            new GetMediaProfilesParser().parse(response));
+                    break;
+                case GET_STREAM_URI:
+                    GetMediaStreamRequest streamRequest = (GetMediaStreamRequest) response.request();
+                    streamRequest.getListener().onMediaStreamURIReceived(device, streamRequest.getMediaProfile(),
+                            new GetMediaStreamParser().parse(response));
+                    break;
+                case GET_STORAGE_CONFIGURATIONS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到存储配置响应: " + response.getXml());
+                    }
+                    ((GetStorageConfigurationsRequest) response.request()).getListener().onStorageInfoReceived(device,
+                            new StorageInfoParser().parse(response));
+                    break;
+                case GET_STORAGE_CAPABILITIES:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到存储能力响应: " + response.getXml());
+                    }
+                    ((GetStorageCapabilitiesRequest) response.request()).getListener().onStorageInfoReceived(device,
+                            new StorageInfoParser().parse(response));
+                    break;
+                case GET_STORAGE_STATE:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到存储状态响应: " + response.getXml());
+                    }
+                    ((GetStorageStateRequest) response.request()).getListener().onStorageInfoReceived(device,
+                            new StorageInfoParser().parse(response));
+                    break;
+                case GET_NETWORK_INTERFACES:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到网络接口响应: " + response.getXml());
+                    }
+                    ((GetNetworkInterfacesRequest) response.request()).getListener().onNetworkInfoReceived(device,
+                            new NetworkInfoParser().parse(response));
+                    break;
+                case GET_NETWORK_PROTOCOLS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到网络协议响应: " + response.getXml());
+                    }
+                    ((GetNetworkProtocolsRequest) response.request()).getListener().onNetworkInfoReceived(device,
+                            new NetworkInfoParser().parse(response));
+                    break;
+                case GET_VIDEO_SOURCE_CONFIGS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到视频源配置响应: " + response.getXml());
+                    }
+                    ((GetVideoSourceConfigsRequest) response.request()).getListener().onMediaInfoReceived(device,
+                            new MediaInfoParser().parse(response));
+                    break;
+                case GET_VIDEO_ENCODER_CONFIGS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到视频编码器配置响应: " + response.getXml());
+                    }
+                    ((GetVideoEncoderConfigsRequest) response.request()).getListener().onMediaInfoReceived(device,
+                            new MediaInfoParser().parse(response));
+                    break;
+                case GET_AUDIO_SOURCE_CONFIGS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到音频源配置响应: " + response.getXml());
+                    }
+                    ((GetAudioSourceConfigsRequest) response.request()).getListener().onMediaInfoReceived(device,
+                            new MediaInfoParser().parse(response));
+                    break;
+                case GET_AUDIO_ENCODER_CONFIGS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到音频编码器配置响应: " + response.getXml());
+                    }
+                    ((GetAudioEncoderConfigsRequest) response.request()).getListener().onMediaInfoReceived(device,
+                            new MediaInfoParser().parse(response));
+                    break;
+                case GET_VIDEO_OUTPUT_CONFIGS:
+                    if (response.getXml() != null && !response.getXml().isEmpty()) {
+                        System.out.println("收到视频输出配置响应: " + response.getXml());
+                    }
+                    ((GetVideoOutputConfigsRequest) response.request()).getListener().onMediaInfoReceived(device,
+                            new MediaInfoParser().parse(response));
+                    break;
+                default:
+                    if (onvifResponseListener != null) {
+                        onvifResponseListener.onResponse(device, response);
+                    }
+                    break;
+            }
+        } catch (Exception e) {
+            System.err.println("解析响应出错: " + e.getMessage());
+            e.printStackTrace();
+            if (onvifResponseListener != null) {
+                onvifResponseListener.onError(device, -2, e.getMessage());
+            }
         }
     }
 

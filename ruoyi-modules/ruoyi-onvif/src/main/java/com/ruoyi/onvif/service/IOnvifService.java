@@ -151,10 +151,13 @@ public interface IOnvifService {
      * @param deviceIp 设备IP
      * @param username 用户名
      * @param password 密码
-     * @param dateTime 要设置的时间，格式：yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
+     * @param dateTime 要设置的时间，支持多种格式：
+     *                 - null 或空字符串：使用服务器当前 UTC 时间
+     *                 - ISO格式（包含"T"）：直接使用
+     *                 - yyyy-MM-dd HH:mm:ss：本地时间，会自动转换为 UTC
      */
     void syncDeviceTime(String deviceIp, String username, String password, String dateTime);
-
+    
     /**
      * ONVIF设备查询录像
      *
@@ -166,7 +169,7 @@ public interface IOnvifService {
      * @return 录像文件列表（包含回放地址）
      */
     ArrayList<HashMap<String, Object>> queryRecord(String deviceIp, String username, String password, String startTime, String endTime);
-
+    
     /**
      * 获取回放地址
      *
@@ -178,4 +181,247 @@ public interface IOnvifService {
      * @return 回放地址
      */
     String getReplayUri(String deviceIp, String username, String password, String recordingToken, String trackToken);
+    
+    /**
+     * 根据设备id重启设备
+     *
+     * @param id 设备id
+     */
+    void restartDeviceById(Long id);
+    
+    /**
+     * 根据设备id校时
+     *
+     * @param id 设备id
+     * @param dateTime 要设置的时间
+     */
+    void syncDeviceTimeById(Long id, String dateTime);
+
+    /**
+     * 根据设备id获取设备时间
+     *
+     * @param id 设备id
+     * @return 设备时间信息
+     */
+    Map<String, Object> getDeviceTimeById(Long id);
+
+    /**
+     * 获取设备信息
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 设备信息
+     */
+    Map<String, Object> getDeviceInfo(String deviceIp, String username, String password);
+
+    /**
+     * 根据设备id获取设备信息
+     *
+     * @param id 设备id
+     * @return 设备信息
+     */
+    Map<String, Object> getDeviceInfoById(Long id);
+
+    /**
+     * 抓图并保存
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @param channelId 通道ID
+     * @param snapshotType 抓图类型
+     * @return 抓图记录ID
+     */
+    Long captureAndSave(String deviceIp, String username, String password, Integer channelId, String snapshotType);
+
+    /**
+     * 根据设备id抓图并保存
+     *
+     * @param id 设备id
+     * @param channelId 通道ID
+     * @param snapshotType 抓图类型
+     * @return 抓图记录ID
+     */
+    Long captureAndSaveById(Long id, Integer channelId, String snapshotType);
+
+    /**
+     * 获取存储配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 存储配置信息
+     */
+    Map<String, Object> getStorageConfigurations(String deviceIp, String username, String password);
+
+    /**
+     * 获取存储能力
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 存储能力信息
+     */
+    Map<String, Object> getStorageCapabilities(String deviceIp, String username, String password);
+
+    /**
+     * 获取存储状态
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 存储状态信息
+     */
+    Map<String, Object> getStorageState(String deviceIp, String username, String password);
+
+    /**
+     * 根据设备id获取存储配置
+     *
+     * @param id 设备id
+     * @return 存储配置信息
+     */
+    Map<String, Object> getStorageConfigurationsById(Long id);
+
+    /**
+     * 根据设备id获取存储能力
+     *
+     * @param id 设备id
+     * @return 存储能力信息
+     */
+    Map<String, Object> getStorageCapabilitiesById(Long id);
+
+    /**
+     * 根据设备id获取存储状态
+     *
+     * @param id 设备id
+     * @return 存储状态信息
+     */
+    Map<String, Object> getStorageStateById(Long id);
+
+    /**
+     * 获取网络接口配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 网络接口配置信息
+     */
+    Map<String, Object> getNetworkInterfaces(String deviceIp, String username, String password);
+
+    /**
+     * 获取网络协议配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 网络协议配置信息
+     */
+    Map<String, Object> getNetworkProtocols(String deviceIp, String username, String password);
+
+    /**
+     * 获取视频源配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 视频源配置信息
+     */
+    Map<String, Object> getVideoSourceConfigs(String deviceIp, String username, String password);
+
+    /**
+     * 获取视频编码器配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 视频编码器配置信息
+     */
+    Map<String, Object> getVideoEncoderConfigs(String deviceIp, String username, String password);
+
+    /**
+     * 获取音频源配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 音频源配置信息
+     */
+    Map<String, Object> getAudioSourceConfigs(String deviceIp, String username, String password);
+
+    /**
+     * 获取音频编码器配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 音频编码器配置信息
+     */
+    Map<String, Object> getAudioEncoderConfigs(String deviceIp, String username, String password);
+
+    /**
+     * 获取视频输出配置
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 视频输出配置信息
+     */
+    Map<String, Object> getVideoOutputConfigs(String deviceIp, String username, String password);
+
+    /**
+     * 根据设备id获取网络接口配置
+     *
+     * @param id 设备id
+     * @return 网络接口配置信息
+     */
+    Map<String, Object> getNetworkInterfacesById(Long id);
+
+    /**
+     * 根据设备id获取网络协议配置
+     *
+     * @param id 设备id
+     * @return 网络协议配置信息
+     */
+    Map<String, Object> getNetworkProtocolsById(Long id);
+
+    /**
+     * 根据设备id获取视频源配置
+     *
+     * @param id 设备id
+     * @return 视频源配置信息
+     */
+    Map<String, Object> getVideoSourceConfigsById(Long id);
+
+    /**
+     * 根据设备id获取视频编码器配置
+     *
+     * @param id 设备id
+     * @return 视频编码器配置信息
+     */
+    Map<String, Object> getVideoEncoderConfigsById(Long id);
+
+    /**
+     * 根据设备id获取音频源配置
+     *
+     * @param id 设备id
+     * @return 音频源配置信息
+     */
+    Map<String, Object> getAudioSourceConfigsById(Long id);
+
+    /**
+     * 根据设备id获取音频编码器配置
+     *
+     * @param id 设备id
+     * @return 音频编码器配置信息
+     */
+    Map<String, Object> getAudioEncoderConfigsById(Long id);
+
+    /**
+     * 根据设备id获取视频输出配置
+     *
+     * @param id 设备id
+     * @return 视频输出配置信息
+     */
+    Map<String, Object> getVideoOutputConfigsById(Long id);
 }

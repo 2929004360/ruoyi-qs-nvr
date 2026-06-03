@@ -7,6 +7,10 @@ import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSON;
+import com.ruoyi.common.core.constant.Constants;
+import com.ruoyi.common.core.constant.SecurityConstants;
+import com.ruoyi.common.core.domain.R;
+import com.ruoyi.common.core.exception.ServiceException;
 import com.ruoyi.onvif.DiscoveryManager;
 import com.ruoyi.onvif.OnvifManager;
 import com.ruoyi.onvif.api.domain.WSOnvifDevice;
@@ -14,12 +18,18 @@ import com.ruoyi.onvif.domain.FetchMainAndSubStreamUris;
 import com.ruoyi.onvif.domain.WSDiscoveryDevice;
 import com.ruoyi.onvif.enums.AuthTypeEnum;
 import com.ruoyi.onvif.listeners.DiscoveryListener;
-import com.ruoyi.onvif.models.Device;
-import com.ruoyi.onvif.models.OnvifDevice;
-import com.ruoyi.onvif.models.OnvifMediaProfile;
+import com.ruoyi.onvif.listeners.MediaInfoListener;
+import com.ruoyi.onvif.listeners.NetworkInfoListener;
+import com.ruoyi.onvif.models.*;
+import com.ruoyi.onvif.listeners.StorageInfoListener;
 import com.ruoyi.onvif.service.IOnvifService;
+import com.ruoyi.qs.api.RemoteQsDeviceService;
+import com.ruoyi.qs.api.RemoteQsDeviceSnapshotService;
+import com.ruoyi.qs.api.domain.QsDevice;
+import com.ruoyi.qs.api.domain.QsDeviceSnapshot;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -29,9 +39,12 @@ import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -54,6 +67,21 @@ public class OnvifServiceImpl implements IOnvifService {
 
     @Autowired
     private RedisTemplate redisTemplate;
+
+    @Autowired
+    private RemoteQsDeviceService remoteQsDeviceService;
+
+    @Autowired
+    private RemoteQsDeviceSnapshotService remoteQsDeviceSnapshotService;
+
+    @Value("${file.path}")
+    private String filePath;
+
+    @Value("${file.domain}")
+    private String fileDomain;
+
+    @Value("${file.prefix}")
+    private String filePrefix;
 
     private static final String ONVIF_DEVICES = "ONVIF:DEVICES";
 
@@ -1370,14 +1398,27 @@ public class OnvifServiceImpl implements IOnvifService {
             String created = Instant.now().toString();
             String passwordDigest = calculatePasswordDigest(nonceBytes, created, password);
             
-            // 解析时间字符串
-            java.time.LocalDateTime localDateTime = java.time.LocalDateTime.parse(dateTime, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            int year = localDateTime.getYear();
-            int month = localDateTime.getMonthValue();
-            int day = localDateTime.getDayOfMonth();
-            int hour = localDateTime.getHour();
-            int minute = localDateTime.getMinute();
-            int second = localDateTime.getSecond();
+            // 解析时间并转换为 UTC 时间
+            java.time.LocalDateTime utcDateTime;
+            if (dateTime == null || dateTime.isEmpty()) {
+                // 没有传入时间，使用服务器当前 UTC 时间
+                utcDateTime = java.time.LocalDateTime.now(java.time.ZoneId.of("UTC"));
+            } else if (dateTime.contains("T")) {
+                // ISO格式时间（可能是 UTC 时间），直接解析使用
+                utcDateTime = java.time.LocalDateTime.parse(dateTime, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            } else {
+                // yyyy-MM-dd HH:mm:ss 格式时间（前端传的本地时间），转换为 UTC
+                java.time.LocalDateTime localDateTime = java.time.LocalDateTime.parse(dateTime, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                java.time.ZonedDateTime zonedDateTime = localDateTime.atZone(java.time.ZoneId.systemDefault());
+                utcDateTime = zonedDateTime.withZoneSameInstant(java.time.ZoneId.of("UTC")).toLocalDateTime();
+            }
+            
+            int year = utcDateTime.getYear();
+            int month = utcDateTime.getMonthValue();
+            int day = utcDateTime.getDayOfMonth();
+            int hour = utcDateTime.getHour();
+            int minute = utcDateTime.getMinute();
+            int second = utcDateTime.getSecond();
             
             String soapRequest = SetSystemDateAndTimeSoapRequest(username, nonce, created, passwordDigest, year, month, day, hour, minute, second);
             String url = "http://" + deviceIp + "/onvif/device_service";
@@ -2173,5 +2214,1338 @@ public class OnvifServiceImpl implements IOnvifService {
         
         log.warn("未在响应中找到Uri节点");
         return null;
+    }
+
+    /**
+     * 根据设备id重启设备
+     *
+     * @param id 设备id
+     */
+    @Override
+    public void restartDeviceById(Long id) {
+        log.info("开始重启ONVIF设备, deviceId:{}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId:{}, code:{}, msg:{}", id, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+
+        // 使用设备的IP、用户名和密码调用重启方法
+        restartDevice(device.getIpAddress(), device.getUserName(), device.getPassword());
+        log.info("重启ONVIF设备成功, deviceId:{}, IP:{}", id, device.getIpAddress());
+    }
+
+    /**
+     * 根据设备id校时
+     *
+     * @param id 设备id
+     * @param dateTime 要设置的时间
+     */
+    @Override
+    public void syncDeviceTimeById(Long id, String dateTime) {
+        log.info("开始校时ONVIF设备, deviceId: {}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId: {}, code: {}, msg: {}", id, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId: {}, IP: {}", id, device.getIpAddress());
+
+        // 直接传递时间给 syncDeviceTime 方法，由它来处理各种情况
+        syncDeviceTime(device.getIpAddress(), device.getUserName(), device.getPassword(), dateTime);
+        log.info("校时ONVIF设备成功, deviceId: {}, IP: {}", id, device.getIpAddress());
+    }
+
+    /**
+     * 根据设备id获取设备时间
+     *
+     * @param id 设备id
+     * @return 设备时间信息
+     */
+    @Override
+    public Map<String, Object> getDeviceTimeById(Long id) {
+        log.info("开始获取ONVIF设备时间, deviceId: {}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId: {}, code: {}, msg: {}", id, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId: {}, IP: {}", id, device.getIpAddress());
+
+        // 使用设备的IP、用户名和密码调用获取时间方法
+        Map<String, Object> result = getDeviceTime(device.getIpAddress(), device.getUserName(), device.getPassword());
+        log.info("获取ONVIF设备时间成功, deviceId: {}, IP: {}, time: {}", id, device.getIpAddress(), result);
+        return result;
+    }
+
+    /**
+     * 获取设备信息
+     *
+     * @param deviceIp 设备IP
+     * @param username 用户名
+     * @param password 密码
+     * @return 设备信息
+     */
+    @Override
+    public Map<String, Object> getDeviceInfo(String deviceIp, String username, String password) {
+        log.info("🚀 开始获取 ONVIF 设备信息... 设备IP: {}", deviceIp);
+        try {
+            Map<String, Object> result = new HashMap<>();
+
+            // 获取基本设备信息
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(deviceIp);
+            wsOnvifDevice.setUsername(username);
+            wsOnvifDevice.setPassword(password);
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+
+            try {
+                FetchMainAndSubStreamUris deviceInfo = getOnvifDeviceInfo(wsOnvifDevice);
+                result.put("manufacturer", deviceInfo.getFirm());
+                result.put("model", deviceInfo.getModel());
+                result.put("firmwareVersion", deviceInfo.getFirmwareVersion());
+                result.put("streamUris", deviceInfo.getStreamUris());
+            } catch (Exception e) {
+                log.warn("获取设备基本信息失败，尝试其他方式: {}", e.getMessage());
+            }
+
+            // 获取 Profile Token 列表
+            try {
+                List<String> profileTokens = getProfileToken(wsOnvifDevice);
+                result.put("profileCount", profileTokens != null ? profileTokens.size() : 0);
+                result.put("profiles", profileTokens);
+            } catch (Exception e) {
+                log.warn("获取 Profile 信息失败: {}", e.getMessage());
+            }
+
+            result.put("success", true);
+            log.info("✅ 获取 ONVIF 设备信息成功: {}", result);
+            return result;
+        } catch (Exception e) {
+            log.error("❌ 获取 ONVIF 设备信息失败", e);
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("message", e.getMessage());
+            return errorResult;
+        }
+    }
+
+    /**
+     * 根据设备id获取设备信息
+     *
+     * @param id 设备id
+     * @return 设备信息
+     */
+    @Override
+    public Map<String, Object> getDeviceInfoById(Long id) {
+        log.info("开始获取ONVIF设备信息, deviceId: {}", id);
+
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (r.getCode() != Constants.SUCCESS) {
+            log.error("获取设备信息失败, deviceId: {}, code: {}, msg: {}", id, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId: {}, IP: {}", id, device.getIpAddress());
+
+        // 使用设备的IP、用户名和密码调用获取设备信息方法
+        Map<String, Object> result = getDeviceInfo(device.getIpAddress(), device.getUserName(), device.getPassword());
+        log.info("获取ONVIF设备信息成功, deviceId: {}, IP: {}", id, device.getIpAddress());
+        return result;
+    }
+
+    // 获取快照地址
+    private static String GetSnapshotUri(String username, String nonce, String created, String passwordDigest, String profileToken) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" + "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">\n" + "  <s:Header>\n" + "    <wsse:Security xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\" xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">\n" + "      <wsse:UsernameToken>\n" + "        <wsse:Username>" + username + "</wsse:Username>\n" + "        <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">" + passwordDigest + "</wsse:Password>\n" + "        <wsse:Nonce>" + nonce + "</wsse:Nonce>\n" + "        <wsu:Created>" + created + "</wsu:Created>\n" + "      </wsse:UsernameToken>\n" + "    </wsse:Security>\n" + "  </s:Header>\n" + "  <s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n" + "    <GetSnapshotUri xmlns=\"http://www.onvif.org/ver20/media/wsdl\">\n" + "      <ProfileToken>" + profileToken + "</ProfileToken>\n" + "    </GetSnapshotUri>\n" + "  </s:Body>\n" + "</s:Envelope>";
+    }
+
+    // 获取快照地址 -- 解析
+    private static String parseSoapResponseSnapshotUri(String responseBody) throws Exception {
+        if (responseBody == null || responseBody.isEmpty()) {
+            throw new IllegalArgumentException("响应内容不能为空");
+        }
+        
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new java.io.ByteArrayInputStream(responseBody.getBytes("UTF-8")));
+        NodeList uriNodes = document.getElementsByTagNameNS("http://www.onvif.org/ver20/media/wsdl", "Uri");
+        if (uriNodes.getLength() > 0) {
+            return uriNodes.item(0).getTextContent();
+        } else {
+            throw new RuntimeException("Uri not found in the SOAP response");
+        }
+    }
+
+    /**
+     * 获取快照地址
+     */
+    public static String getSnapshotUri(WSOnvifDevice onvifDevice, String profileToken) {
+        if (onvifDevice == null || profileToken == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        byte[] nonceBytes = RandomUtil.randomBytes(16);
+        String nonce = Base64.encode(nonceBytes);
+        String created = Instant.now().toString();
+        String passwordDigest = calculatePasswordDigest(nonceBytes, created, onvifDevice.getPassword());
+        String soapRequest = GetSnapshotUri(onvifDevice.getUsername(), nonce, created, passwordDigest, profileToken);
+        String url = "http://" + onvifDevice.getIp() + "/onvif/media_service";
+        HttpResponse response = HttpRequest.post(url).header("Content-Type", "application/soap+xml; charset=utf-8").body(soapRequest).execute();
+        if (response.getStatus() == 200) {
+            try {
+                return parseSoapResponseSnapshotUri(response.body());
+            } catch (Exception e) {
+                throw new RuntimeException("解析快照地址失败: " + e.getMessage(), e);
+            }
+        } else if (response.getStatus() == 500) {
+            throw new RuntimeException("该命名空间设备不支持");
+        } else if (response.getStatus() == 401) {
+            throw new RuntimeException("鉴权失败");
+        }
+        throw new RuntimeException("获取快照地址失败，状态码: " + response.getStatus());
+    }
+
+    @Override
+    public Long captureAndSave(String deviceIp, String username, String password, Integer channelId, String snapshotType) {
+        log.info("🚀 开始ONVIF设备抓图... 设备IP: {}, 通道: {}, 类型: {}", deviceIp, channelId, snapshotType);
+        throw new RuntimeException("请使用 captureAndSaveById 方法");
+    }
+
+    @Override
+    public Long captureAndSaveById(Long id, Integer channelId, String snapshotType) {
+        log.info("开始ONVIF设备抓图, deviceId: {}, channelId: {}, snapshotType: {}", id, channelId, snapshotType);
+        
+        // 获取设备信息
+        R<QsDevice> r = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (R.isError(r)) {
+            log.error("获取设备信息失败, deviceId: {}, code: {}, msg: {}", id, r.getCode(), r.getMsg());
+            throw new ServiceException(r.getMsg());
+        }
+        QsDevice device = r.getData();
+        log.debug("获取设备信息成功, deviceId: {}, IP: {}", id, device.getIpAddress());
+        
+        try {
+            // 获取 profile token
+            WSOnvifDevice wsOnvifDevice = new WSOnvifDevice();
+            wsOnvifDevice.setIp(device.getIpAddress());
+            wsOnvifDevice.setUsername(device.getUserName());
+            wsOnvifDevice.setPassword(device.getPassword());
+            wsOnvifDevice.setAuth(AuthTypeEnum.WS_USERNAME_TOKEN.getCode());
+            List<String> profileTokens = getProfileToken(wsOnvifDevice);
+            if (profileTokens == null || profileTokens.isEmpty()) {
+                throw new RuntimeException("未获取到设备的Profile Token");
+            }
+            String profileToken = profileTokens.get(0);
+            
+            // 获取快照 URI
+            String snapshotUri = getSnapshotUri(wsOnvifDevice, profileToken);
+            log.info("获取快照地址成功: {}", snapshotUri);
+            
+            // 如果快照 URI 不是以 http 开头，尝试补全
+            if (!snapshotUri.startsWith("http")) {
+                if (snapshotUri.startsWith("/")) {
+                    snapshotUri = "http://" + device.getIpAddress() + snapshotUri;
+                } else {
+                    snapshotUri = "http://" + device.getIpAddress() + "/" + snapshotUri;
+                }
+            }
+            
+            // 下载快照图片
+            byte[] imageData = null;
+            try {
+                log.info("开始使用 Digest 认证下载快照图片: {}", snapshotUri);
+                
+                // 使用 Digest 认证下载快照
+                if (device.getUserName() != null && device.getPassword() != null) {
+                    // 使用 OkHttp + Digest 认证，和 OnvifExecutor 保持一致
+                    com.burgstaller.okhttp.digest.Credentials digestCredentials = new com.burgstaller.okhttp.digest.Credentials(device.getUserName(), device.getPassword());
+                    com.burgstaller.okhttp.digest.DigestAuthenticator authenticator = new com.burgstaller.okhttp.digest.DigestAuthenticator(digestCredentials);
+                    java.util.Map<String, com.burgstaller.okhttp.digest.CachingAuthenticator> authCache = new java.util.concurrent.ConcurrentHashMap<>();
+                    
+                    okhttp3.OkHttpClient okHttpClient = new okhttp3.OkHttpClient.Builder()
+                            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                            .authenticator(new com.burgstaller.okhttp.CachingAuthenticatorDecorator(authenticator, authCache))
+                            .addInterceptor(new com.burgstaller.okhttp.AuthenticationCacheInterceptor(authCache))
+                            .build();
+                    
+                    okhttp3.Request okRequest = new okhttp3.Request.Builder()
+                            .url(snapshotUri)
+                            .get()
+                            .addHeader("Accept", "image/jpeg, image/png, image/*")
+                            .build();
+                    
+                    try (okhttp3.Response okResponse = okHttpClient.newCall(okRequest).execute()) {
+                        if (okResponse.isSuccessful() && okResponse.body() != null) {
+                            imageData = okResponse.body().bytes();
+                            log.info("快照图片下载成功! 图片大小: {} bytes", imageData.length);
+                        } else {
+                            log.warn("快照图片下载失败，状态码: {}", okResponse.code());
+                        }
+                    }
+                }
+                
+                // 如果 Digest 认证失败或没有用户名密码，尝试不带认证
+                if (imageData == null) {
+                    log.warn("Digest 认证失败，尝试不带认证下载");
+                    HttpResponse imgResponse = HttpRequest.get(snapshotUri)
+                            .header("Accept", "image/jpeg, image/png, image/*")
+                            .timeout(30000)
+                            .execute();
+                    if (imgResponse.getStatus() == 200 || imgResponse.getStatus() == 206) {
+                        imageData = imgResponse.bodyBytes();
+                        log.info("不带认证下载快照图片成功! 图片大小: {} bytes", imageData.length);
+                    }
+                }
+                
+                if (imageData == null) {
+                    throw new RuntimeException("无法下载快照图片，所有认证方式都失败");
+                }
+            } catch (Exception e) {
+                log.error("下载快照图片异常", e);
+                throw new RuntimeException("下载快照图片失败: " + e.getMessage(), e);
+            }
+            
+            if (imageData == null || imageData.length == 0) {
+                throw new RuntimeException("快照图片数据为空");
+            }
+            
+            // 创建目录
+            File dir = new File(filePath + "/onvif_snapshot/");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            // 生成文件名并保存到文件
+            String fileName = "onvif_" + device.getId() + "_" + System.currentTimeMillis() + ".jpg";
+            String localFilePath = filePath + "/onvif_snapshot/" + fileName;
+            String fileUrl = fileDomain + filePrefix + "/onvif_snapshot/" + fileName;
+            
+            try (FileOutputStream fos = new FileOutputStream(localFilePath)) {
+                fos.write(imageData);
+            }
+            
+            File savedFile = new File(localFilePath);
+            log.info("图片保存成功, deviceId:{}, channelId:{}, filePath:{}, fileUrl:{}, fileSize:{}",
+                    device.getId(), channelId, localFilePath, fileUrl, savedFile.length());
+            
+            // 构造抓图记录
+            QsDeviceSnapshot snapshot = new QsDeviceSnapshot();
+            snapshot.setDeviceId(device.getId());
+            snapshot.setDeviceCode(device.getDeviceCode());
+            snapshot.setDeviceName(device.getDeviceName());
+            snapshot.setFileUrl(fileUrl);
+            snapshot.setFilePath(localFilePath);
+            snapshot.setFileSize(savedFile.length());
+            snapshot.setFileName(fileName);
+            snapshot.setFileType("jpg");
+            snapshot.setSnapshotType(snapshotType);
+            snapshot.setSdkType("onvif");
+            snapshot.setChannel(Long.valueOf(channelId));
+            snapshot.setCaptureTime(new Date());
+            
+            // 保存到数据库
+            R<Long> result = remoteQsDeviceSnapshotService.add(snapshot, SecurityConstants.INNER);
+            
+            if (R.isSuccess(result)) {
+                log.info("✅ ONVIF设备抓图记录保存成功, snapshotId:{}", result.getData());
+                return result.getData();
+            } else {
+                String errorMsg = "保存抓图记录失败: " + result.getMsg();
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+        } catch (Exception e) {
+            log.error("❌ ONVIF设备抓图失败", e);
+            throw new RuntimeException("ONVIF设备抓图失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getStorageConfigurations(String deviceIp, String username, String password) {
+        try {
+            log.info("获取存储配置: deviceIp={}", deviceIp);
+            StorageInfoResult result = getStorageInfo(deviceIp, username, password, "configurations");
+            return result.toMap();
+        } catch (Exception e) {
+            log.error("获取存储配置失败", e);
+            throw new RuntimeException("获取存储配置失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getStorageCapabilities(String deviceIp, String username, String password) {
+        try {
+            log.info("获取存储能力: deviceIp={}", deviceIp);
+            StorageInfoResult result = getStorageInfo(deviceIp, username, password, "capabilities");
+            return result.toMap();
+        } catch (Exception e) {
+            log.error("获取存储能力失败", e);
+            throw new RuntimeException("获取存储能力失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getStorageState(String deviceIp, String username, String password) {
+        try {
+            log.info("获取存储状态: deviceIp={}", deviceIp);
+            StorageInfoResult result = getStorageInfo(deviceIp, username, password, "state");
+            return result.toMap();
+        } catch (Exception e) {
+            log.error("获取存储状态失败", e);
+            throw new RuntimeException("获取存储状态失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getStorageConfigurationsById(Long id) {
+        try {
+            log.info("根据设备id获取存储配置: id={}", id);
+            R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (!R.isSuccess(deviceR)) {
+                throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+            }
+            QsDevice device = deviceR.getData();
+            StorageInfoResult result = getStorageInfo(device.getIpAddress(), device.getUserName(), device.getPassword(), "configurations");
+            return result.toMap();
+        } catch (Exception e) {
+            log.error("根据设备id获取存储配置失败", e);
+            throw new RuntimeException("根据设备id获取存储配置失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getStorageCapabilitiesById(Long id) {
+        try {
+            log.info("根据设备id获取存储能力: id={}", id);
+            R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (!R.isSuccess(deviceR)) {
+                throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+            }
+            QsDevice device = deviceR.getData();
+            StorageInfoResult result = getStorageInfo(device.getIpAddress(), device.getUserName(), device.getPassword(), "capabilities");
+            return result.toMap();
+        } catch (Exception e) {
+            log.error("根据设备id获取存储能力失败", e);
+            throw new RuntimeException("根据设备id获取存储能力失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getStorageStateById(Long id) {
+        try {
+            log.info("根据设备id获取存储状态: id={}", id);
+            R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+            if (!R.isSuccess(deviceR)) {
+                throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+            }
+            QsDevice device = deviceR.getData();
+            StorageInfoResult result = getStorageInfo(device.getIpAddress(), device.getUserName(), device.getPassword(), "state");
+            return result.toMap();
+        } catch (Exception e) {
+            log.error("根据设备id获取存储状态失败", e);
+            throw new RuntimeException("根据设备id获取存储状态失败: " + e.getMessage(), e);
+        }
+    }
+
+    private StorageInfoResult getStorageInfo(String deviceIp, String username, String password, String type) {
+        log.info("开始获取存储信息: deviceIp={}, type={}", deviceIp, type);
+        OnvifDevice onvifDevice = new OnvifDevice(deviceIp, username, password);
+        OnvifManager onvifManager = new OnvifManager();
+        
+        try {
+            StorageInfoResult result = new StorageInfoResult();
+            result.setSuccess(false);
+            result.setType(type);
+            
+            // 获取存储信息
+            final boolean[] storageReady = {false};
+            final StorageInfo[] storageInfo = {null};
+            final RuntimeException[] storageError = {null};
+            
+            StorageInfoListener listener = new StorageInfoListener() {
+                @Override
+                public void onStorageInfoReceived(OnvifDevice device, StorageInfo info) {
+                    log.info("收到存储信息: info={}", info);
+                    synchronized (storageReady) {
+                        storageInfo[0] = info;
+                        storageReady[0] = true;
+                        storageReady.notifyAll();
+                    }
+                }
+
+                @Override
+                public void onError(OnvifDevice device, int errorCode, String errorMessage) {
+                    log.error("获取存储信息出错: errorCode={}, errorMessage={}", errorCode, errorMessage);
+                    synchronized (storageReady) {
+                        storageError[0] = new RuntimeException("错误码: " + errorCode + ", 信息: " + errorMessage);
+                        storageReady[0] = true;
+                        storageReady.notifyAll();
+                    }
+                }
+            };
+            
+            switch (type) {
+                case "configurations":
+                    log.info("调用getStorageConfigurations");
+                    onvifManager.getStorageConfigurations(onvifDevice, listener);
+                    break;
+                case "capabilities":
+                    log.info("调用getStorageCapabilities");
+                    onvifManager.getStorageCapabilities(onvifDevice, listener);
+                    break;
+                case "state":
+                    log.info("调用getStorageState");
+                    onvifManager.getStorageState(onvifDevice, listener);
+                    break;
+            }
+            
+            log.info("等待存储信息响应...");
+            synchronized (storageReady) {
+                try {
+                    storageReady.wait(10000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            
+            if (storageError[0] != null) {
+                log.error("存储信息返回错误", storageError[0]);
+                throw storageError[0];
+            }
+            
+            if (storageInfo[0] != null) {
+                log.info("成功获取存储信息: {}", storageInfo[0]);
+                result.setSuccess(true);
+                result.setStorageInfo(storageInfo[0]);
+            } else {
+                log.warn("没有获取到存储信息，storageInfo为null");
+            }
+            
+            return result;
+        } finally {
+            onvifManager.destroy();
+        }
+    }
+
+    private static class StorageInfoResult {
+        private boolean success;
+        private StorageInfo storageInfo;
+        private String type;
+        private boolean hasError;
+        private String errorMessage;
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public StorageInfo getStorageInfo() {
+            return storageInfo;
+        }
+
+        public void setStorageInfo(StorageInfo storageInfo) {
+            this.storageInfo = storageInfo;
+            // 同时设置错误信息
+            if (storageInfo != null) {
+                this.hasError = storageInfo.isHasError();
+                this.errorMessage = storageInfo.getErrorMessage();
+            }
+        }
+        
+        public String getType() {
+            return type;
+        }
+        
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public boolean isHasError() {
+            return hasError;
+        }
+
+        public void setHasError(boolean hasError) {
+            this.hasError = hasError;
+        }
+
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("success", success);
+            map.put("hasError", hasError);
+            map.put("errorMessage", errorMessage);
+            
+            if (storageInfo != null) {
+                if (type == null) {
+                    // 如果没有指定类型，返回所有配置
+                    // 存储配置
+                    List<Map<String, Object>> configsList = new ArrayList<>();
+                    for (StorageInfo.StorageConfiguration config : storageInfo.getConfigurations()) {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("token", config.getToken());
+                        configMap.put("type", config.getType());
+                        configMap.put("name", config.getName());
+                        configMap.put("storageUri", config.getStorageUri());
+                        configMap.put("enabled", config.getEnabled());
+                        configsList.add(configMap);
+                    }
+                    map.put("configurations", configsList);
+                    
+                    // 存储能力
+                    List<Map<String, Object>> capsList = new ArrayList<>();
+                    for (StorageInfo.StorageCapability cap : storageInfo.getCapabilities()) {
+                        Map<String, Object> capMap = new HashMap<>();
+                        capMap.put("token", cap.getToken());
+                        capMap.put("type", cap.getType());
+                        capMap.put("recording", cap.getRecording());
+                        capMap.put("search", cap.getSearch());
+                        capMap.put("replay", cap.getReplay());
+                        capMap.put("export", cap.getExport());
+                        capsList.add(capMap);
+                    }
+                    map.put("capabilities", capsList);
+                    
+                    // 存储状态
+                    List<Map<String, Object>> stateList = new ArrayList<>();
+                    for (StorageInfo.StorageState state : storageInfo.getStates()) {
+                        Map<String, Object> stateMap = new HashMap<>();
+                        stateMap.put("token", state.getToken());
+                        stateMap.put("state", state.getState());
+                        stateMap.put("totalCapacity", state.getTotalCapacity());
+                        stateMap.put("freeCapacity", state.getFreeCapacity());
+                        stateMap.put("usedCapacity", state.getUsedCapacity());
+                        stateMap.put("lastUpdated", state.getLastUpdated());
+                        stateList.add(stateMap);
+                    }
+                    map.put("states", stateList);
+                } else {
+                    // 根据类型只返回对应的数据
+                    switch (type) {
+                        case "configurations":
+                            // 存储配置
+                            List<Map<String, Object>> configsList = new ArrayList<>();
+                            for (StorageInfo.StorageConfiguration config : storageInfo.getConfigurations()) {
+                                Map<String, Object> configMap = new HashMap<>();
+                                configMap.put("token", config.getToken());
+                                configMap.put("type", config.getType());
+                                configMap.put("name", config.getName());
+                                configMap.put("storageUri", config.getStorageUri());
+                                configMap.put("enabled", config.getEnabled());
+                                configsList.add(configMap);
+                            }
+                            map.put("configurations", configsList);
+                            break;
+                        case "capabilities":
+                            // 存储能力
+                            List<Map<String, Object>> capsList = new ArrayList<>();
+                            for (StorageInfo.StorageCapability cap : storageInfo.getCapabilities()) {
+                                Map<String, Object> capMap = new HashMap<>();
+                                capMap.put("token", cap.getToken());
+                                capMap.put("type", cap.getType());
+                                capMap.put("recording", cap.getRecording());
+                                capMap.put("search", cap.getSearch());
+                                capMap.put("replay", cap.getReplay());
+                                capMap.put("export", cap.getExport());
+                                capsList.add(capMap);
+                            }
+                            map.put("capabilities", capsList);
+                            break;
+                        case "state":
+                            // 存储状态
+                            List<Map<String, Object>> stateList = new ArrayList<>();
+                            for (StorageInfo.StorageState state : storageInfo.getStates()) {
+                                Map<String, Object> stateMap = new HashMap<>();
+                                stateMap.put("token", state.getToken());
+                                stateMap.put("state", state.getState());
+                                stateMap.put("totalCapacity", state.getTotalCapacity());
+                                stateMap.put("freeCapacity", state.getFreeCapacity());
+                                stateMap.put("usedCapacity", state.getUsedCapacity());
+                                stateMap.put("lastUpdated", state.getLastUpdated());
+                                stateList.add(stateMap);
+                            }
+                            map.put("states", stateList);
+                            break;
+                    }
+                }
+            }
+            
+            return map;
+        }
+    }
+
+    private static class NetworkInfoResult {
+        private boolean success;
+        private NetworkInfo networkInfo;
+        private String type;
+        private boolean hasError;
+        private String errorMessage;
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public NetworkInfo getNetworkInfo() {
+            return networkInfo;
+        }
+
+        public void setNetworkInfo(NetworkInfo networkInfo) {
+            this.networkInfo = networkInfo;
+            // 同时设置错误信息
+            if (networkInfo != null) {
+                this.hasError = networkInfo.isHasError();
+                this.errorMessage = networkInfo.getErrorMessage();
+            }
+        }
+        
+        public String getType() {
+            return type;
+        }
+        
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public boolean isHasError() {
+            return hasError;
+        }
+
+        public void setHasError(boolean hasError) {
+            this.hasError = hasError;
+        }
+
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("success", success);
+            map.put("hasError", hasError);
+            map.put("errorMessage", errorMessage);
+            
+            if (networkInfo != null) {
+                if (type == null) {
+                    // 如果没有指定类型，返回所有配置
+                    // 网络接口配置
+                    List<Map<String, Object>> interfacesList = new ArrayList<>();
+                    for (NetworkInfo.NetworkInterface iface : networkInfo.getNetworkInterfaces()) {
+                        Map<String, Object> ifaceMap = new HashMap<>();
+                        ifaceMap.put("token", iface.getToken());
+                        ifaceMap.put("name", iface.getName());
+                        ifaceMap.put("enabled", iface.isEnabled());
+                        ifaceMap.put("hwAddress", iface.getHwAddress());
+                        ifaceMap.put("ipv4Address", iface.getIpv4Address());
+                        ifaceMap.put("ipv4SubnetMask", iface.getIpv4SubnetMask());
+                        ifaceMap.put("ipv4Gateway", iface.getIpv4Gateway());
+                        ifaceMap.put("ipv6Address", iface.getIpv6Address());
+                        ifaceMap.put("ipv6PrefixLength", iface.getIpv6PrefixLength());
+                        ifaceMap.put("ipv6Gateway", iface.getIpv6Gateway());
+                        ifaceMap.put("dnsServers", iface.getDnsServers());
+                        ifaceMap.put("dhcpEnabled", iface.isDhcpEnabled());
+                        interfacesList.add(ifaceMap);
+                    }
+                    map.put("networkInterfaces", interfacesList);
+                    
+                    // 网络协议配置
+                    List<Map<String, Object>> protocolsList = new ArrayList<>();
+                    for (NetworkInfo.NetworkProtocol protocol : networkInfo.getNetworkProtocols()) {
+                        Map<String, Object> protocolMap = new HashMap<>();
+                        protocolMap.put("name", protocol.getName());
+                        protocolMap.put("enabled", protocol.isEnabled());
+                        protocolMap.put("port", protocol.getPort());
+                        protocolMap.put("tlsEnabled", protocol.isTlsEnabled());
+                        protocolsList.add(protocolMap);
+                    }
+                    map.put("networkProtocols", protocolsList);
+                    
+                    // 网络状态
+                    NetworkInfo.NetworkStatus status = networkInfo.getNetworkStatus();
+                    if (status != null) {
+                        Map<String, Object> statusMap = new HashMap<>();
+                        statusMap.put("connected", status.isConnected());
+                        statusMap.put("connectionType", status.getConnectionType());
+                        statusMap.put("packetLoss", status.getPacketLoss());
+                        statusMap.put("latency", status.getLatency());
+                        statusMap.put("bytesSent", status.getBytesSent());
+                        statusMap.put("bytesReceived", status.getBytesReceived());
+                        map.put("networkStatus", statusMap);
+                    }
+                } else {
+                    // 根据类型只返回对应的数据
+                    switch (type) {
+                        case "interfaces":
+                            // 网络接口配置
+                            List<Map<String, Object>> interfacesList = new ArrayList<>();
+                            for (NetworkInfo.NetworkInterface iface : networkInfo.getNetworkInterfaces()) {
+                                Map<String, Object> ifaceMap = new HashMap<>();
+                                ifaceMap.put("token", iface.getToken());
+                                ifaceMap.put("name", iface.getName());
+                                ifaceMap.put("enabled", iface.isEnabled());
+                                ifaceMap.put("hwAddress", iface.getHwAddress());
+                                ifaceMap.put("ipv4Address", iface.getIpv4Address());
+                                ifaceMap.put("ipv4SubnetMask", iface.getIpv4SubnetMask());
+                                ifaceMap.put("ipv4Gateway", iface.getIpv4Gateway());
+                                ifaceMap.put("ipv6Address", iface.getIpv6Address());
+                                ifaceMap.put("ipv6PrefixLength", iface.getIpv6PrefixLength());
+                                ifaceMap.put("ipv6Gateway", iface.getIpv6Gateway());
+                                ifaceMap.put("dnsServers", iface.getDnsServers());
+                                ifaceMap.put("dhcpEnabled", iface.isDhcpEnabled());
+                                interfacesList.add(ifaceMap);
+                            }
+                            map.put("networkInterfaces", interfacesList);
+                            break;
+                        case "protocols":
+                            // 网络协议配置
+                            List<Map<String, Object>> protocolsList = new ArrayList<>();
+                            for (NetworkInfo.NetworkProtocol protocol : networkInfo.getNetworkProtocols()) {
+                                Map<String, Object> protocolMap = new HashMap<>();
+                                protocolMap.put("name", protocol.getName());
+                                protocolMap.put("enabled", protocol.isEnabled());
+                                protocolMap.put("port", protocol.getPort());
+                                protocolMap.put("tlsEnabled", protocol.isTlsEnabled());
+                                protocolsList.add(protocolMap);
+                            }
+                            map.put("networkProtocols", protocolsList);
+                            break;
+                    }
+                }
+            }
+            
+            return map;
+        }
+    }
+
+    private static class MediaInfoResult {
+        private boolean success;
+        private MediaInfo mediaInfo;
+        private String type;
+        private boolean hasError;
+        private String errorMessage;
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public MediaInfo getMediaInfo() {
+            return mediaInfo;
+        }
+
+        public void setMediaInfo(MediaInfo mediaInfo) {
+            this.mediaInfo = mediaInfo;
+            // 同时设置错误信息
+            if (mediaInfo != null) {
+                this.hasError = mediaInfo.isHasError();
+                this.errorMessage = mediaInfo.getErrorMessage();
+            }
+        }
+        
+        public String getType() {
+            return type;
+        }
+        
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public boolean isHasError() {
+            return hasError;
+        }
+
+        public void setHasError(boolean hasError) {
+            this.hasError = hasError;
+        }
+
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("success", success);
+            map.put("hasError", hasError);
+            map.put("errorMessage", errorMessage);
+            
+            if (mediaInfo != null) {
+                if (type == null) {
+                    // 如果没有指定类型，返回所有配置
+                    // 视频源配置
+                    List<Map<String, Object>> videoSourcesList = new ArrayList<>();
+                    for (MediaInfo.VideoSourceConfig config : mediaInfo.getVideoSourceConfigs()) {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("token", config.getToken());
+                        configMap.put("name", config.getName());
+                        configMap.put("sourceToken", config.getSourceToken());
+                        configMap.put("width", config.getWidth());
+                        configMap.put("height", config.getHeight());
+                        configMap.put("framerate", config.getFramerate());
+                        configMap.put("type", config.getType());
+                        videoSourcesList.add(configMap);
+                    }
+                    map.put("videoSourceConfigs", videoSourcesList);
+                    
+                    // 视频编码器配置
+                    List<Map<String, Object>> videoEncodersList = new ArrayList<>();
+                    for (MediaInfo.VideoEncoderConfig config : mediaInfo.getVideoEncoderConfigs()) {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("token", config.getToken());
+                        configMap.put("name", config.getName());
+                        configMap.put("sourceToken", config.getSourceToken());
+                        configMap.put("encoding", config.getEncoding());
+                        configMap.put("width", config.getWidth());
+                        configMap.put("height", config.getHeight());
+                        configMap.put("framerate", config.getFramerate());
+                        configMap.put("bitrate", config.getBitrate());
+                        configMap.put("quality", config.getQuality());
+                        configMap.put("govLength", config.getGovLength());
+                        configMap.put("profile", config.getProfile());
+                        videoEncodersList.add(configMap);
+                    }
+                    map.put("videoEncoderConfigs", videoEncodersList);
+                    
+                    // 音频源配置
+                    List<Map<String, Object>> audioSourcesList = new ArrayList<>();
+                    for (MediaInfo.AudioSourceConfig config : mediaInfo.getAudioSourceConfigs()) {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("token", config.getToken());
+                        configMap.put("name", config.getName());
+                        configMap.put("sourceToken", config.getSourceToken());
+                        configMap.put("type", config.getType());
+                        configMap.put("channels", config.getChannels());
+                        configMap.put("sampleRate", config.getSampleRate());
+                        configMap.put("bitDepth", config.getBitDepth());
+                        audioSourcesList.add(configMap);
+                    }
+                    map.put("audioSourceConfigs", audioSourcesList);
+                    
+                    // 音频编码器配置
+                    List<Map<String, Object>> audioEncodersList = new ArrayList<>();
+                    for (MediaInfo.AudioEncoderConfig config : mediaInfo.getAudioEncoderConfigs()) {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("token", config.getToken());
+                        configMap.put("name", config.getName());
+                        configMap.put("sourceToken", config.getSourceToken());
+                        configMap.put("encoding", config.getEncoding());
+                        configMap.put("bitrate", config.getBitrate());
+                        configMap.put("sampleRate", config.getSampleRate());
+                        configMap.put("channels", config.getChannels());
+                        configMap.put("quality", config.getQuality());
+                        audioEncodersList.add(configMap);
+                    }
+                    map.put("audioEncoderConfigs", audioEncodersList);
+                    
+                    // 视频输出配置
+                    List<Map<String, Object>> videoOutputsList = new ArrayList<>();
+                    for (MediaInfo.VideoOutputConfig config : mediaInfo.getVideoOutputConfigs()) {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("token", config.getToken());
+                        configMap.put("name", config.getName());
+                        configMap.put("layout", config.getLayout());
+                        configMap.put("resolution", config.getResolution());
+                        configMap.put("refreshRate", config.getRefreshRate());
+                        videoOutputsList.add(configMap);
+                    }
+                    map.put("videoOutputConfigs", videoOutputsList);
+                } else {
+                    // 根据类型只返回对应的数据
+                    switch (type) {
+                        case "videoSource":
+                            // 视频源配置
+                            List<Map<String, Object>> videoSourcesList = new ArrayList<>();
+                            for (MediaInfo.VideoSourceConfig config : mediaInfo.getVideoSourceConfigs()) {
+                                Map<String, Object> configMap = new HashMap<>();
+                                configMap.put("token", config.getToken());
+                                configMap.put("name", config.getName());
+                                configMap.put("sourceToken", config.getSourceToken());
+                                configMap.put("width", config.getWidth());
+                                configMap.put("height", config.getHeight());
+                                configMap.put("framerate", config.getFramerate());
+                                configMap.put("type", config.getType());
+                                videoSourcesList.add(configMap);
+                            }
+                            map.put("videoSourceConfigs", videoSourcesList);
+                            break;
+                        case "videoEncoder":
+                            // 视频编码器配置
+                            List<Map<String, Object>> videoEncodersList = new ArrayList<>();
+                            for (MediaInfo.VideoEncoderConfig config : mediaInfo.getVideoEncoderConfigs()) {
+                                Map<String, Object> configMap = new HashMap<>();
+                                configMap.put("token", config.getToken());
+                                configMap.put("name", config.getName());
+                                configMap.put("sourceToken", config.getSourceToken());
+                                configMap.put("encoding", config.getEncoding());
+                                configMap.put("width", config.getWidth());
+                                configMap.put("height", config.getHeight());
+                                configMap.put("framerate", config.getFramerate());
+                                configMap.put("bitrate", config.getBitrate());
+                                configMap.put("quality", config.getQuality());
+                                configMap.put("govLength", config.getGovLength());
+                                configMap.put("profile", config.getProfile());
+                                videoEncodersList.add(configMap);
+                            }
+                            map.put("videoEncoderConfigs", videoEncodersList);
+                            break;
+                        case "audioSource":
+                            // 音频源配置
+                            List<Map<String, Object>> audioSourcesList = new ArrayList<>();
+                            for (MediaInfo.AudioSourceConfig config : mediaInfo.getAudioSourceConfigs()) {
+                                Map<String, Object> configMap = new HashMap<>();
+                                configMap.put("token", config.getToken());
+                                configMap.put("name", config.getName());
+                                configMap.put("sourceToken", config.getSourceToken());
+                                configMap.put("type", config.getType());
+                                configMap.put("channels", config.getChannels());
+                                configMap.put("sampleRate", config.getSampleRate());
+                                configMap.put("bitDepth", config.getBitDepth());
+                                audioSourcesList.add(configMap);
+                            }
+                            map.put("audioSourceConfigs", audioSourcesList);
+                            break;
+                        case "audioEncoder":
+                            // 音频编码器配置
+                            List<Map<String, Object>> audioEncodersList = new ArrayList<>();
+                            for (MediaInfo.AudioEncoderConfig config : mediaInfo.getAudioEncoderConfigs()) {
+                                Map<String, Object> configMap = new HashMap<>();
+                                configMap.put("token", config.getToken());
+                                configMap.put("name", config.getName());
+                                configMap.put("sourceToken", config.getSourceToken());
+                                configMap.put("encoding", config.getEncoding());
+                                configMap.put("bitrate", config.getBitrate());
+                                configMap.put("sampleRate", config.getSampleRate());
+                                configMap.put("channels", config.getChannels());
+                                configMap.put("quality", config.getQuality());
+                                audioEncodersList.add(configMap);
+                            }
+                            map.put("audioEncoderConfigs", audioEncodersList);
+                            break;
+                        case "videoOutput":
+                            // 视频输出配置
+                            List<Map<String, Object>> videoOutputsList = new ArrayList<>();
+                            for (MediaInfo.VideoOutputConfig config : mediaInfo.getVideoOutputConfigs()) {
+                                Map<String, Object> configMap = new HashMap<>();
+                                configMap.put("token", config.getToken());
+                                configMap.put("name", config.getName());
+                                configMap.put("layout", config.getLayout());
+                                configMap.put("resolution", config.getResolution());
+                                configMap.put("refreshRate", config.getRefreshRate());
+                                videoOutputsList.add(configMap);
+                            }
+                            map.put("videoOutputConfigs", videoOutputsList);
+                            break;
+                    }
+                }
+            }
+            
+            return map;
+        }
+    }
+
+    private NetworkInfoResult getNetworkInfo(String deviceIp, String username, String password, String type) {
+        log.info("开始获取网络信息: deviceIp={}, type={}", deviceIp, type);
+        com.ruoyi.onvif.models.OnvifDevice onvifDevice = new com.ruoyi.onvif.models.OnvifDevice(deviceIp, username, password);
+        OnvifManager onvifManager = new OnvifManager();
+        
+        try {
+            NetworkInfoResult result = new NetworkInfoResult();
+            result.setSuccess(false);
+            result.setType(type);
+            
+            final boolean[] networkReady = {false};
+            final NetworkInfo[] networkInfo = {null};
+            final RuntimeException[] networkError = {null};
+            
+            NetworkInfoListener listener = new NetworkInfoListener() {
+                @Override
+                public void onNetworkInfoReceived(com.ruoyi.onvif.models.OnvifDevice device, NetworkInfo info) {
+                    log.info("收到网络信息: info={}", info);
+                    synchronized (networkReady) {
+                        networkInfo[0] = info;
+                        networkReady[0] = true;
+                        networkReady.notifyAll();
+                    }
+                }
+
+                @Override
+                public void onError(com.ruoyi.onvif.models.OnvifDevice device, int errorCode, String errorMessage) {
+                    log.error("获取网络信息出错: errorCode={}, errorMessage={}", errorCode, errorMessage);
+                    synchronized (networkReady) {
+                        networkError[0] = new RuntimeException("错误码: " + errorCode + ", 信息: " + errorMessage);
+                        networkReady[0] = true;
+                        networkReady.notifyAll();
+                    }
+                }
+            };
+            
+            switch (type) {
+                case "interfaces":
+                    log.info("调用getNetworkInterfaces");
+                    onvifManager.getNetworkInterfaces(onvifDevice, listener);
+                    break;
+                case "protocols":
+                    log.info("调用getNetworkProtocols");
+                    onvifManager.getNetworkProtocols(onvifDevice, listener);
+                    break;
+            }
+            
+            log.info("等待网络信息响应...");
+            synchronized (networkReady) {
+                try {
+                    networkReady.wait(10000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            
+            if (networkError[0] != null) {
+                log.error("网络信息返回错误", networkError[0]);
+                throw networkError[0];
+            }
+            
+            if (networkInfo[0] != null) {
+                log.info("成功获取网络信息: {}", networkInfo[0]);
+                result.setSuccess(true);
+                result.setNetworkInfo(networkInfo[0]);
+            } else {
+                log.warn("没有获取到网络信息，networkInfo为null");
+            }
+            
+            return result;
+        } finally {
+            onvifManager.destroy();
+        }
+    }
+
+    private MediaInfoResult getMediaInfo(String deviceIp, String username, String password, String type) {
+        log.info("开始获取媒体信息: deviceIp={}, type={}", deviceIp, type);
+        com.ruoyi.onvif.models.OnvifDevice onvifDevice = new com.ruoyi.onvif.models.OnvifDevice(deviceIp, username, password);
+        OnvifManager onvifManager = new OnvifManager();
+        
+        try {
+            MediaInfoResult result = new MediaInfoResult();
+            result.setSuccess(false);
+            result.setType(type);
+            
+            final boolean[] mediaReady = {false};
+            final MediaInfo[] mediaInfo = {null};
+            final RuntimeException[] mediaError = {null};
+            
+            MediaInfoListener listener = new MediaInfoListener() {
+                @Override
+                public void onMediaInfoReceived(com.ruoyi.onvif.models.OnvifDevice device, MediaInfo info) {
+                    log.info("收到媒体信息: info={}", info);
+                    synchronized (mediaReady) {
+                        mediaInfo[0] = info;
+                        mediaReady[0] = true;
+                        mediaReady.notifyAll();
+                    }
+                }
+
+                @Override
+                public void onError(com.ruoyi.onvif.models.OnvifDevice device, int errorCode, String errorMessage) {
+                    log.error("获取媒体信息出错: errorCode={}, errorMessage={}", errorCode, errorMessage);
+                    synchronized (mediaReady) {
+                        mediaError[0] = new RuntimeException("错误码: " + errorCode + ", 信息: " + errorMessage);
+                        mediaReady[0] = true;
+                        mediaReady.notifyAll();
+                    }
+                }
+            };
+            
+            switch (type) {
+                case "videoSource":
+                    log.info("调用getVideoSourceConfigs");
+                    onvifManager.getVideoSourceConfigs(onvifDevice, listener);
+                    break;
+                case "videoEncoder":
+                    log.info("调用getVideoEncoderConfigs");
+                    onvifManager.getVideoEncoderConfigs(onvifDevice, listener);
+                    break;
+                case "audioSource":
+                    log.info("调用getAudioSourceConfigs");
+                    onvifManager.getAudioSourceConfigs(onvifDevice, listener);
+                    break;
+                case "audioEncoder":
+                    log.info("调用getAudioEncoderConfigs");
+                    onvifManager.getAudioEncoderConfigs(onvifDevice, listener);
+                    break;
+                case "videoOutput":
+                    log.info("调用getVideoOutputConfigs");
+                    onvifManager.getVideoOutputConfigs(onvifDevice, listener);
+                    break;
+            }
+            
+            log.info("等待媒体信息响应...");
+            synchronized (mediaReady) {
+                try {
+                    mediaReady.wait(10000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            
+            if (mediaError[0] != null) {
+                log.error("媒体信息返回错误", mediaError[0]);
+                throw mediaError[0];
+            }
+            
+            if (mediaInfo[0] != null) {
+                log.info("成功获取媒体信息: {}", mediaInfo[0]);
+                result.setSuccess(true);
+                result.setMediaInfo(mediaInfo[0]);
+            } else {
+                log.warn("没有获取到媒体信息，mediaInfo为null");
+            }
+            
+            return result;
+        } finally {
+            onvifManager.destroy();
+        }
+    }
+
+    @Override
+    public Map<String, Object> getNetworkInterfaces(String deviceIp, String username, String password) {
+        NetworkInfoResult result = getNetworkInfo(deviceIp, username, password, "interfaces");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getNetworkProtocols(String deviceIp, String username, String password) {
+        NetworkInfoResult result = getNetworkInfo(deviceIp, username, password, "protocols");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getVideoSourceConfigs(String deviceIp, String username, String password) {
+        MediaInfoResult result = getMediaInfo(deviceIp, username, password, "videoSource");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getVideoEncoderConfigs(String deviceIp, String username, String password) {
+        MediaInfoResult result = getMediaInfo(deviceIp, username, password, "videoEncoder");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getAudioSourceConfigs(String deviceIp, String username, String password) {
+        MediaInfoResult result = getMediaInfo(deviceIp, username, password, "audioSource");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getAudioEncoderConfigs(String deviceIp, String username, String password) {
+        MediaInfoResult result = getMediaInfo(deviceIp, username, password, "audioEncoder");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getVideoOutputConfigs(String deviceIp, String username, String password) {
+        MediaInfoResult result = getMediaInfo(deviceIp, username, password, "videoOutput");
+        return result.toMap();
+    }
+
+    @Override
+    public Map<String, Object> getNetworkInterfacesById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getNetworkInterfaces(device.getIpAddress(), device.getUserName(), device.getPassword());
+    }
+
+    @Override
+    public Map<String, Object> getNetworkProtocolsById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getNetworkProtocols(device.getIpAddress(), device.getUserName(), device.getPassword());
+    }
+
+    @Override
+    public Map<String, Object> getVideoSourceConfigsById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getVideoSourceConfigs(device.getIpAddress(), device.getUserName(), device.getPassword());
+    }
+
+    @Override
+    public Map<String, Object> getVideoEncoderConfigsById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getVideoEncoderConfigs(device.getIpAddress(), device.getUserName(), device.getPassword());
+    }
+
+    @Override
+    public Map<String, Object> getAudioSourceConfigsById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getAudioSourceConfigs(device.getIpAddress(), device.getUserName(), device.getPassword());
+    }
+
+    @Override
+    public Map<String, Object> getAudioEncoderConfigsById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getAudioEncoderConfigs(device.getIpAddress(), device.getUserName(), device.getPassword());
+    }
+
+    @Override
+    public Map<String, Object> getVideoOutputConfigsById(Long id) {
+        R<QsDevice> deviceR = remoteQsDeviceService.getQsDeviceInfo(id, SecurityConstants.INNER);
+        if (!R.isSuccess(deviceR)) {
+            throw new RuntimeException("获取设备信息失败: " + deviceR.getMsg());
+        }
+        QsDevice device = deviceR.getData();
+        return getVideoOutputConfigs(device.getIpAddress(), device.getUserName(), device.getPassword());
     }
 }
