@@ -14,11 +14,11 @@ services:
       - ./nacos/logs/:/home/nacos/logs
       - ./nacos/conf/application.properties:/home/nacos/conf/application.properties
     ports:
-      - "8848:8848"
+      - "8848:8080"
       - "9848:9848"
       - "9849:9849"
-    depends_on:
-      - ruoyi-mysql
+#    depends_on:
+#      - ruoyi-mysql
   ruoyi-mysql:
     container_name: ruoyi-mysql
     image: mysql:5.7
