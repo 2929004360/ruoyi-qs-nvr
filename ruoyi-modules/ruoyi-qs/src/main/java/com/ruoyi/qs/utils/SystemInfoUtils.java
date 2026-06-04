@@ -151,6 +151,9 @@ public class SystemInfoUtils {
     public static List<Map<String, Object>> getDiskInfo() {
         List<Map<String, Object>> result = new ArrayList<>();
         try {
+            String osName = System.getProperty("os.name").toLowerCase();
+            boolean isLinux = osName.contains("linux");
+            
             // 使用 Java NIO 的 FileStore 获取所有挂载的文件系统，这种方式在所有系统上都适用
             for (FileStore store : FileSystems.getDefault().getFileStores()) {
                 try {
@@ -164,6 +167,14 @@ public class SystemInfoUtils {
                         // 处理其他格式，比如 "/dev/sda1 (ext4)"，提取挂载点
                         path = path.substring(0, path.indexOf(" ("));
                     }
+                    
+                    // Linux 系统：过滤掉虚拟文件系统，只保留真实的物理磁盘
+                    if (isLinux) {
+                        if (shouldSkipOnLinux(path)) {
+                            continue;
+                        }
+                    }
+                    
                     infoMap.put("path", path);
                     
                     // 获取总空间和可用空间（单位：GB）
@@ -184,6 +195,27 @@ public class SystemInfoUtils {
             return getDiskInfoFallback();
         }
         return result;
+    }
+    
+    /**
+     * Linux 系统：判断是否应该跳过这个文件系统
+     * 跳过虚拟文件系统和一些不重要的挂载点
+     */
+    private static boolean shouldSkipOnLinux(String path) {
+        // 常见的虚拟文件系统前缀
+        String[] virtualPrefixes = {
+            "/proc", "/sys", "/dev", "/run", "/tmp", "/mnt", "/media",
+            "/var/lib", "/var/run", "/sys/fs", "/sys/kernel", "/proc/sys"
+        };
+        
+        // 检查是否以虚拟文件系统前缀开头
+        for (String prefix : virtualPrefixes) {
+            if (path.startsWith(prefix)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     /**
