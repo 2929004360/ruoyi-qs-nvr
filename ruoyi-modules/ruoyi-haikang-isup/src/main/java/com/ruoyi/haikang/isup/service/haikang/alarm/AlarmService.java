@@ -7,6 +7,7 @@ import com.ruoyi.haikang.isup.utils.OsSelect;
 import com.sun.jna.Native;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -103,9 +104,17 @@ public class AlarmService {
     }
 
     public void startAlarmListen() {
-        System.arraycopy(haikangIsupConfig.getAlarmServer().getIp().getBytes(), 0, net_ehome_alarm_listen_param.struAddress.szIP, 0, haikangIsupConfig.getAlarmServer().getIp().length());
+        // 公网环境：listenIp 为本地监听地址，ip 为公网地址（设备连接用）
+        String listenIp = StringUtils.isNotBlank(haikangIsupConfig.getAlarmServer().getListenIp())
+                ? haikangIsupConfig.getAlarmServer().getListenIp()
+                : haikangIsupConfig.getAlarmServer().getIp();
+        int listenTcpPort = haikangIsupConfig.getAlarmServer().getListenTcpPort() > 0
+                ? haikangIsupConfig.getAlarmServer().getListenTcpPort()
+                : haikangIsupConfig.getAlarmServer().getTcpPort();
 
-        net_ehome_alarm_listen_param.struAddress.wPort = (short) haikangIsupConfig.getAlarmServer().getTcpPort();
+        System.arraycopy(listenIp.getBytes(), 0, net_ehome_alarm_listen_param.struAddress.szIP, 0, listenIp.length());
+
+        net_ehome_alarm_listen_param.struAddress.wPort = (short) listenTcpPort;
         net_ehome_alarm_listen_param.byProtocolType = 2;
         net_ehome_alarm_listen_param.fnMsgCb = cbEHomeMsgCallBack;
         net_ehome_alarm_listen_param.byUseCmsPort = 0;

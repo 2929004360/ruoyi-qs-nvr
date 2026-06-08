@@ -60,6 +60,8 @@ public class HaikangIsupConfig {
     public static class CmsServer {
         private String ip;
         private int port;
+        private String listenIp;
+        private int listenPort;
     }
 
     @Data

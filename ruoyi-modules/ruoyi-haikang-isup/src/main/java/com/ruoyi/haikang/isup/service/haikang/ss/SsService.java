@@ -9,6 +9,7 @@ import com.ruoyi.haikang.isup.utils.OsSelect;
 import com.sun.jna.Native;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -127,9 +128,16 @@ public class SsService {
     }
 
     public void startSsListen() {
-        String SSIP = haikangIsupConfig.getPicServer().getIp();
-        System.arraycopy(SSIP.getBytes(), 0, pSSListenParam.struAddress.szIP, 0, SSIP.length());
-        pSSListenParam.struAddress.wPort = (short) haikangIsupConfig.getPicServer().getPort();
+        // 公网环境：listenIp 为本地监听地址，ip 为公网地址（设备连接用）
+        String listenIp = StringUtils.isNotBlank(haikangIsupConfig.getPicServer().getListenIp())
+                ? haikangIsupConfig.getPicServer().getListenIp()
+                : haikangIsupConfig.getPicServer().getIp();
+        int listenPort = haikangIsupConfig.getPicServer().getListenPort() > 0
+                ? haikangIsupConfig.getPicServer().getListenPort()
+                : haikangIsupConfig.getPicServer().getPort();
+
+        System.arraycopy(listenIp.getBytes(), 0, pSSListenParam.struAddress.szIP, 0, listenIp.length());
+        pSSListenParam.struAddress.wPort = (short) listenPort;
         String strKMS_UserName = "test";
         System.arraycopy(strKMS_UserName.getBytes(), 0, pSSListenParam.szKMS_UserName, 0, strKMS_UserName.length());
         String strKMS_Password = "12345";

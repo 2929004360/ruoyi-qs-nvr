@@ -8,6 +8,7 @@ import com.ruoyi.haikang.isup.utils.OsSelect;
 import com.sun.jna.Native;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 /**
@@ -130,8 +131,16 @@ public class StreamService {
     public void Stream_StartListen() {
         HCISUPStream.NET_EHOME_LISTEN_PREVIEW_CFG struPreviewListen = new HCISUPStream.NET_EHOME_LISTEN_PREVIEW_CFG();
 
-        struPreviewListen.struIPAdress.szIP = haikangIsupConfig.getSmsServer().getIp().getBytes();
-        struPreviewListen.struIPAdress.wPort = (short) haikangIsupConfig.getSmsServer().getPort(); //流媒体服务器监听端口
+        // 公网环境：listenIp 为本地监听地址，ip 为公网地址（设备连接用）
+        String smsListenIp = StringUtils.isNotBlank(haikangIsupConfig.getSmsServer().getListenIp())
+                ? haikangIsupConfig.getSmsServer().getListenIp()
+                : haikangIsupConfig.getSmsServer().getIp();
+        int smsListenPort = haikangIsupConfig.getSmsServer().getListenPort() > 0
+                ? haikangIsupConfig.getSmsServer().getListenPort()
+                : haikangIsupConfig.getSmsServer().getPort();
+
+        struPreviewListen.struIPAdress.szIP = smsListenIp.getBytes();
+        struPreviewListen.struIPAdress.wPort = (short) smsListenPort;
         struPreviewListen.fnNewLinkCB = fpreview_newlink_cb_file; //预览连接请求回调函数
         struPreviewListen.pUser = null;
         struPreviewListen.byLinkMode = 0; //0- TCP方式，1- UDP方式
@@ -150,8 +159,16 @@ public class StreamService {
 
 
         HCISUPStream.NET_EHOME_PLAYBACK_LISTEN_PARAM struPlayBackListen = new HCISUPStream.NET_EHOME_PLAYBACK_LISTEN_PARAM();
-        System.arraycopy(haikangIsupConfig.getSmsBackServer().getIp().getBytes(), 0, struPlayBackListen.struIPAdress.szIP, 0, haikangIsupConfig.getSmsBackServer().getIp().length());
-        struPlayBackListen.struIPAdress.wPort = (short) haikangIsupConfig.getSmsBackServer().getPort(); //流媒体服务器监听端口
+
+        String smsBackListenIp = StringUtils.isNotBlank(haikangIsupConfig.getSmsBackServer().getListenIp())
+                ? haikangIsupConfig.getSmsBackServer().getListenIp()
+                : haikangIsupConfig.getSmsBackServer().getIp();
+        int smsBackListenPort = haikangIsupConfig.getSmsBackServer().getListenPort() > 0
+                ? haikangIsupConfig.getSmsBackServer().getListenPort()
+                : haikangIsupConfig.getSmsBackServer().getPort();
+
+        System.arraycopy(smsBackListenIp.getBytes(), 0, struPlayBackListen.struIPAdress.szIP, 0, smsBackListenIp.length());
+        struPlayBackListen.struIPAdress.wPort = (short) smsBackListenPort;
         struPlayBackListen.fnNewLinkCB = fplayback_newlink_cb_file;
         struPlayBackListen.byLinkMode = 0; //0- TCP方式，1- UDP方式
         struPlayBackListen.write();
