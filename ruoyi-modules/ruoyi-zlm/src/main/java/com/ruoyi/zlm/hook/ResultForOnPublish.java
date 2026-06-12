@@ -4,6 +4,7 @@ public class ResultForOnPublish {
 
     private boolean enable_audio;
     private boolean enable_mp4;
+    private boolean enable_disable_none_reader;
     private int mp4_max_second;
     private String mp4_save_path;
     private String stream_replace;
@@ -23,6 +24,14 @@ public class ResultForOnPublish {
 
     public void setEnable_mp4(boolean enable_mp4) {
         this.enable_mp4 = enable_mp4;
+    }
+
+    public boolean isEnable_disable_none_reader() {
+        return enable_disable_none_reader;
+    }
+
+    public void setEnable_disable_none_reader(boolean enable_disable_none_reader) {
+        this.enable_disable_none_reader = enable_disable_none_reader;
     }
 
     public int getMp4_max_second() {

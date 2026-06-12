@@ -152,78 +152,107 @@ public class MediaServiceImpl implements IMediaService {
         result.setEnable_audio(true);
         // 默认不允许录制
         result.setEnable_mp4(false);
+        // 默认禁用无人观看事件（只有回放流或配置了自动关流才启用）
+        result.setEnable_disable_none_reader(true);
 
-        // 海康sdk 海康isup 大华sdk
-        if ("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)) {
-            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
-
-            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
-                // 判断是否是回放流
-                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
-                // 只有非回放流且配置了录制才允许录制
-                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
-                    result.setEnable_mp4(true);
-                }
-            }
-        }
-        // ONVIF 拉流播放
-        if ("onvif".equals(app)) {
-            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
-            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
-                // 判断是否是回放流
-                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
-                // 只有非回放流且配置了录制才允许录制
-                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
-                    result.setEnable_mp4(true);
-                } else {
-                    // 回放流明确禁用录像
-                    result.setEnable_mp4(false);
-                }
-            }
-        }
-        // 推流
+        // 推流 app 单独处理鉴权，但也要处理录制和无人观看配置
         if ("push".equals(app)) {
             R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
-
             if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
-                // 判断是否是回放流
                 boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
-                // 只有非回放流且配置了录制才允许录制
                 if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
                     result.setEnable_mp4(true);
                 }
+                if (isPlayback || "1".equals(r.getData().getEnableDisableNoneReader())) {
+                    result.setEnable_disable_none_reader(false);
+                }
             }
+            // 推流鉴权
             if (userSetting.getPushAuthority()) {
-                // 对于推流进行鉴权
                 Map<String, String> paramMap = MediaServerUtils.urlParamToMap(params);
-                // 推流鉴权
                 if (params == null) {
                     log.info("推流鉴权失败： 缺少必要参数：sign=md5(user表的pushKey)");
                     throw new RuntimeException("Unauthorized");
                 }
-
                 String sign = paramMap.get("sign");
                 if (sign == null) {
                     log.info("推流鉴权失败： 缺少必要参数：sign=md5");
                     throw new RuntimeException("Unauthorized");
                 }
                 sign = sign.replaceAll("/$", "");
-                // 推流自定义播放鉴权码
                 String callId = paramMap.get("callId");
-                // 鉴权配置
                 String checkStr = callId == null ? userSetting.getPushKey() : (callId + "_" + userSetting.getPushKey());
                 String checkSign = DigestUtils.md5DigestAsHex(checkStr.getBytes());
                 if (!checkSign.equals(sign)) {
                     log.info("推流鉴权失败： sign 无权限: callId={}. sign={}", callId, sign);
                     throw new RuntimeException("推流鉴权失败： sign 无权限: callId=" + callId + ". sign=" + sign);
                 }
-
                 StreamAuthorityInfo streamAuthorityInfo = StreamAuthorityInfo.getInstanceByHook(app, stream, mediaServer.getId());
                 streamAuthorityInfo.setCallId(callId);
                 streamAuthorityInfo.setSign(sign);
-                // 鉴权通过
                 redisCatchStorage.updateStreamAuthorityInfo(app, stream, streamAuthorityInfo);
             }
+            return result;
+        }
+
+        // 拉流代理 (rtsp/rtmp/flv/hls/onvif)
+        if ("rtsp".equals(app) || "rtmp".equals(app) || "flv".equals(app) || "hls".equals(app) || "onvif".equals(app)) {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                }
+                if (isPlayback || "1".equals(r.getData().getEnableDisableNoneReader())) {
+                    result.setEnable_disable_none_reader(false);
+                }
+            }
+            return result;
+        }
+
+        // 海康SDK / 海康ISUP / 大华SDK
+        if ("haikang".equals(app) || "haikang_isup".equals(app) || "dahua".equals(app)) {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                }
+                if (isPlayback || "1".equals(r.getData().getEnableDisableNoneReader())) {
+                    result.setEnable_disable_none_reader(false);
+                }
+            }
+            return result;
+        }
+
+        // GB28181
+        if ("gb28181".equals(app)) {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                }
+                if (isPlayback || "1".equals(r.getData().getEnableDisableNoneReader())) {
+                    result.setEnable_disable_none_reader(false);
+                }
+            }
+            return result;
+        }
+
+        // JT1078
+        if ("jt1078".equals(app)) {
+            R<QsDevice> r = remoteQsDeviceService.getQsDeviceStream(stream, SecurityConstants.INNER);
+            if (r.getCode() == Constants.SUCCESS && r.getData() != null) {
+                boolean isPlayback = stream.equals(r.getData().getPlaybackStreamKey());
+                if (!isPlayback && "1".equals(r.getData().getEnableMp4())) {
+                    result.setEnable_mp4(true);
+                }
+                if (isPlayback || "1".equals(r.getData().getEnableDisableNoneReader())) {
+                    result.setEnable_disable_none_reader(false);
+                }
+            }
+            return result;
         }
 
         return result;
