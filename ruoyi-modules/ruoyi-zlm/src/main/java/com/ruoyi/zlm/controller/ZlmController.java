@@ -484,8 +484,8 @@ public class ZlmController {
      *
      * @param id 流媒体ID
      */
-    @DeleteMapping(value = "/delete")
-    public AjaxResult deleteMediaServer(@RequestParam String id) {
+    @DeleteMapping(value = "/delete/{id}")
+    public AjaxResult deleteMediaServer(@PathVariable String id) {
         ZlmMediaServer mediaServer = mediaServerService.getOne(id);
         if (mediaServer == null) {
             throw new RuntimeException("流媒体不存在");

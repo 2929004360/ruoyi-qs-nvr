@@ -105,6 +105,15 @@
 
 ---
 
+## 关联开源项目
+
+| 项目             | 说明                          | 地址                                                                              |
+| ---------------- | ----------------------------- | --------------------------------------------------------------------------------- |
+| RuoYi-Qs-NVR     | 基于 RuoYi-Cloud 的 NVR 系统  | `https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr` · `https://github.com/2929004360/ruoyi-qs-nvr` |
+| RuoYi-Qs-Yolo    | 基于 YOLO 的 AI 识别系统      | `https://gitee.com/tangwenzhaoaini/ruoyi-qs-yolo` · `https://github.com/2929004360/ruoyi-qs-yolo` |
+
+---
+
 ## 📦 功能模块
 
 ### 🎬 1. 实时视频监控
