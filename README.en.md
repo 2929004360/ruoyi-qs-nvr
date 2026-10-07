@@ -109,8 +109,8 @@ Quanshi Video Surveillance System is a fully open-source enterprise-grade one-st
 
 | 项目             | 说明                          | 地址                                                                              |
 | ---------------- | ----------------------------- | --------------------------------------------------------------------------------- |
-| RuoYi-Qs-NVR     | 基于 RuoYi-Cloud 的 NVR 系统  | `https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr` · `https://github.com/2929004360/ruoyi-qs-nvr` |
-| RuoYi-Qs-Yolo    | 基于 YOLO 的 AI 识别系统      | `https://gitee.com/tangwenzhaoaini/ruoyi-qs-yolo` · `https://github.com/2929004360/ruoyi-qs-yolo` |
+| RuoYi-Qs-NVR     | 基于 RuoYi-Cloud 的 NVR 系统  | [Gitee](https://gitee.com/tangwenzhaoaini/ruoyi-qs-nvr) · [GitHub](https://github.com/2929004360/ruoyi-qs-nvr) |
+| RuoYi-Qs-Yolo    | 基于 YOLO 的 AI 识别系统      | [Gitee](https://gitee.com/tangwenzhaoaini/ruoyi-qs-yolo) · [GitHub](https://github.com/2929004360/ruoyi-qs-yolo) |
 
 ---
 
